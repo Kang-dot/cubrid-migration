@@ -263,16 +263,16 @@ public class BaseConfirmationPage extends MigrationWizardPage {
 					tarTbl.setComment(setc.getComment());
 				}
 			} else {
-				tarTbl.setComment("");
+				tarTbl.setComment(null);
 			}
 			for (Column tarCol : tarTbl.getColumns()) {
-				SourceColumnConfig sourceCol = setc.getColumnConfig(tarCol.getName());
+				SourceColumnConfig sourceCol = setc.getColumnConfigIgnoreCase(tarCol.getName());
 				if (sourceCol.getComment() != null){
 					if (tarCol.getComment() == null || sourceCol.getComment() != tarCol.getComment()){
 						tarCol.setComment(sourceCol.getComment());
 					}
 				} else {
-					tarCol.setComment("");
+					tarCol.setComment(null);
 				}
 			}
 			if (tarTbl == null || tables.contains(tarTbl)) {
