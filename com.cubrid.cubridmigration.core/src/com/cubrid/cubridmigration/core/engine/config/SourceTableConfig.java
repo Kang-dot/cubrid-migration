@@ -110,6 +110,15 @@ public class SourceTableConfig {
 		return null;
 	}
 
+	public SourceColumnConfig getColumnConfigIgnoreCase(String sourceName) {
+		for (SourceColumnConfig scc : columns) {
+			if (scc.getName().equalsIgnoreCase(sourceName)) {
+				return scc;
+			}
+		}
+		return null;
+	}
+	
 	/**
 	 * getColumnConfigByTarget
 	 * 
