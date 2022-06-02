@@ -121,7 +121,7 @@ public class CMTNewInfoEditorPart extends
 	 * @param parent the parent composite
 	 */
 	public void createPartControl(Composite parent) {
-		String url = "http://www.cubrid.org/wiki_tools/entry/cubrid-tools-wiki";
+		String url = "https://www.cubrid.org/tutorials/3827329";
 		try {
 			Browser browser = new Browser(parent, SWT.NONE);
 			browser.setUrl(url);
