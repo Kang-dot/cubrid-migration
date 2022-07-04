@@ -353,9 +353,16 @@ public class MigrationCfgUtils {
 
 		StringBuffer sbWarn = new StringBuffer();
 		StringBuffer sbConfirm = new StringBuffer();
+		StringBuffer sbNoPkTable = new StringBuffer();
 		//If there is no PK in the source table, output a warning.
 		if (!srcTable.hasPK()) {
-			String errorMessage = NLS.bind(Messages.objectMapPageErrMsgNoPK, setc.getName());
+			if (config.getSrcCatalog().getSchemas().size() > 1) {
+				sbNoPkTable.append(srcTable.getSchema().getName()).append(".");
+			}
+
+			sbNoPkTable.append(srcTable.getName());
+
+			String errorMessage = NLS.bind(Messages.objectMapPageErrMsgNoPK, sbNoPkTable.toString());
 			sbConfirm.append(errorMessage).append(LINE_SEP);
 		}
 		checkTableIsInTargetDb(config, setc, targetTable, sbConfirm);
