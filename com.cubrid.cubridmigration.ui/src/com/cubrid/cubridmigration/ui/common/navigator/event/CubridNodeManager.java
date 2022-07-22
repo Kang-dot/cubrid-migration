@@ -370,11 +370,11 @@ public final class CubridNodeManager {
 			String schemaNodeLabel = schema.getName();
 			String schemaNodeID = String.format("%s/%s", dbNodeID, schemaNodeLabel);
 
-			SchemaNode schemNode = new SchemaNode(schemaNodeID, schemaNodeLabel);
-			schemNode.setSchema(schema);
+			SchemaNode schemaNode = new SchemaNode(schemaNodeID, schemaNodeLabel);
+			schemaNode.setSchema(schema);
 
-			databaseNode.addChild(schemNode);
-			parentNode = schemNode;
+			databaseNode.addChild(schemaNode);
+			parentNode = schemaNode;
 
 			addTableNodes(parentNode, schema);
 

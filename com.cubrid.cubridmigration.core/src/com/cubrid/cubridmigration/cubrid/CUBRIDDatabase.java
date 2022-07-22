@@ -36,6 +36,7 @@ import java.util.Properties;
 
 import org.apache.commons.lang.StringUtils;
 
+import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.connection.ConnParameters;
 import com.cubrid.cubridmigration.core.connection.IConnHelper;
 import com.cubrid.cubridmigration.core.datatype.DBDataTypeHelper;
@@ -142,5 +143,10 @@ public class CUBRIDDatabase extends
 	 */
 	public DBDataTypeHelper getDataTypeHelper(String version) {
 		return CUBRIDDataTypeHelper.getInstance(version);
+	}
+	
+	@Override
+	public boolean isSupportMultiSchema() {
+		return CUBRIDVersionUtils.getInstance().isSourceVersionOver112();
 	}
 }

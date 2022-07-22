@@ -52,6 +52,7 @@ import org.apache.log4j.Logger;
 import au.com.bytecode.opencsv.CSVReader;
 
 import com.cubrid.cubridmigration.core.common.CUBRIDIOUtils;
+import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.common.CharsetUtils;
 import com.cubrid.cubridmigration.core.common.PathUtils;
 import com.cubrid.cubridmigration.core.common.TimeZoneUtils;
@@ -1021,8 +1022,10 @@ public class MigrationConfiguration {
 	}
 
 	private String getTargetName(Map<String, Integer> map, String owner, String name) {
-		if (isDuplicatedObject(map, name)) {
-			return StringUtils.lowerCase(owner + "_" + name);
+		if (!CUBRIDVersionUtils.getInstance().isTargetMultiSchema()) {
+			if (isDuplicatedObject(map, name)) {
+				return StringUtils.lowerCase(owner + "_" + name);
+			}			
 		}
 		return StringUtils.lowerCase(name);
 	}

@@ -53,6 +53,7 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.PlatformUI;
 
+import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.common.CharsetUtils;
 import com.cubrid.cubridmigration.core.common.CommonUtils;
 import com.cubrid.cubridmigration.core.common.PathUtils;
@@ -463,6 +464,11 @@ public class SelectDestinationPage extends
 
 			Catalog catalog = conMgrView.getCatalog();
 			if (null != catalog) {
+				
+				if (catalog.getDatabaseType().getID() == 1) {
+					CUBRIDVersionUtils.getInstance().isTargetVersionOver112(catalog);
+				}
+				
 				wzd.setTargetCatalog(catalog);
 
 				if (!btnCreateConstrainsNow.getSelection() && MigrationCfgUtils.isHACUBRID(config)

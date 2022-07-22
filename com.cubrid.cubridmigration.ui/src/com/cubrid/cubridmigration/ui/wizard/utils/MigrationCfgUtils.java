@@ -1003,22 +1003,22 @@ public class MigrationCfgUtils {
 		return false;
 	}
 
-	public void createDetailMessage(StringBuffer sb, Catalog catalog, String objType) {
+	public void createDetailMessage(StringBuffer sb, Catalog catalog, String objType, int messageType) {
 		List<Schema> schemas = catalog.getSchemas();
 		sb.append("[ " + objType.toUpperCase()  + "(s) ]\n");
 		for (Schema schema : schemas) {
 			if (objType.equals(DBObject.OBJ_TYPE_TABLE)) {
-				createObjectInformation(sb, catalog.getAllTablesCountMap(), schema.getTables());
+				createObjectInformation(sb, catalog.getAllTablesCountMap(), schema.getTables(), messageType);
 			} else if (objType.equals(DBObject.OBJ_TYPE_VIEW)) {
-				createObjectInformation(sb, catalog.getAllViewsCountMap(), schema.getViews());
+				createObjectInformation(sb, catalog.getAllViewsCountMap(), schema.getViews(), messageType);
 			} else if (objType.equals(DBObject.OBJ_TYPE_SEQUENCE)) {
-				createObjectInformation(sb, catalog.getAllSequencesCountMap(), schema.getSequenceList());
+				createObjectInformation(sb, catalog.getAllSequencesCountMap(), schema.getSequenceList(), messageType);
 			}
 		}
 		sb.append("\n");
 	}
-
-	private void createObjectInformation(StringBuffer sb, Map<String, Integer> map, List<?> objectList) {
+	
+	private void createObjectInformation(StringBuffer sb, Map<String, Integer> map, List<?> objectList, int messageType) {
 		for (Object object : objectList) {
 			String objectName = ((DBObject) object).getName();
 			if (isDuplicatedObject(map, objectName)) {
@@ -1028,7 +1028,7 @@ public class MigrationCfgUtils {
 				} else if (object instanceof Sequence) {
 					owner = ((Sequence) object).getOwner();
 				}
-				appendDuplicatedObjectInformation(sb, owner, objectName);
+				appendDuplicatedObjectInformation(sb, owner, objectName, messageType);
 			}
 		}
 	}
@@ -1037,11 +1037,15 @@ public class MigrationCfgUtils {
 		return map.get(objectName) != null && (map.get(objectName) > 1);
 	}
 
-	private void appendDuplicatedObjectInformation(StringBuffer sb, String owner, String objectName) {
-		sb.append("- ").append(owner).append(".").append(objectName)
-		.append(" -> ")
-		.append(owner.toLowerCase()).append("_").append(objectName.toLowerCase())
-		.append("\n");
+	private void appendDuplicatedObjectInformation(StringBuffer sb, String owner, String objectName, int messageType) {
+		sb.append("- ").append(owner).append(".").append(objectName);
+		if (messageType == 1) {
+			sb.append(" -> ")
+			  .append(owner.toLowerCase()).append("_").append(objectName.toLowerCase())
+			  .append("\n");			
+		} else {
+			sb.append("\n");
+		}
 	}
 
 	/**

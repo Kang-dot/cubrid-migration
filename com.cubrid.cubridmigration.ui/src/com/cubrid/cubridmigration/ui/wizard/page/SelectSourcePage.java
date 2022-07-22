@@ -54,6 +54,7 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.PlatformUI;
 
+import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.common.TimeZoneUtils;
 import com.cubrid.cubridmigration.core.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.connection.ConnParameters;
@@ -530,7 +531,11 @@ public class SelectSourcePage extends
 			if (catalog == null) {
 				return false;
 			}
-
+			
+			if (catalog.getDatabaseType().getID() == 1) {
+				CUBRIDVersionUtils.getInstance().isSourceVersionOver112(catalog);
+			}
+			
 			//
 			List<String> errorSchemas = new ArrayList<String>();
 			Map<String, String> old2NewSchemaMapping = new HashMap<String, String>();

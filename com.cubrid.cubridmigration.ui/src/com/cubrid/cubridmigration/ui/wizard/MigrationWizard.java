@@ -67,6 +67,7 @@ import com.cubrid.cubridmigration.ui.wizard.page.ObjectMappingPage;
 import com.cubrid.cubridmigration.ui.wizard.page.SQLMigrationConfirmPage;
 import com.cubrid.cubridmigration.ui.wizard.page.SQLSelectPage;
 import com.cubrid.cubridmigration.ui.wizard.page.SQLTargetDBSelectPage;
+import com.cubrid.cubridmigration.ui.wizard.page.SchemaMappingPage;
 import com.cubrid.cubridmigration.ui.wizard.page.SelectDestinationPage;
 import com.cubrid.cubridmigration.ui.wizard.page.SelectSourcePage;
 import com.cubrid.cubridmigration.ui.wizard.page.SelectSrcTarTypesPage;
@@ -87,7 +88,7 @@ public class MigrationWizard extends
 
 	private static final int[] IDX_SQL = new int[] {0, 5, 6, 7};
 
-	private static final int[] IDX_ONLINE = new int[] {0, 1, 2, 3, 4};
+	private static final int[] IDX_ONLINE = new int[] {0, 1, 2, /*11,*/ 3, 4};
 
 	//private static final int[] IDX_OFFLINE = new int[]{0, 1, 2, 11, 3, 4 };
 
@@ -202,6 +203,8 @@ public class MigrationWizard extends
 		addPage(new CSVTargetDBSelectPage("8"));
 		addPage(new CSVSelectPage("9"));
 		addPage(new CSVImportConfirmPage("10"));
+		
+//		addPage(new SchemaMappingPage("11"));
 
 		//addPage(new SelectOfflineDest2Page("11"));
 	}

@@ -61,6 +61,7 @@ import org.eclipse.swt.widgets.ToolBar;
 import org.eclipse.swt.widgets.ToolItem;
 
 import com.cubrid.common.ui.navigator.ICUBRIDNode;
+import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.dbobject.Catalog;
 import com.cubrid.cubridmigration.core.dbobject.DBObject;
@@ -157,11 +158,15 @@ public class ObjectMappingPage extends
 						Messages.msgLowerCaseWarning);
 			}
 
-			if (isFirstVisible
-					&& util.checkMultipleSchema(sourceCatalog, cfg)
-					&& util.createAllObjectsMap(sourceCatalog)
-					&& util.hasDuplicatedObjects(sourceCatalog)) {
-				showDetailMessageDialog(sourceCatalog);
+			if (isFirstVisible) {
+					if (util.checkMultipleSchema(sourceCatalog, cfg)
+							&& util.createAllObjectsMap(sourceCatalog)
+							&& util.hasDuplicatedObjects(sourceCatalog)
+							&& !CUBRIDVersionUtils.getInstance().isTargetMultiSchema()) {
+						showDetailMessageDialog(sourceCatalog);
+					} else if (CUBRIDVersionUtils.getInstance().isSourceMultiSchema()) {
+						showAlertMessageDialog(sourceCatalog);
+					}
 			}
 
 			showLobInfo(sourceCatalog);
@@ -207,19 +212,34 @@ public class ObjectMappingPage extends
 			DetailMessageDialog.openInfo(getShell(), Messages.titleLobInformation, Messages.msgLobInformation, lobInfo);
 		}
 	}
+	
+	private void showAlertMessageDialog(Catalog sourceCatalog) {
+		String detailMessage = getDetailMessage(sourceCatalog, 0);
+		//TODO: need define message
+		DetailMessageDialog.openWarning(getShell(), "Multi Schema warning", "source has duplicate table", detailMessage);
+	}
 
 	private void showDetailMessageDialog(Catalog sourceCatalog) {
-		String detailMessage = getDetailMessage(sourceCatalog);
+		String detailMessage = getDetailMessage(sourceCatalog, 1);
 		DetailMessageDialog.openInfo(getShell(), Messages.titleDuplicateObjects, Messages.msgDuplicateObjects, detailMessage);
 	}
 
-	private String getDetailMessage(Catalog sourceCatalog) {
+	/**
+	 * message type
+	 * 0 -> target cubrid have multiple schema, and have duplicate table
+	 * 1 -> target cubrid didn't have multiple schema, and have duplicate table
+	 * @param sourceCatalog
+	 * @param messageType
+	 * @return
+	 */
+	private String getDetailMessage(Catalog sourceCatalog, int messageType) {
 		StringBuffer sb = new StringBuffer();
-		util.createDetailMessage(sb, sourceCatalog, DBObject.OBJ_TYPE_TABLE);
-		util.createDetailMessage(sb, sourceCatalog, DBObject.OBJ_TYPE_VIEW);
-		util.createDetailMessage(sb, sourceCatalog, DBObject.OBJ_TYPE_SEQUENCE);
+		util.createDetailMessage(sb, sourceCatalog, DBObject.OBJ_TYPE_TABLE, messageType);
+		util.createDetailMessage(sb, sourceCatalog, DBObject.OBJ_TYPE_VIEW, messageType);
+		util.createDetailMessage(sb, sourceCatalog, DBObject.OBJ_TYPE_SEQUENCE, messageType);
 		return sb.toString();
 	}
+
 
 	/**
 	 * setNoPKWarnings
