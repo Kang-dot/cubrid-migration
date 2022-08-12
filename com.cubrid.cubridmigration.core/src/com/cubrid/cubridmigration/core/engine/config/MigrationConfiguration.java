@@ -182,6 +182,9 @@ public class MigrationConfiguration {
 	private int destType;
 	private ConnParameters targetConParams;
 
+	private List<String> newTargetSchema = new ArrayList<String>();
+	private List<Schema> targetSchemaList = new ArrayList<Schema>();
+	
 	private String targetDBVersion;
 	private final List<Table> targetTables = new ArrayList<Table>();
 	private final List<View> targetViews = new ArrayList<View>();
@@ -441,6 +444,7 @@ public class MigrationConfiguration {
 	public void buildConfigAndTargetSchema(boolean isReset) {
 		//Reset schema information for building configuration.
 		resetSchemaInfo();
+		buildSchemaCfg(isReset);
 		buildTableCfg(isReset);
 		buildViewCfg(isReset);
 		buildSerialCfg(isReset);
@@ -503,6 +507,16 @@ public class MigrationConfiguration {
 			return null;
 		}
 		return cl;
+	}
+	
+	private void buildSchemaCfg(boolean isReset) {
+		for (String schemaName : newTargetSchema) {
+			Schema dummySchema = new Schema();
+			dummySchema.setName(schemaName);
+			dummySchema.setNewTargetSchema(true);
+			
+			targetSchemaList.add(dummySchema);
+		}
 	}
 
 	/**
@@ -679,7 +693,8 @@ public class MigrationConfiguration {
 		for (Schema sourceDBSchema : schemas) {
 			String prefix = "";
 			if (StringUtils.isNotBlank(sourceDBSchema.getName())) {
-				prefix = sourceDBSchema.getName() + ".";
+//				prefix = sourceDBSchema.getName() + ".";
+				prefix = sourceDBSchema.getTargetSchemaName();
 			}
 			for (Table srcTable : sourceDBSchema.getTables()) {
 				SourceEntryTableConfig setc = getExpEntryTableCfg(sourceDBSchema.getName(),
@@ -689,7 +704,10 @@ public class MigrationConfiguration {
 					setc.setOwner(sourceDBSchema.getName());
 					setc.setName(srcTable.getName());
 					setc.setComment(srcTable.getComment());
+					setc.setTargetOwner(sourceDBSchema.getTargetSchemaName());
 					setc.setTarget(getTargetName(allTablesCountMap, srcTable.getOwner(), srcTable.getName()));
+					
+					setc.setCreateNewSchema(sourceDBSchema.isNewTargetSchema());					
 					setc.setCreateNewTable(false);
 					setc.setCreatePartition(false);
 					setc.setCreatePK(false);
@@ -866,7 +884,9 @@ public class MigrationConfiguration {
 				String referencedTableName = fk.getReferencedTableName();
 				Map<String, Integer> allTablesCountMap = srcCatalog.getAllTablesCountMap();
 				Integer integer = allTablesCountMap.get(referencedTableName);
-				if (integer != null && integer > 1) {
+				
+				boolean isMultiSchema = CUBRIDVersionUtils.getInstance().isTargetMultiSchema();
+				if (integer != null && integer > 1 && !isMultiSchema) {
 					String owner = fk.getTable().getOwner();
 					tfk.setReferencedTableName(owner + "_" + referencedTableName);
 				} else {
@@ -1011,6 +1031,7 @@ public class MigrationConfiguration {
 				if (tVw == null) {
 					tVw = getDBTransformHelper().getCloneView(vw, this);
 					tVw.setName(sc.getTarget());
+					tVw.setTargetOwner(sourceDBSchema.getTargetSchemaName());
 				}
 				tempTarList.add(tVw);
 			}
@@ -2352,7 +2373,33 @@ public class MigrationConfiguration {
 		}
 		return sc.getViewByName(viewName);
 	}
+	
+	public void clearNewTargetShemaList() {
+		newTargetSchema.clear();
+	}
 
+	public List<String> getNewTargetSchema() {
+		return this.newTargetSchema;
+	}
+	
+	public void setNewTargetSchema(String schemaName) {
+		newTargetSchema.add(schemaName);
+	}
+	
+	public void SetNewTargetSchema(List<String> schemaNameList) {
+		clearNewTargetShemaList();
+		newTargetSchema = schemaNameList;
+	}
+	
+	//CMT112 target Schema List
+	public List<Schema> getTargetSchemaList() {
+		return targetSchemaList;
+	}
+
+	public void setTargetSchemaList(List<Schema> targetSchemaList) {
+		this.targetSchemaList = targetSchemaList;
+	}
+	
 	/**
 	 * Retrieves the target charset;UTF-8 will be returned by default.
 	 * 
@@ -2543,6 +2590,15 @@ public class MigrationConfiguration {
 		}
 		return null;
 	}
+	
+	public Table getTargetTableSchema(String owner, String name) {
+		for (Table tt : this.targetTables) {
+			if (tt.getName().equals(name) && tt.getOwner().equals(owner)) {
+				return tt;
+			}
+		}
+		return null;
+	}
 
 	public List<View> getTargetViewSchema() {
 		return new ArrayList<View>(targetViews);
@@ -2635,7 +2691,7 @@ public class MigrationConfiguration {
 	public boolean hasOtherParam() {
 		return !otherParams.isEmpty();
 	}
-
+	
 	public boolean isCreateConstrainsBeforeData() {
 		return createConstrainsBeforeData;
 	}
@@ -3099,7 +3155,7 @@ public class MigrationConfiguration {
 			}
 		}
 	}
-
+	
 	/**
 	 * @param commitCount the commitCount to set
 	 */

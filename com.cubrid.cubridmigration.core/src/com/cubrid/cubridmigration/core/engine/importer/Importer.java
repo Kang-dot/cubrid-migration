@@ -32,6 +32,7 @@ package com.cubrid.cubridmigration.core.engine.importer;
 import com.cubrid.cubridmigration.core.dbobject.DBObject;
 import com.cubrid.cubridmigration.core.dbobject.Function;
 import com.cubrid.cubridmigration.core.dbobject.Procedure;
+import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Trigger;
 import com.cubrid.cubridmigration.core.engine.IMigrationEventHandler;
 import com.cubrid.cubridmigration.core.engine.MigrationContext;
@@ -56,6 +57,7 @@ public abstract class Importer implements
 		this.eventHandler = mrManager.getEventsHandler();
 	}
 
+
 	/**
 	 * Should be called when create database objects successfully;
 	 * 
@@ -74,7 +76,7 @@ public abstract class Importer implements
 	protected void createObjectFailed(DBObject obj, Throwable error) {
 		eventHandler.handleEvent(new CreateObjectEvent(obj, error));
 	}
-
+	
 	/**
 	 * Not support default
 	 * 

@@ -50,6 +50,8 @@ public class SourceTableConfig {
 	private String target;
 	private String targetOwner;
 
+	private boolean createNewSchema = false;
+	
 	private boolean createNewTable = true;
 	private boolean migrateData = true;
 	private boolean replace = true;
@@ -238,6 +240,15 @@ public class SourceTableConfig {
 		}
 	}
 
+	public boolean isCreateNewSchema() {
+		return createNewSchema;
+	}
+
+	public void setCreateNewSchema(boolean createNewSchema) {
+		this.createNewSchema = createNewSchema;
+	}
+
+	
 	/**
 	 * @param createNewTable the createNewTable to set
 	 */

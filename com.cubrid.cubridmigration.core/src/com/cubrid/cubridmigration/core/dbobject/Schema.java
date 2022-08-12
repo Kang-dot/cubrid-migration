@@ -41,12 +41,17 @@ import java.util.List;
  * @version 1.0 - 2009-9-15 created by moulinwang
  * @version 2.0 - 2011-11-04 fulei
  */
-public class Schema implements
+public class Schema extends DBObject implements
 		Serializable {
 
 	private static final long serialVersionUID = -2968882292650432179L;
 	private Catalog catalog;
 	private String name;
+	private String targetSchemaName;
+	
+	private boolean isNewTargetSchema = false;
+	private String createDDL;
+
 	private List<Table> tables = new ArrayList<Table>();
 	private List<View> views = new ArrayList<View>();
 	private List<Procedure> procedures = new ArrayList<Procedure>();
@@ -57,6 +62,16 @@ public class Schema implements
 	public Schema() {
 		//do nothing
 	}
+	
+	
+	public boolean isNewTargetSchema() {
+		return isNewTargetSchema;
+	}
+
+	public void setNewTargetSchema(boolean isNewTargetSchema) {
+		this.isNewTargetSchema = isNewTargetSchema;
+	}
+	
 
 	public Schema(Catalog catalog) {
 		this.catalog = catalog;
@@ -77,6 +92,14 @@ public class Schema implements
 	public void setName(String name) {
 		this.name = name;
 	}
+	
+	public String getTargetSchemaName() {
+		return targetSchemaName;
+	}
+
+	public void setTargetSchemaName(String targetSchemaName) {
+		this.targetSchemaName = targetSchemaName;
+	}
 
 	public List<Table> getTables() {
 		return tables;
@@ -88,6 +111,15 @@ public class Schema implements
 
 	public List<View> getViews() {
 		return views;
+	}
+	
+	public String getCreateDDL() {
+		return createDDL;
+	}
+
+
+	public void setCreateDDL(String createDDL) {
+		this.createDDL = createDDL;
 	}
 
 	/**
@@ -323,5 +355,18 @@ public class Schema implements
 			}
 		}
 		return null;
+	}
+
+
+	@Override
+	public String getObjType() {
+		return OBJ_TYPE_SCHEMA;
+	}
+
+
+	@Override
+	public String getDDL() {
+		// TODO Auto-generated method stub
+		return createDDL;
 	}
 }

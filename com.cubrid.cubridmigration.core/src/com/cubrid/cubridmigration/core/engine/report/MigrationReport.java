@@ -88,6 +88,8 @@ public class MigrationReport implements
 			return "primary key of " + ((PK) obj).getTable().getName();
 		} else if (obj instanceof Index) {
 			return "[" + ((Index) obj).getTable().getName() + "]" + obj.getName();
+		} else if (obj instanceof Table) {
+			return((Table) obj).getOwner() + "." + ((Table) obj).getName();
 		}
 		return obj.getName();
 	}
@@ -264,6 +266,7 @@ public class MigrationReport implements
 			}
 		}
 		DBObjMigrationResult result = new DBObjMigrationResult();
+		
 		result.setObjName(getDBObjName(obj));
 		result.setObjType(obj.getObjType());
 		dbObjectsResult.add(result);

@@ -44,6 +44,7 @@ import com.cubrid.cubridmigration.core.dbobject.FK;
 import com.cubrid.cubridmigration.core.dbobject.Index;
 import com.cubrid.cubridmigration.core.dbobject.PK;
 import com.cubrid.cubridmigration.core.dbobject.Record;
+import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.View;
@@ -147,7 +148,7 @@ public class JDBCImporter extends
 	 * @param pk primary key
 	 */
 	public void createPK(PK pk) {
-		String ddl = CUBRIDSQLHelper.getInstance(null).getPKDDL(pk.getTable().getName(),
+		String ddl = CUBRIDSQLHelper.getInstance(null).getPKDDL(pk.getTable().getOwner(), pk.getTable().getName(),
 				pk.getName(), pk.getPkColumns());
 		pk.setDDL(ddl);
 		try {
@@ -165,7 +166,7 @@ public class JDBCImporter extends
 	 * @param fk foreign key
 	 */
 	public void createFK(FK fk) {
-		String ddl = CUBRIDSQLHelper.getInstance(null).getFKDDL(fk.getTable().getName(), fk);
+		String ddl = CUBRIDSQLHelper.getInstance(null).getFKDDL(fk.getTable().getOwner(), fk.getTable().getName(), fk);
 		fk.setDDL(ddl);
 		try {
 			executeDDL(ddl);
@@ -181,7 +182,7 @@ public class JDBCImporter extends
 	 * @param index Index
 	 */
 	public void createIndex(Index index) {
-		String ddl = CUBRIDSQLHelper.getInstance(null).getIndexDDL(index.getTable().getName(),
+		String ddl = CUBRIDSQLHelper.getInstance(null).getIndexDDL(index.getTable().getOwner(), index.getTable().getName(),
 				index, "");
 		index.setDDL(ddl);
 		try {
@@ -391,6 +392,18 @@ public class JDBCImporter extends
 			trec.addColumnValue(targetColumn, targetValue);
 		}
 		return trec;
+	}
+
+	//CMT112 JDBC Importer create Schema
+	public void createSchema(Schema dummySchema) {
+		// TODO Auto-generated method stub
+		String ddl = CUBRIDSQLHelper.getInstance(null).getSchemaDDL(dummySchema);
+		try {
+			executeDDL(ddl);
+			createObjectSuccess(dummySchema);
+		} catch (RuntimeException e) {
+			createObjectFailed(dummySchema, e);
+		}
 	}
 
 }

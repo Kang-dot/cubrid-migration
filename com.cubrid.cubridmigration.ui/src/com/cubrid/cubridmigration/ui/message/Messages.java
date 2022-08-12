@@ -308,9 +308,11 @@ public class Messages extends
 	public static String errMsgLoadSchemaFailed;
 	public static String errMsgNoCSV;
 	public static String errMsgNoExportScript;
+	public static String errMsgNoSchemaSelected;
 	public static String errMsgProxySettingError;
 	public static String errNoColumnSelected;
 	public static String errNoDBObject;
+	public static String errNoSchemaSelected;
 	public static String errNoSQLSelected;
 	public static String errNoSQLTableSelected;
 	public static String errNoValidSQLFile;
@@ -595,6 +597,7 @@ public class Messages extends
 	public static String msgStartDownloadDrivers;
 	public static String msgStartMigrationFailed;
 	public static String msgStoppingMigration;
+	public static String msgTarType;
 	public static String msgTimeRemaining;
 	public static String msgTitleConfirmAutoChangeColumnSize;
 	public static String msgTitleDeleteSQL;
@@ -636,6 +639,8 @@ public class Messages extends
 	public static String refreshButtonLabel;
 	public static String refreshDBConnActionMessage;
 	public static String removeButtonLabel;
+	public static String schemaMappingPageTitle;
+	public static String schemaMappingPageDescription;
 	public static String setOptionPageOKMsg;
 	public static String sourceDBPageErrNoSelectedItem;
 	public static String sourceDBPageErrNoSelectedXMLFile;
@@ -647,6 +652,7 @@ public class Messages extends
 	public static String sourceDBPageTableIP;
 	public static String sourceDBPageTablePort;
 	public static String sourcePKColumns;
+	public static String sourceSchema;
 	public static String sqlServer2CUBRID;
 	public static String startButtonText;
 	public static String tabCharColumns;
@@ -689,6 +695,7 @@ public class Messages extends
 	public static String targetDBPageOfflineErrMsg2;
 	public static String targetDBPageOfflineTargetFileRepositoryErrMsg;
 	public static String targetPKColumns;
+	public static String targetSchema;
 	public static String tblColSourceColumn;
 	public static String tblColSourceTable;
 	public static String tblColTargetColumn;

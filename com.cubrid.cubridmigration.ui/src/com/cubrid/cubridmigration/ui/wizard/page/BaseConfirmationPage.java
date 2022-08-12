@@ -63,6 +63,7 @@ import com.cubrid.cubridmigration.ui.SWTResourceConstents;
 import com.cubrid.cubridmigration.ui.message.Messages;
 import com.cubrid.cubridmigration.ui.script.dialog.EditScriptDialog;
 import com.cubrid.cubridmigration.ui.script.dialog.ExportScriptDialog;
+import com.cubrid.cubridmigration.ui.wizard.MigrationWizard;
 import com.cubrid.cubridmigration.ui.wizard.dialog.PerformanceSettingsDialog;
 
 /**
@@ -253,11 +254,15 @@ public class BaseConfirmationPage extends MigrationWizardPage {
 		List<Table> tables = new ArrayList<Table>();
 		final CUBRIDSQLHelper ddlUtils = CUBRIDSQLHelper.getInstance(null);
 		StringBuffer sbConstrains = new StringBuffer();
+		
+		appendSchemaDDL(cfg);
+		
 		for (SourceEntryTableConfig setc : cfg.getExpEntryTableCfg()) {
+
 			if (!setc.isCreateNewTable()) {
 				continue;
 			}
-			Table tarTbl = cfg.getTargetTableSchema(setc.getTarget());
+			Table tarTbl = cfg.getTargetTableSchema(setc.getTargetOwner(), setc.getTarget());
 			if (tarTbl == null || tables.contains(tarTbl)) {
 				continue;
 			}
@@ -288,23 +293,29 @@ public class BaseConfirmationPage extends MigrationWizardPage {
 
 			final PK pk = tarTbl.getPk();
 			if (setc.isCreatePK() && pk != null) {
-				String ddl = ddlUtils.getPKDDL(tarTbl.getName(), pk.getName(), pk.getPkColumns());
+				String ddl = ddlUtils.getPKDDL(tarTbl.getOwner(), tarTbl.getName(), pk.getName(), pk.getPkColumns());
 				sbConstrains.append(ddl);
 				sbConstrains.append(";");
 				sbConstrains.append(NEWLINE);
+				sbConstrains.append(NEWLINE);
 			}
+
 			for (FK fk : tarTbl.getFks()) {
-				String ddl = ddlUtils.getFKDDL(tarTbl.getName(), fk);
+				String ddl = ddlUtils.getFKDDL(tarTbl.getOwner(), tarTbl.getName(), fk);
 				sbConstrains.append(ddl);
 				sbConstrains.append(";");
 				sbConstrains.append(NEWLINE);
+				sbConstrains.append(NEWLINE);
 			}
+
 			for (Index idx : tarTbl.getIndexes()) {
-				String ddl = ddlUtils.getIndexDDL(tarTbl.getName(), idx, "");
+				String ddl = ddlUtils.getIndexDDL(tarTbl.getOwner(), tarTbl.getName(), idx, "");
 				sbConstrains.append(ddl);
 				sbConstrains.append(";");
 				sbConstrains.append(NEWLINE);
+				sbConstrains.append(NEWLINE);
 			}
+
 		}
 		for (SourceSQLTableConfig sstc : cfg.getExpSQLCfg()) {
 			if (!sstc.isCreateNewTable()) {
@@ -327,6 +338,7 @@ public class BaseConfirmationPage extends MigrationWizardPage {
 			String ddl = ddlUtils.getViewDDL(vw);
 			txtDDL.append(ddl);
 			txtDDL.append(NEWLINE);
+			txtDDL.append(NEWLINE);
 		}
 		for (SourceConfig sc : cfg.getExpSerialCfg()) {
 			if (!sc.isCreate()) {
@@ -335,6 +347,7 @@ public class BaseConfirmationPage extends MigrationWizardPage {
 			Sequence sq = cfg.getTargetSerialSchema(sc.getTarget());
 			String ddl = ddlUtils.getSequenceDDL(sq);
 			txtDDL.append(ddl);
+			txtDDL.append(NEWLINE);
 			txtDDL.append(NEWLINE);
 		}
 		for (SourceCSVConfig sstc : cfg.getCSVConfigs()) {
@@ -351,6 +364,24 @@ public class BaseConfirmationPage extends MigrationWizardPage {
 			txtDDL.append(NEWLINE);
 		}
 		txtDDL.append(sbConstrains.toString());
+	}
+	
+	public void appendSchemaDDL(MigrationConfiguration cfg) {
+		MigrationWizard mw = getMigrationWizard();
+		
+		List<SourceEntryTableConfig> setcList = cfg.getExpEntryTableCfg();
+		
+		List<String> tarSchemaNameList = new ArrayList<String>();
+		
+		for (SourceEntryTableConfig setc : setcList) {
+			if (!tarSchemaNameList.contains(setc.getTargetOwner()) && setc.isCreateNewSchema()) {
+				tarSchemaNameList.add(setc.getTargetOwner());
+				
+				txtDDL.append("CREATE USER " + setc.getTargetOwner());
+				txtDDL.append(";");
+				txtDDL.append(NEWLINE);
+			}
+		}
 	}
 
 	/**

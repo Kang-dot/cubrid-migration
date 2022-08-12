@@ -36,6 +36,7 @@ import com.cubrid.cubridmigration.core.dbobject.Function;
 import com.cubrid.cubridmigration.core.dbobject.PK;
 import com.cubrid.cubridmigration.core.dbobject.Procedure;
 import com.cubrid.cubridmigration.core.dbobject.Record;
+import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.Trigger;
@@ -73,6 +74,7 @@ import com.cubrid.cubridmigration.core.engine.task.imp.PKImportTask;
 import com.cubrid.cubridmigration.core.engine.task.imp.ProcedureImportTask;
 import com.cubrid.cubridmigration.core.engine.task.imp.RecordImportTask;
 import com.cubrid.cubridmigration.core.engine.task.imp.SQLImportTask;
+import com.cubrid.cubridmigration.core.engine.task.imp.SchemaImportTask;
 import com.cubrid.cubridmigration.core.engine.task.imp.SequenceImportTask;
 import com.cubrid.cubridmigration.core.engine.task.imp.TableSchemaImportTask;
 import com.cubrid.cubridmigration.core.engine.task.imp.TriggerImportTask;
@@ -265,6 +267,13 @@ public class MigrationTaskFactory {
 	private void initImportTask(ImportTask task) {
 		task.setImporter(importer);
 		task.setMigrationEventHandler(context.getEventsHandler());
+	}
+	
+	//CMT112 import task
+	public ImportTask createImportSchemaTask(Schema dummySchema) {
+		SchemaImportTask task = new SchemaImportTask(dummySchema);
+		initImportTask(task);
+		return task;
 	}
 
 	/**

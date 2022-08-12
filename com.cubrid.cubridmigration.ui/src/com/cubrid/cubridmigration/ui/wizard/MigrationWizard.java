@@ -88,7 +88,7 @@ public class MigrationWizard extends
 
 	private static final int[] IDX_SQL = new int[] {0, 5, 6, 7};
 
-	private static final int[] IDX_ONLINE = new int[] {0, 1, 2, /*11,*/ 3, 4};
+	private static final int[] IDX_ONLINE = new int[] {0, 1, 2, 11, 3, 4};
 
 	//private static final int[] IDX_OFFLINE = new int[]{0, 1, 2, 11, 3, 4 };
 
@@ -204,9 +204,9 @@ public class MigrationWizard extends
 		addPage(new CSVSelectPage("9"));
 		addPage(new CSVImportConfirmPage("10"));
 		
-//		addPage(new SchemaMappingPage("11"));
+		addPage(new SchemaMappingPage("11"));
 
-		//addPage(new SelectOfflineDest2Page("11"));
+//		addPage(new SelectOfflineDest2Page("11"));
 	}
 
 	/**

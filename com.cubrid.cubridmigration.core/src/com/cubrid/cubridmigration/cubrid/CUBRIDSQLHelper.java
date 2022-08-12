@@ -45,6 +45,7 @@ import com.cubrid.cubridmigration.core.dbobject.Index;
 import com.cubrid.cubridmigration.core.dbobject.PK;
 import com.cubrid.cubridmigration.core.dbobject.PartitionInfo;
 import com.cubrid.cubridmigration.core.dbobject.PartitionTable;
+import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.View;
@@ -186,7 +187,7 @@ public class CUBRIDSQLHelper extends
 	 * @param fk FK
 	 * @return String
 	 */
-	private String getFKDDL(FK fk) {
+	private String getFKDDL(String tableOwner, FK fk) {
 		StringBuffer bf = new StringBuffer();
 
 		bf.append(getQuotedObjName(fk.getName()));
@@ -204,7 +205,7 @@ public class CUBRIDSQLHelper extends
 		bf.append(")");
 
 		String refTable = fk.getReferencedTableName();
-		bf.append(" REFERENCES ").append(getQuotedObjName(refTable));
+		bf.append(" REFERENCES ").append(tableOwner).append(".").append(getQuotedObjName(refTable));
 
 		bf.append("(");
 
@@ -231,12 +232,14 @@ public class CUBRIDSQLHelper extends
 	 * @param fk FK
 	 * @return String
 	 */
-	public String getFKDDL(String tableName, FK fk) {
+	public String getFKDDL(String tableOwner, String tableName, FK fk) {
 		StringBuffer bf = new StringBuffer();
 		bf.append("ALTER " + HINT + " TABLE ");
+		bf.append(tableOwner);
+		bf.append(".");
 		bf.append(getQuotedObjName(tableName));
 		bf.append(" ADD CONSTRAINT ");
-		bf.append(getFKDDL(fk));
+		bf.append(getFKDDL(tableOwner, fk));
 		return bf.toString();
 	}
 
@@ -248,7 +251,7 @@ public class CUBRIDSQLHelper extends
 	 * @param prefix index name prefix
 	 * @return String
 	 */
-	public String getIndexDDL(String tableName, Index index, String prefix) {
+	public String getIndexDDL(String ownerName, String tableName, Index index, String prefix) {
 		String defaultName = index.getName();
 		StringBuffer bf = new StringBuffer();
 		bf.append("CREATE " + HINT + " ");
@@ -264,7 +267,7 @@ public class CUBRIDSQLHelper extends
 			bf.append(" ").append(getDBQualifier((prefix == null ? "" : prefix) + index.getName()));
 		}
 
-		bf.append(" ON ").append(getQuotedObjName(tableName));
+		bf.append(" ON ").append(ownerName).append(".").append(getQuotedObjName(tableName));
 
 		List<String> list = new ArrayList<String>();
 
@@ -308,10 +311,10 @@ public class CUBRIDSQLHelper extends
 	 * @param pkColumns List<String>
 	 * @return String
 	 */
-	public String getPKDDL(String tableName, String pkName, List<String> pkColumns) {
+	public String getPKDDL(String tableOwner, String tableName, String pkName, List<String> pkColumns) {
 		StringBuffer bf = new StringBuffer();
 
-		bf.append("ALTER " + HINT + " TABLE ").append(getQuotedObjName(tableName)).append(" ADD");
+		bf.append("ALTER " + HINT + " TABLE ").append(tableOwner).append(".").append(getQuotedObjName(tableName)).append(" ADD");
 		if (StringUtils.isNotBlank(pkName)) {
 			bf.append(" CONSTRAINT ").append(getQuotedObjName(pkName));
 		}
@@ -389,6 +392,7 @@ public class CUBRIDSQLHelper extends
 		if (StringUtils.isEmpty(tableName)) {
 			bf.append("<class_name>");
 		} else {
+			bf.append(table.getOwner() + ".");
 			bf.append(getQuotedObjName(tableName));
 		}
 
@@ -566,6 +570,8 @@ public class CUBRIDSQLHelper extends
 		String viewName = view.getName();
 
 		if (viewName != null) {
+			sb.append(view.getTargetOwner());
+			sb.append(".");
 			sb.append(getQuotedObjName(viewName));
 		}
 		//Column definitions are not necessarily.
@@ -597,7 +603,7 @@ public class CUBRIDSQLHelper extends
 		//		}
 		//
 		//		sb.append(")").append(NEWLINE);
-		sb.append("    AS ");
+		sb.append(" AS ");
 		List<String> queryListData = new ArrayList<String>();
 		queryListData.add(view.getQuerySpec());
 
@@ -657,5 +663,14 @@ public class CUBRIDSQLHelper extends
 			buf.append(" WHERE ROWNUM = 1");
 		}
 		return buf.toString();
+	}
+	
+	public String getSchemaDDL(Schema dummySchema) {
+		StringBuffer bf = new StringBuffer();
+		
+		bf.append("CREATE USER ");
+		bf.append(dummySchema.getName());
+		
+		return bf.toString();
 	}
 }

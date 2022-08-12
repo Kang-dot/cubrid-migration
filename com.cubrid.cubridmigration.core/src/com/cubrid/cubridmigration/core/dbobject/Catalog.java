@@ -82,6 +82,8 @@ public class Catalog implements
 	private Map<String, Integer> allViewsCountMap = new HashMap<String, Integer>();
 	private Map<String, Integer> allSequencesCountMap = new HashMap<String, Integer>();
 	
+	private boolean isDBAGroup;
+	
 	public Catalog() {
 		createTime = System.currentTimeMillis();
 	}
@@ -264,6 +266,14 @@ public class Catalog implements
 		return allSequencesCountMap;
 	}
 
+	public boolean isDBAGroup() {
+		return isDBAGroup;
+	}
+
+	public void setDBAGroup(boolean isDBAGroup) {
+		this.isDBAGroup = isDBAGroup;
+	}
+	
 	/**
 	 * return hash code
 	 * 

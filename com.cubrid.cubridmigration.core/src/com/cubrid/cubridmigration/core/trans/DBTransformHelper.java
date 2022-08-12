@@ -39,6 +39,7 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 
+import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.datatype.DataType;
 import com.cubrid.cubridmigration.core.datatype.DataTypeConstant;
@@ -377,7 +378,9 @@ public abstract class DBTransformHelper {
 		Table tarTable = new Table();
 		tarTable.setName(stc.getTarget());
 		tarTable.setReuseOID(sourceTable.isReuseOID());
-		tarTable.setOwner(stc.getOwner());
+		//TODO: set Owner to target Owner
+//		tarTable.setOwner(stc.getOwner());
+		tarTable.setOwner(stc.getTargetOwner());
 		
 		List<Column> srcColumns = sourceTable.getColumns();
 		List<Column> newColumns = new ArrayList<Column>();
@@ -426,11 +429,15 @@ public abstract class DBTransformHelper {
 					tfk.addRefColumnName(StringUtils.lowerCase(entry.getKey()),
 							StringUtils.lowerCase(entry.getValue()));
 				}
-
+				
 				String referencedTableName = sfk.getReferencedTableName();
 				Map<String, Integer> allTablesCountMap = config.getSrcCatalog().getAllTablesCountMap();
 				Integer tableCount = allTablesCountMap.get(referencedTableName);
-				if (tableCount != null && tableCount > 1) {
+				
+				boolean isMultiSchema = CUBRIDVersionUtils.getInstance().isTargetMultiSchema();
+				
+				if (tableCount != null && tableCount > 1 && !isMultiSchema) {
+					//CMT112 if target is single schema, dot must replace to under bar
 					String owner = sfk.getTable().getOwner();
 					tfk.setReferencedTableName(StringUtils.lowerCase(owner) + "_" + referencedTableName);
 				} else {

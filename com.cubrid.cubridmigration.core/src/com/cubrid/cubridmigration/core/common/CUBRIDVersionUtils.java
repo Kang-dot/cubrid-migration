@@ -84,6 +84,14 @@ public class CUBRIDVersionUtils {
 		}
 	}
 	
+	public void setTargetMultiSchema(boolean isMultiSchema) {
+		try {
+			hasMultiSchema.set(1, isMultiSchema);
+		} catch (IndexOutOfBoundsException e) {
+			hasMultiSchema.set(0, isMultiSchema);
+		}
+	}
+	
 	public boolean isSourceMultiSchema() {
 		return hasMultiSchema.get(0);
 	}

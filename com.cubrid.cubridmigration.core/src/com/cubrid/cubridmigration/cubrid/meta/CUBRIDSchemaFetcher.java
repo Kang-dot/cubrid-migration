@@ -174,6 +174,8 @@ public final class CUBRIDSchemaFetcher extends
 		// get partitions
 		buildPartitions(conn, catalog, catalog.getSchemas().get(0));
 
+		catalog.setDBAGroup(getPrivilege(conn, catalog));
+		
 		return catalog;
 	}
 
@@ -1824,22 +1826,24 @@ public final class CUBRIDSchemaFetcher extends
 		ResultSet rs = null;
 		
 		try {			
-			String sql = "select a.grantor_name, a.grantee_name, a.auth_type, b.auth_type "
-					+ "from (select grantor_name, grantee_name, class_name, auth_type " 
-					+ "from db_auth " 
-					+ "where auth_type = 'SELECT') a " 
-					+ "join (select auth_type, class_name, grantee_name "
-					+ "from db_auth " 
-					+ "where auth_type = 'INSERT') b " 
-					+ "where (a.class_name = b.class_name and a.grantee_name = b.grantee_name) " 
-					+ "and a.grantee_name = ? "
-					+ "group by grantor_name";
+//			String sql = "select a.grantor_name, a.grantee_name, a.auth_type, b.auth_type "
+//					+ "from (select grantor_name, grantee_name, class_name, auth_type " 
+//					+ "from db_auth " 
+//					+ "where auth_type = 'SELECT') a " 
+//					+ "join (select auth_type, class_name, grantee_name "
+//					+ "from db_auth " 
+//					+ "where auth_type = 'INSERT') b " 
+//					+ "where (a.class_name = b.class_name and a.grantee_name = b.grantee_name) " 
+//					+ "and a.grantee_name = ? "
+//					+ "group by grantor_name";
+			
+			String sql = "select name from db_user";
 			stmt = conn.prepareStatement(sql);
-			stmt.setString(1, cp.getConUser().toUpperCase());
+//			stmt.setString(1, cp.getConUser().toUpperCase());
 			rs = stmt.executeQuery();
 			
 			while (rs.next()) {
-				schemaNames.add(rs.getString("grantor_name"));
+				schemaNames.add(rs.getString("name"));
 			}
 			
 			if (schemaNames.isEmpty()) {
@@ -1847,20 +1851,51 @@ public final class CUBRIDSchemaFetcher extends
 				return super.getSchemaNames(conn, cp);
 			}
 			
-			schemaNames.add(cp.getConUser().toUpperCase());
+//			schemaNames.add(cp.getConUser().toUpperCase());
 			
 			if (schemaNames.size() > 1) {
 				CUBRIDVersionUtils.getInstance().hasMultiSchema(true);
 			}
 			
 		} catch (Exception e) {
-			
+			e.printStackTrace();
 		} finally {
 			Closer.close(rs);
 			Closer.close(stmt);
 		}
 		
 		return schemaNames;
+	}
+	
+	private boolean getPrivilege(Connection conn, Catalog catalog) {
+		PreparedStatement stmt = null;
+		ResultSet rs = null;
+		
+		try {
+			String user = catalog.getConnectionParameters().getConUser();
+			
+			
+			String sql = "SELECT u.name FROM db_user AS u, TABLE(u.direct_groups) AS g(x) WHERE x.name='DBA'";
+			
+			stmt = conn.prepareStatement(sql);
+			rs = stmt.executeQuery();
+			
+			while (rs.next()) {
+				String dbaGroup = rs.getString(1);
+				
+				if (user.equalsIgnoreCase("DBA") || dbaGroup.equalsIgnoreCase(user)) {
+					return true;
+				}
+			}
+			
+			return false;
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			Closer.close(rs);
+			Closer.close(stmt);
+		}
+		return false;
 	}
 
 }

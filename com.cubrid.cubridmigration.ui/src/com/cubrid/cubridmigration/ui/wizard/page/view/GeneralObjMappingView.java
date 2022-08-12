@@ -88,7 +88,8 @@ import com.cubrid.cubridmigration.ui.wizard.utils.VerifyResultMessages;
 public class GeneralObjMappingView extends
 		AbstractMappingView {
 	private static final int SOURCE_NAME_INDEX = 0;
-	private static final int TARGET_NAME_INDEX = SOURCE_NAME_INDEX + 1;
+	private static final int TARGET_SCHEMA_NAME_INDEX = SOURCE_NAME_INDEX + 1;
+	private static final int TARGET_NAME_INDEX = TARGET_SCHEMA_NAME_INDEX + 1;
 	private static final int DATA_COLUMN_INDEX = TARGET_NAME_INDEX + 1;
 	private static final int CONDITION_COLUMN_INDEX = DATA_COLUMN_INDEX + 1;
 	private static final int CREATE_COLUMN_INDEX = CONDITION_COLUMN_INDEX + 1;
@@ -185,20 +186,20 @@ public class GeneralObjMappingView extends
 		});
 
 		TableViewerBuilder tvBuilder = new TableViewerBuilder();
-		tvBuilder.setColumnNames(new String[] {Messages.tabTitleSourceTable,
+		tvBuilder.setColumnNames(new String[] {Messages.tabTitleSourceTable, "Target Schema", 
 				Messages.tabTitleTargetTable, Messages.tabTitleData, Messages.tabTitleCondition,
 				Messages.lblCreate, Messages.lblReplace, Messages.tabTitlePK});
-		tvBuilder.setColumnWidths(new int[] {160, 160, 70, 150, 80, 90, 60});
-		tvBuilder.setColumnTooltips(new String[] {Messages.tabTitleSourceTableDes,
+		tvBuilder.setColumnWidths(new int[] {160, 80, 160, 70, 150, 80, 90, 60});
+		tvBuilder.setColumnTooltips(new String[] {Messages.tabTitleSourceTableDes, "Target Schema", 
 				Messages.tabTitleTargetTableDes, Messages.tabTitleDataDes,
 				Messages.tabTitleConditionDes, Messages.lblCreateDes, Messages.lblReplaceDes,
 				Messages.tabTitlePKDes});
-		final CellEditorFactory[] cellEditors = new CellEditorFactory[] {null,
+		final CellEditorFactory[] cellEditors = new CellEditorFactory[] {null, null,
 				new TextCellEditorFactory(), new CheckboxCellEditorFactory(),
 				new TextCellEditorFactory(), new CheckboxCellEditorFactory(),
 				new CheckboxCellEditorFactory(), new CheckboxCellEditorFactory()};
 		tvBuilder.setCellEditorClasses(cellEditors);
-		tvBuilder.setCellValidators(new ICellEditorValidator[] {null, new CUBRIDNameValidator(),
+		tvBuilder.setCellValidators(new ICellEditorValidator[] {null, null, new CUBRIDNameValidator(),
 				null, null, null, null, null});
 		tvBuilder.setContentProvider(new StructuredContentProviderAdaptor() {
 
@@ -207,7 +208,7 @@ public class GeneralObjMappingView extends
 				List<Object> data = new ArrayList<Object>();
 				for (SourceEntryTableConfig setc : (List<SourceEntryTableConfig>) inputElement) {
 					//Add the SourceConfig to the end of the object array.
-					data.add(new Object[] {setc.getName(), setc.getTarget(), setc.isMigrateData(),
+					data.add(new Object[] {setc.getName(), setc.getTargetOwner(), setc.getTarget(), setc.isMigrateData(),
 							setc.getCondition(), setc.isCreateNewTable(), setc.isReplace(),
 							setc.isCreatePK(), setc});
 				}
@@ -275,6 +276,7 @@ public class GeneralObjMappingView extends
 		tvTables.setData(CONTENT_TYPE, CT_TABLE);
 
 		final SelectionListener[] selectionListeners = new SelectionListener[] {
+				null,
 				null,
 				null,
 				new CheckBoxColumnSelectionListener(),

@@ -679,6 +679,7 @@ public class ObjectMappingPage extends
 				}
 			} catch (Exception ex) {
 				LOG.error("", ex);
+				ex.printStackTrace();
 				if (!MessageDialog.openConfirm(getShell(), Messages.lblSaveConfig,
 						Messages.msgCfmErrorSave)) {
 					tvSourceDBObjects.setSelection(currentView.getModel());

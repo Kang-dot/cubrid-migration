@@ -37,6 +37,7 @@ import com.cubrid.cubridmigration.core.dbobject.Index;
 import com.cubrid.cubridmigration.core.dbobject.PK;
 import com.cubrid.cubridmigration.core.dbobject.Procedure;
 import com.cubrid.cubridmigration.core.dbobject.Record;
+import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.Trigger;
@@ -50,7 +51,7 @@ import com.cubrid.cubridmigration.core.engine.config.SourceTableConfig;
  * @version 1.0 - 2011-8-25 created by Kevin Cao
  */
 public interface IMigrationImporter {
-
+	
 	/**
 	 * Execute DDL.
 	 * 
@@ -99,6 +100,8 @@ public interface IMigrationImporter {
 	 * @param sq Sequence
 	 */
 	public void createSequence(Sequence sq);
+	
+	public void createSchema(Schema schema);
 
 	/**
 	 * 

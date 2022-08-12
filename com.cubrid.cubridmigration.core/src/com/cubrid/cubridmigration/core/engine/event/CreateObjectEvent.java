@@ -35,6 +35,7 @@ import com.cubrid.cubridmigration.core.dbobject.Function;
 import com.cubrid.cubridmigration.core.dbobject.Index;
 import com.cubrid.cubridmigration.core.dbobject.PK;
 import com.cubrid.cubridmigration.core.dbobject.Procedure;
+import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.Trigger;
@@ -53,6 +54,7 @@ public class CreateObjectEvent extends
 	private Throwable error;
 
 	protected final DBObject dbObject;
+	
 
 	private final boolean isSuccess;
 
@@ -82,7 +84,7 @@ public class CreateObjectEvent extends
 		this.error = error;
 		isSuccess = false;
 	}
-
+	
 	/**
 	 * To String
 	 * 
@@ -90,8 +92,11 @@ public class CreateObjectEvent extends
 	 */
 	public String toString() {
 		StringBuffer sb = new StringBuffer();
-		if (dbObject instanceof Table) {
-			sb.append("table[").append(dbObject.getName()).append("]");
+		//CMT112 create Schema;
+		if (dbObject instanceof Schema) {
+			sb.append("Schema[").append(dbObject.getName()).append("]");
+		} else if (dbObject instanceof Table) {
+			sb.append("table[").append(((Table) dbObject).getOwner()).append(".").append(dbObject.getName()).append("]");
 		} else if (dbObject instanceof PK) {
 			sb.append("primary key[").append(((PK) dbObject).getTable().getName()).append("]");
 		} else if (dbObject instanceof FK) {

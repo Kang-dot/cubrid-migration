@@ -60,7 +60,7 @@ public class TableSchemaExportTask extends
 	 * will do nothing except count down the counter.
 	 */
 	protected void executeExportTask() {
-		Table target = config.getTargetTableSchema(sourceTable.getTarget());
+		Table target = config.getTargetTableSchema(sourceTable.getTargetOwner(), sourceTable.getTarget());
 		if (target == null) {
 			return;
 		}
