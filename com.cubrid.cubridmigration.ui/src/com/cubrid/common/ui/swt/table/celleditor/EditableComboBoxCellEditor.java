@@ -16,7 +16,7 @@ public class EditableComboBoxCellEditor extends ComboBoxCellEditor {
 	public EditableComboBoxCellEditor(Composite parent, String[] items) {
 		super(parent, items, SWT.NONE);
 	}
-	
+
     @Override
     protected Object doGetValue() {
         final Object value = super.doGetValue();

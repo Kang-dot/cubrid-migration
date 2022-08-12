@@ -2,31 +2,26 @@
 package com.cubrid.cubridmigration.ui.wizard.page;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.dialogs.PageChangedEvent;
 import org.eclipse.jface.dialogs.PageChangingEvent;
 import org.eclipse.jface.viewers.CellEditor;
 import org.eclipse.jface.viewers.ColumnWeightData;
-import org.eclipse.jface.viewers.ComboBoxCellEditor;
 import org.eclipse.jface.viewers.ICellModifier;
 import org.eclipse.jface.viewers.ILabelProviderListener;
-import org.eclipse.jface.viewers.ISelectionChangedListener;
 import org.eclipse.jface.viewers.IStructuredContentProvider;
-import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.viewers.ITableLabelProvider;
-import org.eclipse.jface.viewers.SelectionChangedEvent;
 import org.eclipse.jface.viewers.TableLayout;
 import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.jface.viewers.Viewer;
+import org.eclipse.jface.viewers.ViewerCell;
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.custom.SashForm;
+import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Image;
+import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Composite;
@@ -151,8 +146,6 @@ public class SchemaMappingPage extends MigrationWizardPage {
 		
 		createSrcTable(container);
 		
-		createButtonLayout();
-		
 		setControl(container);
 		
 	}
@@ -224,18 +217,7 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			
 		});
 		
-		srcTableViewer.addSelectionChangedListener(new ISelectionChangedListener() {
-			
-			@Override
-			public void selectionChanged(SelectionChangedEvent event) {
-				IStructuredSelection selection = (IStructuredSelection) event.getSelection();
-				
-			}
-		});
-		
 		srcTableViewer.setColumnProperties(propertyList);
-		
-
 		
 		TableLayout tableLayout = new TableLayout();
 		
@@ -379,10 +361,6 @@ public class SchemaMappingPage extends MigrationWizardPage {
 		});
 	}
 	
-	private void createButtonLayout() {
-		
-	}
-	
 	private void setData() {
 		final MigrationWizard mw = getMigrationWizard();
 		srcCatalog = mw.getSourceCatalog();
@@ -423,9 +401,9 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			setData();
 			getSchemaValues();
 			setEditor();
-
+			
 			srcTableViewer.setInput(srcTableList);
-
+			
 			firstVisible = false;
 		}
 	}
