@@ -513,6 +513,8 @@ public class SelectDestinationPage extends
 		private Label lblCharsetSP;
 		private Label lblLobPath;
 		private Text txtLobPath;
+		
+		private Button btnAddUserSchema;
 
 		/**
 		 * checkFileRepositroy
@@ -665,6 +667,13 @@ public class SelectDestinationPage extends
 					txtLobPath.setToolTipText(pathTtt);
 				}
 			});
+			new Label(fileRepositoryContainer, SWT.NONE);
+			
+			new Label(fileRepositoryContainer, SWT.NONE);
+			btnAddUserSchema = new Button(fileRepositoryContainer, SWT.CHECK);
+			btnAddUserSchema.setLayoutData(new GridData(SWT.LEFT, SWT.CENTER, false, false));
+			btnAddUserSchema.setText("add user schema");
+
 		}
 
 		/**
@@ -794,6 +803,9 @@ public class SelectDestinationPage extends
 			config.setTargetDataFileName(getDataFullName());
 			config.setTargetFileTimeZone(targetFileTimezoneCombo.getItem(targetFileTimezoneCombo.getSelectionIndex()));
 			config.setTargetCharSet(cboCharset.getText());
+			
+			CUBRIDVersionUtils.getInstance().setAddUserSchema(btnAddUserSchema.getSelection());
+			
 			return true;
 		}
 

@@ -45,6 +45,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Properties;
 
 import org.apache.commons.lang.StringUtils;
 
@@ -1821,6 +1822,16 @@ public final class CUBRIDSchemaFetcher extends
 	 */
 	@Override
 	protected List<String> getSchemaNames(Connection conn, ConnParameters cp) throws SQLException {
+		
+		Integer ver = Integer.parseInt("" + conn.getMetaData().getDatabaseMajorVersion() 
+				+ conn.getMetaData().getDatabaseMinorVersion());
+		
+		if (ver < 112) {
+			CUBRIDVersionUtils.getInstance().hasMultiSchema(false);
+			return super.getSchemaNames(conn, cp);
+		}
+		
+		
 		List<String> schemaNames = new ArrayList<String>();
 		PreparedStatement stmt = null;
 		ResultSet rs = null;
@@ -1874,6 +1885,9 @@ public final class CUBRIDSchemaFetcher extends
 		try {
 			String user = catalog.getConnectionParameters().getConUser();
 			
+			if (user.equalsIgnoreCase("DBA")) {
+				return true;
+			}
 			
 			String sql = "SELECT u.name FROM db_user AS u, TABLE(u.direct_groups) AS g(x) WHERE x.name='DBA'";
 			

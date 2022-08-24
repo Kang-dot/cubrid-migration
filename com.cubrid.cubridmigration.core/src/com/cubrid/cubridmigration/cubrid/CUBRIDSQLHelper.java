@@ -37,6 +37,7 @@ import java.util.regex.Pattern;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 
+import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.common.DBUtils;
 import com.cubrid.cubridmigration.core.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.dbobject.Column;
@@ -70,6 +71,8 @@ public class CUBRIDSQLHelper extends
 	private static final String NEWLINE = "\n";
 	private static final String HINT = "/*+ NO_STATS */";
 	private static final String END_LINE_CHAR = ";";
+
+	CUBRIDVersionUtils verUtil = CUBRIDVersionUtils.getInstance();
 
 	private final static CUBRIDSQLHelper HELPER = new CUBRIDSQLHelper();
 
@@ -205,7 +208,11 @@ public class CUBRIDSQLHelper extends
 		bf.append(")");
 
 		String refTable = fk.getReferencedTableName();
-		bf.append(" REFERENCES ").append(tableOwner).append(".").append(getQuotedObjName(refTable));
+		bf.append(" REFERENCES ");
+		if (verUtil.addUserSchema() || verUtil.isTargetVersionOver112()) {
+			bf.append(getOwnerNameWithDot(tableOwner));		
+		}
+			bf.append(getQuotedObjName(refTable));
 
 		bf.append("(");
 
@@ -235,8 +242,9 @@ public class CUBRIDSQLHelper extends
 	public String getFKDDL(String tableOwner, String tableName, FK fk) {
 		StringBuffer bf = new StringBuffer();
 		bf.append("ALTER " + HINT + " TABLE ");
-		bf.append(tableOwner);
-		bf.append(".");
+		if (verUtil.addUserSchema() || verUtil.isTargetVersionOver112())	{
+			bf.append(getOwnerNameWithDot(tableOwner));		
+		}
 		bf.append(getQuotedObjName(tableName));
 		bf.append(" ADD CONSTRAINT ");
 		bf.append(getFKDDL(tableOwner, fk));
@@ -251,7 +259,7 @@ public class CUBRIDSQLHelper extends
 	 * @param prefix index name prefix
 	 * @return String
 	 */
-	public String getIndexDDL(String ownerName, String tableName, Index index, String prefix) {
+	public String getIndexDDL(String tableOwner, String tableName, Index index, String prefix) {
 		String defaultName = index.getName();
 		StringBuffer bf = new StringBuffer();
 		bf.append("CREATE " + HINT + " ");
@@ -267,7 +275,11 @@ public class CUBRIDSQLHelper extends
 			bf.append(" ").append(getDBQualifier((prefix == null ? "" : prefix) + index.getName()));
 		}
 
-		bf.append(" ON ").append(ownerName).append(".").append(getQuotedObjName(tableName));
+		bf.append(" ON ");
+		if (verUtil.addUserSchema() || verUtil.isTargetVersionOver112())	{
+			bf.append(getOwnerNameWithDot(tableOwner));		
+		}
+		bf.append(getQuotedObjName(tableName));
 
 		List<String> list = new ArrayList<String>();
 
@@ -314,7 +326,12 @@ public class CUBRIDSQLHelper extends
 	public String getPKDDL(String tableOwner, String tableName, String pkName, List<String> pkColumns) {
 		StringBuffer bf = new StringBuffer();
 
-		bf.append("ALTER " + HINT + " TABLE ").append(tableOwner).append(".").append(getQuotedObjName(tableName)).append(" ADD");
+		bf.append("ALTER " + HINT + " TABLE ");
+		if (verUtil.addUserSchema() || verUtil.isTargetVersionOver112()) {
+			bf.append(getOwnerNameWithDot(tableOwner));		
+		}
+		
+		bf.append(getQuotedObjName(tableName)).append(" ADD");
 		if (StringUtils.isNotBlank(pkName)) {
 			bf.append(" CONSTRAINT ").append(getQuotedObjName(pkName));
 		}
@@ -345,7 +362,13 @@ public class CUBRIDSQLHelper extends
 			return "";
 		}
 		StringBuffer buf = new StringBuffer(256);
-		buf.append("CREATE SERIAL ").append(getQuotedObjName(sequence.getName()));
+		buf.append("CREATE SERIAL ");
+		
+		if (verUtil.addUserSchema() || verUtil.isTargetVersionOver112()) {
+			buf.append(getOwnerNameWithDot(sequence.getTargetOwner()));		
+		}
+		
+		buf.append(getQuotedObjName(sequence.getName()));
 
 		buf.append(" START WITH ").append(String.valueOf(sequence.getCurrentValue()));
 
@@ -392,7 +415,9 @@ public class CUBRIDSQLHelper extends
 		if (StringUtils.isEmpty(tableName)) {
 			bf.append("<class_name>");
 		} else {
-			bf.append(table.getOwner() + ".");
+			if (verUtil.addUserSchema() || verUtil.isTargetVersionOver112())	{
+				bf.append(getOwnerNameWithDot(table.getOwner()));		
+			}
 			bf.append(getQuotedObjName(tableName));
 		}
 
@@ -570,8 +595,9 @@ public class CUBRIDSQLHelper extends
 		String viewName = view.getName();
 
 		if (viewName != null) {
-			sb.append(view.getTargetOwner());
-			sb.append(".");
+			if (verUtil.addUserSchema() || verUtil.isTargetVersionOver112())	{
+				sb.append(getOwnerNameWithDot(view.getTargetOwner()));		
+			}
 			sb.append(getQuotedObjName(viewName));
 		}
 		//Column definitions are not necessarily.
@@ -672,5 +698,13 @@ public class CUBRIDSQLHelper extends
 		bf.append(dummySchema.getName());
 		
 		return bf.toString();
+	}
+	
+	public String getOwnerNameWithDot(String tableOwner) {
+		if (tableOwner.isEmpty()) {
+			return "";
+		}
+		
+		return tableOwner + ".";
 	}
 }

@@ -161,6 +161,7 @@ public class MigrationConfiguration {
 	private String targetFilePrefix;
 	private String targetCharSet = "UTF-8";
 	private String targetLOBRootPath = "";
+	private boolean addUserSchema;
 
 	private final CSVSettings csvSettings = new CSVSettings();
 
@@ -543,10 +544,11 @@ public class MigrationConfiguration {
 					sc.setReplace(false);
 				}
 				tempList.add(sc);
-				Sequence tseq = getTargetSerialSchema(sc.getTarget());
+				Sequence tseq = getTargetSerialSchema(sc.getOwner(), sc.getTarget());
 				if (tseq == null) {
 					tseq = (Sequence) seq.clone();
 					tseq.setName(sc.getTarget());
+					tseq.setTargetOwner(sourceDBSchema.getTargetSchemaName());
 					tseq.setDDL(cubridddlUtil.getSequenceDDL(tseq));
 				}
 				tempSerials.add(tseq);
@@ -2517,6 +2519,10 @@ public class MigrationConfiguration {
 	public String getTargetLOBRootPath() {
 		return targetLOBRootPath;
 	}
+	
+	public boolean getAddUserSchema() {
+		return addUserSchema;
+	}
 
 	/**
 	 * Retrieves the referenced count of target table name
@@ -2561,6 +2567,15 @@ public class MigrationConfiguration {
 	public Sequence getTargetSerialSchema(String target) {
 		for (Sequence seq : this.targetSequences) {
 			if (seq.getName().equals(target)) {
+				return seq;
+			}
+		}
+		return null;
+	}
+	
+	public Sequence getTargetSerialSchema(String owner, String target) {
+		for (Sequence seq : this.targetSequences) {
+			if (seq.getName().equals(target) && seq.getOwner().equals(owner)) {
 				return seq;
 			}
 		}
@@ -3456,6 +3471,10 @@ public class MigrationConfiguration {
 			return;
 		}
 		this.targetLOBRootPath = this.targetLOBRootPath + "/";
+	}
+	
+	public void setAddUserSchema(boolean addSchema) {
+		this.addUserSchema = addSchema;
 	}
 
 	public void setTargetSchemaFileName(String targetSchemaFileName) {

@@ -1,11 +1,13 @@
 
 package com.cubrid.cubridmigration.ui.wizard.page;
 
+import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.log4j.Logger;
 import org.eclipse.jface.dialogs.PageChangedEvent;
 import org.eclipse.jface.dialogs.PageChangingEvent;
 import org.eclipse.jface.viewers.CellEditor;
@@ -16,12 +18,10 @@ import org.eclipse.jface.viewers.IStructuredContentProvider;
 import org.eclipse.jface.viewers.ITableLabelProvider;
 import org.eclipse.jface.viewers.TableLayout;
 import org.eclipse.jface.viewers.TableViewer;
+import org.eclipse.jface.viewers.TextCellEditor;
 import org.eclipse.jface.viewers.Viewer;
-import org.eclipse.jface.viewers.ViewerCell;
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Image;
-import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Composite;
@@ -29,19 +29,22 @@ import org.eclipse.swt.widgets.Group;
 import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.swt.widgets.TableItem;
 
+import com.cubrid.common.ui.swt.Resources;
 import com.cubrid.common.ui.swt.table.celleditor.EditableComboBoxCellEditor;
 import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
+import com.cubrid.cubridmigration.core.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.dbobject.Catalog;
 import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
-import com.cubrid.cubridmigration.ui.MigrationUIPlugin;
 import com.cubrid.cubridmigration.ui.message.Messages;
 import com.cubrid.cubridmigration.ui.wizard.MigrationWizard;
 
 public class SchemaMappingPage extends MigrationWizardPage {
 	
-	public static final Image CHECK_IMAGE = MigrationUIPlugin.getImage("icon/checked.gif");
-	public static final Image UNCHECK_IMAGE = MigrationUIPlugin.getImage("icon/unchecked.gif");
+	private Logger logger = LogUtil.getLogger(SchemaMappingPage.class);
+	
+	private MigrationWizard wizard = null;
+	private MigrationConfiguration config = null;
 	
 	private String[] propertyList = {Messages.sourceSchema, Messages.msgSrcType, Messages.targetSchema, Messages.msgTarType};
 	private String[] tarSchemaNameArray =  null;
@@ -55,16 +58,17 @@ public class SchemaMappingPage extends MigrationWizardPage {
 	ArrayList<String> tarSchemaNameList = new ArrayList<String>();
 	
 	ArrayList<SrcTable> srcTableList = new ArrayList<SrcTable>();
-	ArrayList<TarTable> tarTableList = new ArrayList<TarTable>();
 	
 	List<Schema> srcSchemaList = null;
 	List<Schema> tarSchemaList = null;
 	
 	EditableComboBoxCellEditor comboEditor = null;
 	
+	TextCellEditor textEditor = null;
+	
 	private boolean firstVisible = true;
 	
-	private long createTime = 0;
+	private CUBRIDVersionUtils verUtil = CUBRIDVersionUtils.getInstance();
 	
 	protected class SrcTable {
 		private boolean isSelected;
@@ -111,24 +115,6 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			return tarDBType;
 		}
 
-		public void setTarDBType(String tarDBType) {
-			this.tarDBType = tarDBType;
-		}
-	}
-	
-	protected class TarTable {
-		private String tarSchema;
-		private String tarDBType;
-
-		public String getTarSchema() {
-			return tarSchema;
-		}
-		public void setTarSchema(String tarSchema) {
-			this.tarSchema = tarSchema;
-		}
-		public String getTarDBType() {
-			return tarDBType;
-		}
 		public void setTarDBType(String tarDBType) {
 			this.tarDBType = tarDBType;
 		}
@@ -244,9 +230,7 @@ public class SchemaMappingPage extends MigrationWizardPage {
 	
 	private void getSchemaValues() {
 		
-		MigrationWizard mw = getMigrationWizard();
-		
-		Catalog catalog = mw.getTargetCatalog();
+		Catalog catalog = wizard.getTargetCatalog();
 		
 		List<Schema> schemaList = catalog.getSchemas();
 
@@ -266,11 +250,14 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			System.arraycopy(schemaNameArray, 0, tarSchemaNameArray, 1, schemaNameArray.length);
 		} else {
 			tarSchemaNameArray = new String[] {catalog.getConnectionParameters().getConUser()};
-			CUBRIDVersionUtils.getInstance().setTargetMultiSchema(false);
+			
+			CUBRIDVersionUtils verUtil = CUBRIDVersionUtils.getInstance();
+			
+			verUtil.setTargetMultiSchema(false);
 		}
 	}
 	
-	private void setEditor() {
+	private void setOnlineEditor() {
 		comboEditor = new EditableComboBoxCellEditor(srcTableViewer.getTable(), tarSchemaNameArray);
 		
 		CellEditor[] editors = new CellEditor[] {
@@ -361,15 +348,99 @@ public class SchemaMappingPage extends MigrationWizardPage {
 		});
 	}
 	
-	private void setData() {
-		final MigrationWizard mw = getMigrationWizard();
-		srcCatalog = mw.getSourceCatalog();
-		tarCatalog = mw.getTargetCatalog();
+	private void setOfflineEditor() {
+		textEditor = new TextCellEditor(srcTableViewer.getTable());
 		
-		setSchemaData();
+		CellEditor[] editors = new CellEditor[] {
+				null,
+				null,
+				textEditor,
+				null
+		};
+		
+		srcTableViewer.setCellEditors(editors);
+		srcTableViewer.setCellModifier(new ICellModifier() {
+
+			@Override
+			public boolean canModify(Object element, String property) {
+				if (property.equals(propertyList[2])) {
+					return true;
+				} else {
+					return false;
+				}
+			}
+
+			@Override
+			public Object getValue(Object element, String property) {
+				if (property.equals(propertyList[2])) {
+					return ((SrcTable) element).getTarSchema();
+				} else {
+					return null;
+				}
+			}
+
+			@Override
+			public void modify(Object element, String property, Object value) {
+				TableItem tabItem = (TableItem) element;
+				SrcTable srcTable = (SrcTable) tabItem.getData();
+				
+				if (property.equals(propertyList[2])) {
+					srcTable.setTarSchema((String) value);
+				}
+				srcTableViewer.refresh();
+			}
+		});
 	}
 	
-	private void setSchemaData() {
+	private void setOfflineSchemaMappingPage() {
+		setOfflineData();
+		if (CUBRIDVersionUtils.getInstance().addUserSchema()) {
+			setOfflineEditor();			
+		}
+	}
+	
+	private void setOfflineData() {
+		srcCatalog = wizard.getSourceCatalog();
+		
+		setOfflineSchemaData();
+	}
+	
+	private void setOfflineSchemaData() {
+		srcSchemaList = srcCatalog.getSchemas();
+		
+		for (Schema schema : srcSchemaList) {
+			SrcTable srcTable = new SrcTable();
+			srcTable.setSrcDBType(srcCatalog.getDatabaseType().getName());
+			srcTable.setSrcSchema(schema.getName());
+			
+			if (CUBRIDVersionUtils.getInstance().addUserSchema()) {
+				srcTable.setTarSchema("");
+			} else {
+				srcTable.setTarSchema("(user schema disabled)");
+			}
+			srcTable.setTarDBType("CUBRID dump");
+			
+			srcTableList.add(srcTable);
+		}
+	}
+	
+	private void setOnlineSchemaMappingPage() {
+		setOnlineData();
+		getSchemaValues();
+		
+		if (CUBRIDVersionUtils.getInstance().isTargetMultiSchema()) {
+			setOnlineEditor();
+		}
+	}
+	
+	private void setOnlineData() {
+		srcCatalog = wizard.getSourceCatalog();
+		tarCatalog = wizard.getTargetCatalog();
+		
+		setOnlineSchemaData();
+	}
+	
+	private void setOnlineSchemaData() {
 		//TODO: extract schema names and DB type
 		srcSchemaList = srcCatalog.getSchemas();
 		tarSchemaList = tarCatalog.getSchemas();
@@ -379,11 +450,10 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			srcTable.setSrcDBType(srcCatalog.getDatabaseType().getName());
 			srcTable.setSrcSchema(schema.getName());
 			
-			
-			if (tarCatalog.isDBAGroup()) {
+			if (tarCatalog.isDBAGroup() && verUtil.isTargetVersionOver112()) {
 				srcTable.setTarSchema(schema.getName());
 			} else {
-				srcTable.setTarSchema(tarCatalog.getConnectionParameters().getConUser().toUpperCase());
+				srcTable.setTarSchema(tarCatalog.getName());
 			}
 			srcTable.setTarDBType(tarCatalog.getDatabaseType().getName());
 			
@@ -394,35 +464,22 @@ public class SchemaMappingPage extends MigrationWizardPage {
 	@Override
 	protected void afterShowCurrentPage(PageChangedEvent event) {
 		// TODO need reset when select different target connection
+		wizard = getMigrationWizard();
+		config = wizard.getMigrationConfig();
+		
 		if (firstVisible) {
 			setTitle(Messages.schemaMappingPageTitle);
 			setDescription(Messages.schemaMappingPageDescription);
 			
-			setData();
-			getSchemaValues();
-			setEditor();
-			
+			if (!config.targetIsOnline()) {
+				setOfflineSchemaMappingPage();
+			} else {
+				setOnlineSchemaMappingPage();
+			}
 			srcTableViewer.setInput(srcTableList);
 			
 			firstVisible = false;
 		}
-	}
-	
-	protected boolean isTargetChanged() {
-		MigrationWizard mw = getMigrationWizard();
-		Catalog catalog = mw.getTargetCatalog();
-		
-		long newCreatedTime = catalog.getCreateTime();
-		
-		if (createTime == 0) {
-			createTime = newCreatedTime;
-			return false;
-		}
-		if (createTime != newCreatedTime) {
-			return true;
-		}
-		
-		return false;
 	}
 	
 	@Override
@@ -437,8 +494,6 @@ public class SchemaMappingPage extends MigrationWizardPage {
 	//TODO: return false only
 	private boolean saveSelectedTable() {
 		
-		MigrationConfiguration cfg = getMigrationWizard().getMigrationConfig();
-		
 		for (SrcTable srcTable : srcTableList) {
 			for (Schema schema : srcSchemaList) {
 				if (srcTable.getSrcSchema().equals(schema.getName())) {
@@ -446,18 +501,20 @@ public class SchemaMappingPage extends MigrationWizardPage {
 					
 					
 					//CMT112 println is test code. will remove later or pr version
-					System.out.println("src schema : " + srcTable.getSrcSchema());
-					System.out.println("tar schema : " + srcTable.getTarSchema());
+					logger.info("src schema : " + srcTable.getSrcSchema());
+					logger.info("tar schema : " + srcTable.getTarSchema());
 					
 					if (!tarSchemaNameList.contains(srcTable.getTarSchema())) {
-						System.out.println("need to create a new schema for target db");
+						logger.info("need to create a new schema for target db");
 						
 						schema.setNewTargetSchema(true);
 						
-						cfg.setNewTargetSchema(srcTable.getTarSchema());
+						config.setNewTargetSchema(srcTable.getTarSchema());
+					} else {
+						schema.setNewTargetSchema(false);
 					}
 					
-					System.out.println("------------------------------------------");
+					logger.info("------------------------------------------");
 					
 				}
 			}

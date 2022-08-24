@@ -39,6 +39,9 @@ public class CUBRIDVersionUtils {
 	private boolean isSourceVersionOver112 = false;
 	private boolean isTargetVersionOver112 = false;
 	
+	private boolean addUserSchema = false;
+
+	
 	private CUBRIDVersionUtils () {}
 	
 	public CUBRIDVersionUtils (String version) {
@@ -86,6 +89,7 @@ public class CUBRIDVersionUtils {
 	
 	public void setTargetMultiSchema(boolean isMultiSchema) {
 		try {
+			addUserSchema = isMultiSchema;
 			hasMultiSchema.set(1, isMultiSchema);
 		} catch (IndexOutOfBoundsException e) {
 			hasMultiSchema.set(0, isMultiSchema);
@@ -93,7 +97,11 @@ public class CUBRIDVersionUtils {
 	}
 	
 	public boolean isSourceMultiSchema() {
-		return hasMultiSchema.get(0);
+		try {
+			return hasMultiSchema.get(0);
+		} catch (IndexOutOfBoundsException e) {
+			return addUserSchema;
+		}
 	}
 	
 	public boolean isSourceVersionOver112(Object object){
@@ -144,5 +152,13 @@ public class CUBRIDVersionUtils {
 		Integer versionNumber = Integer.parseInt(stringVersion);
 		
 		return versionNumber >= 112;
+	}
+	
+	public boolean addUserSchema() {
+		return addUserSchema;
+	}
+
+	public void setAddUserSchema(boolean addOfflineUserSchema) {
+		this.addUserSchema = addOfflineUserSchema;
 	}
 }
