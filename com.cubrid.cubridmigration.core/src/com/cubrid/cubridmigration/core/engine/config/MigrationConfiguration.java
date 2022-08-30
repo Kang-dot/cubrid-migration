@@ -526,6 +526,7 @@ public class MigrationConfiguration {
 					sc.setTarget(getTargetName(allSequencesCountMap, seq.getOwner(), seq.getName()));
 					sc.setCreate(false);
 					sc.setReplace(false);
+					sc.setComment(seq.getComment());
 				}
 				tempList.add(sc);
 				Sequence tseq = getTargetSerialSchema(sc.getTarget());
@@ -533,6 +534,7 @@ public class MigrationConfiguration {
 					tseq = (Sequence) seq.clone();
 					tseq.setName(sc.getTarget());
 					tseq.setDDL(cubridddlUtil.getSequenceDDL(tseq));
+					tseq.setComment(seq.getComment());
 				}
 				tempSerials.add(tseq);
 			}
@@ -911,6 +913,7 @@ public class MigrationConfiguration {
 				sic.setReplace(isReset);
 				sic.setParent(setc);
 				sic.setTarget(StringUtils.lowerCase(idx.getName()));
+				sic.setComment(idx.getComment());
 			}
 			sics.add(sic);
 
@@ -926,6 +929,10 @@ public class MigrationConfiguration {
 				tidx.setReverse(idx.isReverse());
 				tidx.setUnique(idx.isUnique());
 				tidx.setIndexType(idx.getIndexType());
+			}
+			
+			if (idx.getComment() != null) {
+				tidx.setComment(idx.getComment());
 			}
 			tidxs.add(tidx);
 		}
@@ -1004,12 +1011,14 @@ public class MigrationConfiguration {
 					sc.setTarget(getTargetName(allViewsCountMap, vw.getOwner(), vw.getName()));
 					sc.setCreate(false);
 					sc.setReplace(false);
+					sc.setComment(vw.getComment());
 				}
 				tempSCList.add(sc);
 				View tVw = getTargetViewSchema(sc.getTarget());
 				if (tVw == null) {
 					tVw = getDBTransformHelper().getCloneView(vw, this);
 					tVw.setName(sc.getTarget());
+					tVw.setComment(vw.getComment());
 				}
 				tempTarList.add(tVw);
 			}

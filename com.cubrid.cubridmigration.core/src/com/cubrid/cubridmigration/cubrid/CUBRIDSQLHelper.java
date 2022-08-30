@@ -297,6 +297,10 @@ public class CUBRIDSQLHelper extends
 
 		bf.append(")");
 
+		if (index.getComment() != null) {
+			bf.append(" COMMENT " + "\'" + index.getComment() + "\'");
+		}
+		
 		return bf.toString();
 	}
 
@@ -370,6 +374,10 @@ public class CUBRIDSQLHelper extends
 			buf.append(" NOCACHE");
 		} else {
 			buf.append(" CACHE ").append(String.valueOf(sequence.getCacheSize()));
+		}
+		
+		if (sequence.getComment() != null) {
+			buf.append(" COMMENT " + "\'" + sequence.getComment() + "\'");
 		}
 
 		return buf.toString();
@@ -597,7 +605,20 @@ public class CUBRIDSQLHelper extends
 		//		}
 		//
 		//		sb.append(")").append(NEWLINE);
-		sb.append("    AS ");
+		
+		List<Column> columnList = view.getColumns();
+		
+		for (Column col : columnList) {
+			if (col.getComment() != null) {
+				sb.append("(");
+				sb.append(setViewColumnComment(view));
+				sb.append(")");
+				break;
+			}
+		}
+			
+		sb.append(" AS ");
+		
 		List<String> queryListData = new ArrayList<String>();
 		queryListData.add(view.getQuerySpec());
 
@@ -610,8 +631,31 @@ public class CUBRIDSQLHelper extends
 			}
 		}
 
+		if (view.getComment() != null) {
+			sb.append(" COMMENT = \'" + view.getComment() + "\'");
+		}
+		
 		sb.append(END_LINE_CHAR);
 		return sb.toString();
+	}
+	
+	private String setViewColumnComment(View view) {
+		StringBuffer sb = new StringBuffer();
+		
+		List<Column> columnList = view.getColumns();
+		
+		for (Column col : columnList) {
+			if (col.getComment() != null) {
+				sb.append(col.getName());
+				sb.append(" COMMENT ");
+				sb.append(col.getComment());
+				sb.append(", ");
+			}
+		}
+		
+		String viewColumnComment = sb.toString().replaceAll(",\\s$", "");
+		
+		return viewColumnComment;
 	}
 
 	/**

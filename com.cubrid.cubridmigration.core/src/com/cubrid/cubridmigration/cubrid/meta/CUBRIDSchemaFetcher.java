@@ -87,8 +87,8 @@ import com.cubrid.cubridmigration.cubrid.dbobj.CUBRIDTrigger;
 public final class CUBRIDSchemaFetcher extends
 		AbstractJDBCSchemaFetcher {
 
-	private static final String GET_ALLSERIALINFO_SQL = "select name,owner.name,current_val,"
-			+ "increment_val,max_val,min_val,cyclic,started,class_name,att_name,cached_num "
+	private static final String GET_ALLSERIALINFO_SQL = "select name, owner.name, current_val, "
+			+ "increment_val, max_val,min_val, cyclic, started, class_name, att_name, cached_num, comment "
 			+ "from db_serial where class_name is NULL";
 
 	private static final Map<String, String> STD_TYPE_MAPPING = new HashMap<String, String>();
@@ -98,7 +98,8 @@ public final class CUBRIDSchemaFetcher extends
 
 	private static final String ALL_TABLE_COLUMN = "SELECT a.class_name, a.attr_name, a.attr_type, a.from_class_name,"
 			+ " a.data_type, a.prec, a.scale, a.is_nullable,"
-			+ " a.domain_class_name, a.default_value, a.def_order,c.is_reuse_oid_class, c.comment"
+			+ " a.domain_class_name, a.default_value, a.def_order, a.comment as column_comment,"
+			+ " c.is_reuse_oid_class, c.comment as table_comment"
 			+ " FROM db_attribute a , db_class c"
 			+ " WHERE c.class_name = a.class_name AND c.class_type='CLASS' AND c.is_system_class='NO' and from_class_name is NULL"
 			+ " ORDER BY a.class_name, c.class_type, a.def_order";
@@ -280,7 +281,7 @@ public final class CUBRIDSchemaFetcher extends
 				sqlFuncCol = "";
 			}
 
-			String sql = "SELECT a.class_name, a.index_name, a.is_unique, b.key_attr_name, b.asc_desc "
+			String sql = "SELECT a.class_name, a.index_name, a.is_unique, a.comment, b.key_attr_name, b.asc_desc "
 					+ sqlFuncCol
 					+ " FROM db_index a, db_index_key b, db_class c "
 					+ "WHERE a.class_name=b.class_name AND c.class_type='CLASS' "
@@ -310,6 +311,8 @@ public final class CUBRIDSchemaFetcher extends
 
 				boolean isUnique = isYes(rs.getString("is_unique"));
 
+				String comment = rs.getString("comment");
+				
 				String indexFindKey = tableName + "-" + indexName;
 				Index index = indexes.get(indexFindKey);
 				if (index == null) {
@@ -317,6 +320,7 @@ public final class CUBRIDSchemaFetcher extends
 					index.setName(indexName);
 					//index.setIndexType(indexType);
 					index.setUnique(isUnique);
+					index.setComment(comment);
 					table.addIndex(index);
 					indexes.put(indexFindKey, index);
 				}
@@ -427,7 +431,7 @@ public final class CUBRIDSchemaFetcher extends
 
 			while (rs.next()) {
 				String tableName = rs.getString("class_name");
-				String comment = rs.getString("comment");
+				String tableComment = rs.getString("table_comment");
 				if (tableName == null) {
 					continue;
 				}
@@ -439,7 +443,7 @@ public final class CUBRIDSchemaFetcher extends
 				if (table == null) {
 					table = factory.createTable();
 					table.setName(tableName);
-					table.setComment(comment);
+					table.setComment(tableComment);
 					table.setReuseOID(isYes(rs.getString("is_reuse_oid_class")));
 					schema.addTable(table);
 					tables.put(tableName, table);
@@ -451,10 +455,12 @@ public final class CUBRIDSchemaFetcher extends
 				String domainClassName = rs.getString("domain_class_name");
 				Integer prec = rs.getInt("prec");
 				Integer scale = rs.getInt("scale");
+				String columnComment = rs.getString("column_comment");
 
 				Column column = factory.createColumn();
 				column.setName(attrName);
 				column.setShared(isShared);
+				column.setComment(columnComment);
 				if (cubDTHelper.isObjectType(dataTypeInView)) {
 					column.setDataType(domainClassName);
 				} else {
@@ -691,6 +697,7 @@ public final class CUBRIDSchemaFetcher extends
 				String maxVal = rs.getString("max_val");
 				String minVal = rs.getString("min_val");
 				String cyclic = rs.getString("cyclic");
+				String comment = rs.getString("comment");
 				int cachedNum = rs.getInt("cached_num");
 
 				boolean isCycle = "1".equals(cyclic);
@@ -698,6 +705,7 @@ public final class CUBRIDSchemaFetcher extends
 				Sequence sequence = factory.createSequence(sequenceName, new BigInteger(minVal),
 						new BigInteger(maxVal), new BigInteger(incrementVal), new BigInteger(
 								currentVal), isCycle, cachedNum);
+				sequence.setComment(comment);
 				String ddl = CUBRIDSQLHelper.getInstance(null).getSequenceDDL(sequence);
 				sequence.setDDL(ddl);
 
@@ -856,7 +864,7 @@ public final class CUBRIDSchemaFetcher extends
 			// get table information
 			String sql = "SELECT a.attr_name, a.attr_type, a.from_class_name,"
 					+ " a.data_type, a.prec, a.scale, a.is_nullable, "
-					+ " a.domain_class_name, a.default_value, a.def_order"
+					+ " a.domain_class_name, a.default_value, a.def_order, a.comment"
 					+ " FROM db_attribute a WHERE a.class_name=? " + " order by a.def_order";
 
 			preStmt = conn.prepareStatement(sql);
@@ -873,6 +881,8 @@ public final class CUBRIDSchemaFetcher extends
 				String isNull = rs.getString("is_nullable");
 
 				String defaultValue = rs.getString("default_value");
+				
+				String comment = rs.getString("comment");
 
 				Column column = factory.createColumn();
 				column.setName(attrName);
@@ -887,6 +897,11 @@ public final class CUBRIDSchemaFetcher extends
 
 				column.setPrecision(prec);
 				column.setScale(scale);
+				
+				if (comment != null) {
+					comment = "\'" + comment + "\'";
+				}
+				column.setComment(comment);
 				table.addColumn(column);
 
 				if (isYes(isNull)) { // null
@@ -1086,7 +1101,7 @@ public final class CUBRIDSchemaFetcher extends
 			IBuildSchemaFilter filter) throws SQLException {
 		super.buildViews(conn, catalog, schema, filter);
 		//Set view's DDL
-		String sqlStr = "SELECT vclass_def FROM db_vclass WHERE vclass_name=?";
+		String sqlStr = "SELECT vclass_def, comment FROM db_vclass WHERE vclass_name=?";
 		PreparedStatement stmt = conn.prepareStatement(sqlStr);
 		try {
 			for (View view : schema.getViews()) {
@@ -1095,8 +1110,11 @@ public final class CUBRIDSchemaFetcher extends
 					stmt.setString(1, view.getName());
 					rs = stmt.executeQuery();
 					while (rs.next()) {
-						String querySpec = rs.getString(1);
+						String querySpec = rs.getString("vclass_def");
+						String comment = rs.getString("comment");
+						
 						view.setQuerySpec(querySpec);
+						view.setComment(comment);
 					}
 				} finally {
 					Closer.close(rs);

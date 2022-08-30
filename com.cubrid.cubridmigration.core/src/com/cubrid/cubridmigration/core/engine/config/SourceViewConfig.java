@@ -39,6 +39,7 @@ public class SourceViewConfig extends
 		SourceConfig {
 
 	private String owner;
+	private String comment;
 
 	public String getOwner() {
 		return owner;
@@ -48,4 +49,12 @@ public class SourceViewConfig extends
 		this.owner = owner;
 	}
 
+	public String getComment() {
+		return comment;
+	}
+
+	public void setComment(String comment) {
+		this.comment = comment;
+	}
+	
 }

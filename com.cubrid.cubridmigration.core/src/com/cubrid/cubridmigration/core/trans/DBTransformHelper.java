@@ -267,6 +267,12 @@ public abstract class DBTransformHelper {
 		}
 		//Update the shown data type finally.
 		cubCol.setShownDataType(cubDTHelper.getShownDataType(cubCol));
+		
+		//cubrid -> cubrid view column comment migration
+		if (srcCol.getComment() != null) {
+			cubCol.setComment(srcCol.getComment());
+		}
+		
 		return cubCol;
 	}
 
