@@ -672,7 +672,7 @@ public class SelectDestinationPage extends
 			new Label(fileRepositoryContainer, SWT.NONE);
 			btnAddUserSchema = new Button(fileRepositoryContainer, SWT.CHECK);
 			btnAddUserSchema.setLayoutData(new GridData(SWT.LEFT, SWT.CENTER, false, false));
-			btnAddUserSchema.setText("add user schema");
+			btnAddUserSchema.setText(Messages.btnAddUserSchema);
 
 		}
 

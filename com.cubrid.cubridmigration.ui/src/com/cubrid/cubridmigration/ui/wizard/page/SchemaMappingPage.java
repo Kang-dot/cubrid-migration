@@ -8,6 +8,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.log4j.Logger;
+import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.dialogs.PageChangedEvent;
 import org.eclipse.jface.dialogs.PageChangingEvent;
 import org.eclipse.jface.viewers.CellEditor;
@@ -253,7 +254,7 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			
 			CUBRIDVersionUtils verUtil = CUBRIDVersionUtils.getInstance();
 			
-			verUtil.setTargetMultiSchema(false);
+ 			verUtil.setTargetMultiSchema(false);
 		}
 	}
 	
@@ -453,7 +454,7 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			if (tarCatalog.isDBAGroup() && verUtil.isTargetVersionOver112()) {
 				srcTable.setTarSchema(schema.getName());
 			} else {
-				srcTable.setTarSchema(tarCatalog.getName());
+				srcTable.setTarSchema(tarCatalog.getSchemas().get(0).getName());
 			}
 			srcTable.setTarDBType(tarCatalog.getDatabaseType().getName());
 			
@@ -497,18 +498,22 @@ public class SchemaMappingPage extends MigrationWizardPage {
 		for (SrcTable srcTable : srcTableList) {
 			for (Schema schema : srcSchemaList) {
 				if (srcTable.getSrcSchema().equals(schema.getName())) {
+					
+					if (srcTable.getTarSchema().isEmpty()) {
+						//CMT112 need alert dialog
+						MessageDialog.openError(getShell(), Messages.msgError, Messages.msgErrEmptySchemaName);
+						
+						return false;
+					}
+					
 					schema.setTargetSchemaName(srcTable.getTarSchema());
 					
-					
-					//CMT112 println is test code. will remove later or pr version
 					logger.info("src schema : " + srcTable.getSrcSchema());
 					logger.info("tar schema : " + srcTable.getTarSchema());
 					
-					if (!tarSchemaNameList.contains(srcTable.getTarSchema())) {
+					if (!containsIgnoreCase(tarSchemaNameList, srcTable.getTarSchema())) {
 						logger.info("need to create a new schema for target db");
-						
 						schema.setNewTargetSchema(true);
-						
 						config.setNewTargetSchema(srcTable.getTarSchema());
 					} else {
 						schema.setNewTargetSchema(false);
@@ -521,5 +526,15 @@ public class SchemaMappingPage extends MigrationWizardPage {
 		}
 		
 		return true;
+	}
+	
+	private boolean containsIgnoreCase(List<String> stringList, String schemaName) {
+		for (String containSchemaName : stringList) {
+			if (containSchemaName.equalsIgnoreCase(schemaName)) {
+				return true;
+			}
+		}
+		
+		return false;
 	}
 }

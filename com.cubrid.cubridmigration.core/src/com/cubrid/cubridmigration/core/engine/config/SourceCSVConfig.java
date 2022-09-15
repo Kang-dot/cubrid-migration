@@ -52,7 +52,17 @@ public class SourceCSVConfig extends
 	private final List<SourceCSVColumnConfig> columnConfig = new ArrayList<SourceCSVColumnConfig>();
 
 	private List<String[]> previewData = new ArrayList<String[]>();
+	
+	private String targetOwner;
 
+	public String getTargetOwner() {
+		return targetOwner;
+	}
+	
+	public void setTargetOwner(String targetOwner) {
+		this.targetOwner = targetOwner;
+	}
+	
 	public boolean isImportFirstRow() {
 		return importFirstRow;
 	}

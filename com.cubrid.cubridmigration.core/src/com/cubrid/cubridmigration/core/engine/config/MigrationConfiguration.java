@@ -538,6 +538,7 @@ public class MigrationConfiguration {
 				if (sc == null) {
 					sc = new SourceSequenceConfig();
 					sc.setOwner(sourceDBSchema.getName());
+					sc.setTargetOwner(sourceDBSchema.getTargetSchemaName());
 					sc.setName(seq.getName());
 					sc.setTarget(getTargetName(allSequencesCountMap, seq.getOwner(), seq.getName()));
 					sc.setCreate(false);
@@ -1020,11 +1021,17 @@ public class MigrationConfiguration {
 		for (Schema sourceDBSchema : schemas) {
 			for (View vw : sourceDBSchema.getViews()) {
 				SourceViewConfig sc = getExpViewCfg(sourceDBSchema.getName(), vw.getName());
+				List<String> referenceTableNameList = new ArrayList<String>();
 				if (sc == null) {
+					for (Table table : sourceDBSchema.getTables()) {
+							referenceTableNameList.add(table.getName());
+					}
 					sc = new SourceViewConfig();
+					sc.setReferenceTableNames(referenceTableNameList);
 					sc.setName(vw.getName());
 					sc.setOwner(vw.getOwner());
 					sc.setTarget(getTargetName(allViewsCountMap, vw.getOwner(), vw.getName()));
+					sc.setTargetOwner(sourceDBSchema.getTargetSchemaName());
 					sc.setCreate(false);
 					sc.setReplace(false);
 				}
@@ -1032,8 +1039,10 @@ public class MigrationConfiguration {
 				View tVw = getTargetViewSchema(sc.getTarget());
 				if (tVw == null) {
 					tVw = getDBTransformHelper().getCloneView(vw, this);
+					tVw.setReferenceTableNames(referenceTableNameList);
 					tVw.setName(sc.getTarget());
 					tVw.setTargetOwner(sourceDBSchema.getTargetSchemaName());
+					tVw.setOwner(vw.getOwner());
 				}
 				tempTarList.add(tVw);
 			}
@@ -2393,7 +2402,6 @@ public class MigrationConfiguration {
 		newTargetSchema = schemaNameList;
 	}
 	
-	//CMT112 target Schema List
 	public List<Schema> getTargetSchemaList() {
 		return targetSchemaList;
 	}

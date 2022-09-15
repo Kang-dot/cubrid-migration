@@ -93,7 +93,6 @@ public class CreateObjectEvent extends
 	 */
 	public String toString() {
 		StringBuffer sb = new StringBuffer();
-		//CMT112 create Schema;
 		if (dbObject instanceof Schema) {
 			sb.append("Schema[").append(dbObject.getName()).append("]");
 		} else if (dbObject instanceof Table) {

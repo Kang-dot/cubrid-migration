@@ -208,11 +208,18 @@ public class CUBRIDSQLHelper extends
 		bf.append(")");
 
 		String refTable = fk.getReferencedTableName();
+		
+		if (verUtil.isSourceVersionOver112()) {
+			String[] stringArray = refTable.split("\\.");
+			
+ 			refTable = stringArray[1];
+		}
+		
 		bf.append(" REFERENCES ");
 		if (verUtil.addUserSchema() || verUtil.isTargetVersionOver112()) {
-			bf.append(getOwnerNameWithDot(tableOwner));		
+			bf.append(getOwnerNameWithDot(tableOwner));
 		}
-			bf.append(getQuotedObjName(refTable));
+		bf.append(getQuotedObjName(refTable));
 
 		bf.append("(");
 
@@ -586,6 +593,8 @@ public class CUBRIDSQLHelper extends
 	 * @param view View
 	 * @return String
 	 */
+	
+	//CMT112 need to remake this method
 	public String getViewDDL(View view) {
 		if (view == null) {
 			return "";
@@ -631,6 +640,7 @@ public class CUBRIDSQLHelper extends
 		//		sb.append(")").append(NEWLINE);
 		sb.append(" AS ");
 		List<String> queryListData = new ArrayList<String>();
+		
 		queryListData.add(view.getQuerySpec());
 
 		for (int i = 0; i < queryListData.size(); i++) {
@@ -645,6 +655,8 @@ public class CUBRIDSQLHelper extends
 		sb.append(END_LINE_CHAR);
 		return sb.toString();
 	}
+	
+
 
 	/**
 	 * return database object name
@@ -701,10 +713,10 @@ public class CUBRIDSQLHelper extends
 	}
 	
 	public String getOwnerNameWithDot(String tableOwner) {
-		if (tableOwner.isEmpty()) {
+		if (tableOwner == null) {
 			return "";
 		}
 		
-		return tableOwner + ".";
+		return "\"" + tableOwner + "\".";
 	}
 }

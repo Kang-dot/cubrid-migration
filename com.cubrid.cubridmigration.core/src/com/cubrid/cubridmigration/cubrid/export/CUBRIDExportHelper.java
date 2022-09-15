@@ -37,6 +37,9 @@ import java.sql.SQLException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang.StringUtils;
+
+import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.common.Closer;
 import com.cubrid.cubridmigration.core.connection.ConnParameters;
 import com.cubrid.cubridmigration.core.datatype.DataTypeConstant;
@@ -205,6 +208,11 @@ public class CUBRIDExportHelper extends
 	 */
 	protected void addSchemaPrefix(SourceEntryTableConfig setc, StringBuffer buf) {
 		//CUBRID will do nothing here
+		if (CUBRIDVersionUtils.getInstance().isSourceVersionOver112()) {
+			if (StringUtils.isNotBlank(setc.getOwner())) {
+				buf.append(getQuotedObjName(setc.getOwner())).append(".");
+			}
+		}
 	}
 
 	private static final String SERIAL_CURRENT_VALUE_SQL = "select current_val from db_serial where name=?";

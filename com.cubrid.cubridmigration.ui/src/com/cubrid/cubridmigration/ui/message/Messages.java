@@ -53,6 +53,7 @@ public class Messages extends
 	public static String auoCheckUpdate;
 	public static String btnAdd;
 	public static String btnAddFromHDFS;
+	public static String btnAddUserSchema;
 	public static String btnAdvanced;
 	public static String btnAdvancedSettings;
 	public static String btnAgreed;
@@ -519,6 +520,7 @@ public class Messages extends
 	public static String msgErrEmptyMin;
 	public static String msgErrEmptyPartition;
 	public static String msgErrEmptyRefTable;
+	public static String msgErrEmptySchemaName;
 	public static String msgErrEmptyScriptName;
 	public static String msgErrEmptySeparator;
 	public static String msgErrEmptyStartValue;

@@ -42,6 +42,8 @@ public class Trigger extends
 	private static final long serialVersionUID = 8809520800334851871L;
 	private String name;
 	protected String triggerDDL;
+	private String owner;
+	private String targetOwner;
 
 	public String getName() {
 		return name;
@@ -57,6 +59,22 @@ public class Trigger extends
 
 	public String getDDL() {
 		return triggerDDL;
+	}
+
+	public String getOwner() {
+		return owner;
+	}
+
+	public void setOwner(String owner) {
+		this.owner = owner;
+	}
+
+	public String getTargetOwner() {
+		return targetOwner;
+	}
+
+	public void setTargetOwner(String targetOwner) {
+		this.targetOwner = targetOwner;
 	}
 
 	/**

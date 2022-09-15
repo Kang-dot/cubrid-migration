@@ -89,9 +89,15 @@ import com.cubrid.cubridmigration.cubrid.dbobj.CUBRIDTrigger;
 public final class CUBRIDSchemaFetcher extends
 		AbstractJDBCSchemaFetcher {
 
-	private static final String GET_ALLSERIALINFO_SQL = "select name,owner.name,current_val,"
+	private static final String GET_ALLSERIALINFO_SQL = "select name,current_val,"
 			+ "increment_val,max_val,min_val,cyclic,started,class_name,att_name,cached_num "
 			+ "from db_serial where class_name is NULL";
+	
+	private static final String GET_OWNER_SERIAL_SQL = "select name, owner.name, current_val, "
+			+ "increment_val, max_val, min_val, "
+			+ "cyclic, started, class_name, att_name, cached_num " 
+			+ "from db_serial "
+			+ "where class_name is NULL and owner.name = ?";
 
 	private static final Map<String, String> STD_TYPE_MAPPING = new HashMap<String, String>();
 	static {
@@ -155,6 +161,12 @@ public final class CUBRIDSchemaFetcher extends
 		catalog.setCreateSql(null);
 		catalog.setTimezone(TimeZoneUtils.getDefaultID2GMT());
 		List<Schema> schemaList = catalog.getSchemas();
+		
+		if (CUBRIDVersionUtils.getInstance().isCUBRIDSource()) {
+			removeEmptySchema(catalog);
+			CUBRIDVersionUtils.getInstance().setCUBRIDSource(false);
+		}
+		
 		CUBRIDSQLHelper ddlUtil = CUBRIDSQLHelper.getInstance(null);
 
 		for (Schema schema : schemaList) {
@@ -178,6 +190,23 @@ public final class CUBRIDSchemaFetcher extends
 		catalog.setDBAGroup(getPrivilege(conn, catalog));
 		
 		return catalog;
+	}
+	
+	private void removeEmptySchema(Catalog catalog) {
+		List<Schema> schemaList = catalog.getSchemas();
+		List<Schema> removeSchema = new ArrayList<Schema>();
+		
+		for (Schema schema : schemaList) {
+			List<Table> tableList = schema.getTables();
+			List<View> viewList = schema.getViews();
+			List<Sequence> sequenceList = schema.getSequenceList();
+			
+			if (tableList.isEmpty() && viewList.isEmpty() && sequenceList.isEmpty()) {
+				removeSchema.add(schema);
+			}
+		}
+		
+		catalog.removeSchema(removeSchema);
 	}
 
 	/**
@@ -565,7 +594,7 @@ public final class CUBRIDSchemaFetcher extends
 		PreparedStatement stmt = null;
 		try {
 			stmt = conn.prepareStatement(ALL_TABLE_COLUMN_WITH_USERNAME);
-			stmt.setString(1, schema.getName());
+			stmt.setString(1, schema.getName().toUpperCase());
 			rs = stmt.executeQuery();
 			
 			while (rs.next()) {
@@ -1074,9 +1103,17 @@ public final class CUBRIDSchemaFetcher extends
 		List<Sequence> sequenceList = new ArrayList<Sequence>();
 
 		try {
-
-			stmt = conn.createStatement();
-			rs = stmt.executeQuery(GET_ALLSERIALINFO_SQL);
+			if (CUBRIDVersionUtils.getInstance().isVersionOver112(catalog)) {
+				
+				PreparedStatement pstmt = conn.prepareStatement(GET_OWNER_SERIAL_SQL);
+				pstmt.setString(1, schema.getName().toUpperCase());
+				
+				rs = pstmt.executeQuery();
+			} else {
+				stmt = conn.createStatement();
+				rs = stmt.executeQuery(GET_ALLSERIALINFO_SQL);				
+			}
+			
 			while (rs.next()) {
 				String sequenceName = rs.getString("name");
 				if (filter != null && filter.filter(schema.getName(), sequenceName)) {
@@ -1088,6 +1125,11 @@ public final class CUBRIDSchemaFetcher extends
 				String minVal = rs.getString("min_val");
 				String cyclic = rs.getString("cyclic");
 				int cachedNum = rs.getInt("cached_num");
+				String owner = null;
+				
+				if (CUBRIDVersionUtils.getInstance().isVersionOver112(catalog)) {
+					owner = rs.getString("owner.name");
+				}
 
 				boolean isCycle = "1".equals(cyclic);
 
@@ -1096,6 +1138,7 @@ public final class CUBRIDSchemaFetcher extends
 								currentVal), isCycle, cachedNum);
 				String ddl = CUBRIDSQLHelper.getInstance(null).getSequenceDDL(sequence);
 				sequence.setDDL(ddl);
+				sequence.setOwner(owner);
 
 				sequenceList.add(sequence);
 
@@ -1468,7 +1511,7 @@ public final class CUBRIDSchemaFetcher extends
 		String user = conn.getMetaData().getUserName();
 		if (null != user && "DBA".equalsIgnoreCase(user)) {
 			// get triggers
-			List<Trigger> trigList = getAllTriggers(conn);
+			List<Trigger> trigList = getAllTriggers(conn, schema);
 			schema.setTriggers(trigList);
 		}
 	}
@@ -1498,7 +1541,12 @@ public final class CUBRIDSchemaFetcher extends
 	 */
 	protected void buildViews(Connection conn, Catalog catalog, Schema schema,
 			IBuildSchemaFilter filter) throws SQLException {
-		super.buildViews(conn, catalog, schema, filter);
+		if (CUBRIDVersionUtils.getInstance().isVersionOver112(catalog)){
+			buildCUBRIDViews(conn, catalog, schema, filter);
+		} else {
+			super.buildViews(conn, catalog, schema, filter);			
+		}
+		
 		//Set view's DDL
 		String sqlStr = "SELECT vclass_def FROM db_vclass WHERE vclass_name=?";
 		PreparedStatement stmt = conn.prepareStatement(sqlStr);
@@ -1521,6 +1569,62 @@ public final class CUBRIDSchemaFetcher extends
 		}
 	}
 
+	protected void buildCUBRIDViews(final Connection conn, final Catalog catalog, final Schema schema,
+			IBuildSchemaFilter filter) throws SQLException {
+
+		List<String> viewNameList = getCUBRIDAllViewNames(conn, catalog, schema);
+		for (String viewName : viewNameList) {
+			String viewOwnerName = null;
+			String viewPureName = null;
+			if (viewName != null && viewName.indexOf(".") != -1) {
+				String[] arr = viewName.split("\\.");
+				viewOwnerName = arr[0];
+				viewPureName = arr[1];
+			} else {
+				viewOwnerName = schema.getName();
+				viewPureName = viewName;
+			}
+			if (filter != null && filter.filter(schema.getName(), viewPureName)) {
+				continue;
+			}
+			if (!isViewNameAccepted(viewName)) {
+				continue;
+			}
+
+			final View view = factory.createView();
+			view.setOwner(viewOwnerName);
+			view.setName(viewPureName);
+			view.setSchema(schema);
+			schema.addView(view);
+			buildViewColumns(conn, catalog, schema, view);
+		}
+	}
+	
+	protected List<String> getCUBRIDAllViewNames(final Connection conn, final Catalog catalog, final Schema schema)
+			throws SQLException {
+		ResultSet rs = null; //NOPMD
+		PreparedStatement pstmt = null;
+		List<String> viewNameList = new ArrayList<String>();
+		try {
+			String sql = "SELECT CLASS_NAME " +
+					"FROM DB_CLASS " +
+					"WHERE CLASS_TYPE = 'VCLASS' AND IS_SYSTEM_CLASS = 'NO' AND OWNER_NAME = ?";
+			
+			pstmt = conn.prepareStatement(sql);
+			
+			pstmt.setString(1, schema.getName().toUpperCase());
+			
+			rs = pstmt.executeQuery();
+			
+			while (rs.next()) {
+				viewNameList.add(rs.getString("CLASS_NAME"));
+			}
+			return viewNameList;
+		} finally {
+			Closer.close(rs);
+		}
+	}
+	
 	/**
 	 * creatSPDDL
 	 * 
@@ -1673,22 +1777,38 @@ public final class CUBRIDSchemaFetcher extends
 	 * @return all triggers
 	 * @throws SQLException e
 	 */
-	private List<Trigger> getAllTriggers(Connection conn) throws SQLException {
+	private List<Trigger> getAllTriggers(Connection conn, Schema schema) throws SQLException {
 		PreparedStatement stmt = null;
 		ResultSet rs = null; //NOPMD
 		try {
 			String sqlStr = "SELECT T.TARGET_CLASS_NAME,NAME,STATUS,PRIORITY,EVENT,"
 					+ "TARGET_CLASS,TARGET_ATTRIBUTE,CONDITION_TYPE,CONDITION,CONDITION_TIME,"
+					+ "TRIG.ACTION_TYPE,ACTION_DEFINITION,TRIG.ACTION_TIME,TRIG.UNIQUE_NAME "
+					+ "FROM DB_CLASS C,DB_TRIGGER TRIG,DB_TRIG T "
+					+ "WHERE TRIG.NAME=T.TRIGGER_NAME AND T.TARGET_CLASS_NAME=C.CLASS_NAME(+) "
+					+ "AND C.IS_SYSTEM_CLASS='NO' ORDER BY NAME";
+			
+			String prevSqlStr =  "SELECT T.TARGET_CLASS_NAME,NAME,STATUS,PRIORITY,EVENT,"
+					+ "TARGET_CLASS,TARGET_ATTRIBUTE,CONDITION_TYPE,CONDITION,CONDITION_TIME,"
 					+ "TRIG.ACTION_TYPE,ACTION_DEFINITION,TRIG.ACTION_TIME "
 					+ "FROM DB_CLASS C,DB_TRIGGER TRIG,DB_TRIG T "
 					+ "WHERE TRIG.NAME=T.TRIGGER_NAME AND T.TARGET_CLASS_NAME=C.CLASS_NAME(+) "
 					+ "AND C.IS_SYSTEM_CLASS='NO' ORDER BY NAME";
-			stmt = conn.prepareStatement(sqlStr);
+			
+			if (CUBRIDVersionUtils.getInstance().isVersionOver112(schema.getCatalog())) {
+				stmt = conn.prepareStatement(sqlStr);				
+			} else {
+				stmt = conn.prepareStatement(prevSqlStr);
+			}
+			
 			rs = stmt.executeQuery();
 			List<Trigger> triggers = new ArrayList<Trigger>();
 
 			while (rs.next()) {
 				CUBRIDTrigger trigger = (CUBRIDTrigger) factory.createTrigger();
+				if (!rs.getString("UNIQUE_NAME").equalsIgnoreCase(schema.getName() + "." + rs.getString("NAME"))) {
+					continue;
+				}
 				trigger.setTargetClass(rs.getString("TARGET_CLASS_NAME"));
 				trigger.setName(rs.getString("NAME"));
 				trigger.setStatus(rs.getString("STATUS"));
@@ -1700,7 +1820,7 @@ public final class CUBRIDSchemaFetcher extends
 				trigger.setActionType(rs.getString("ACTION_TYPE"));
 				trigger.setActionDefintion(rs.getString("ACTION_DEFINITION"));
 				trigger.setActionTime(rs.getString("ACTION_TIME"));
-
+				
 				triggers.add(trigger);
 			}
 
@@ -1831,6 +1951,10 @@ public final class CUBRIDSchemaFetcher extends
 			return super.getSchemaNames(conn, cp);
 		}
 		
+		if (!getPrivilege(conn, cp)) {
+			return getUserSchemaNames(conn, cp);
+		}
+		
 		
 		List<String> schemaNames = new ArrayList<String>();
 		PreparedStatement stmt = null;
@@ -1876,6 +2000,51 @@ public final class CUBRIDSchemaFetcher extends
 		}
 		
 		return schemaNames;
+	}
+	
+	protected List<String> getUserSchemaNames(final Connection conn, ConnParameters cp) throws SQLException {
+		List<String> result = new ArrayList<String>();
+		//		if (StringUtils.isNotBlank(cp.getSchema())) {
+		//			result.add(cp.getSchema());
+		//		} else {
+		//			result.add(cp.getDbName());
+		//		}
+		result.add(cp.getConUser());
+		return result;
+	}
+	
+	private boolean getPrivilege(Connection conn, ConnParameters conParams) {
+		PreparedStatement stmt = null;
+		ResultSet rs = null;
+		
+		try {
+			String user = conParams.getConUser();
+			
+			if (user.equalsIgnoreCase("DBA")) {
+				return true;
+			}
+			
+			String sql = "SELECT u.name FROM db_user AS u, TABLE(u.direct_groups) AS g(x) WHERE x.name='DBA'";
+			
+			stmt = conn.prepareStatement(sql);
+			rs = stmt.executeQuery();
+			
+			while (rs.next()) {
+				String dbaGroup = rs.getString(1);
+				
+				if (user.equalsIgnoreCase("DBA") || dbaGroup.equalsIgnoreCase(user)) {
+					return true;
+				}
+			}
+			
+			return false;
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			Closer.close(rs);
+			Closer.close(stmt);
+		}
+		return false;
 	}
 	
 	private boolean getPrivilege(Connection conn, Catalog catalog) {

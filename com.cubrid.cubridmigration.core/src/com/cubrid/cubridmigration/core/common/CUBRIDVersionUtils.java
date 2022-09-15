@@ -34,6 +34,8 @@ import java.util.ArrayList;
 import com.cubrid.cubridmigration.core.dbobject.Catalog;
 
 public class CUBRIDVersionUtils {
+	private boolean isCUBRIDSource = false;
+	
 	private ArrayList<Boolean> hasMultiSchema = new ArrayList<Boolean>();
 	
 	private boolean isSourceVersionOver112 = false;
@@ -54,6 +56,14 @@ public class CUBRIDVersionUtils {
 	
 	public static CUBRIDVersionUtils getInstance() {
 		return UtilHelper.VERSION_UTIL;
+	}
+	
+	public boolean isCUBRIDSource() {
+		return isCUBRIDSource;
+	}
+
+	public void setCUBRIDSource(boolean isCUBRIDSource) {
+		this.isCUBRIDSource = isCUBRIDSource;
 	}
 	
 	public boolean isSourceVersionOver112() {
@@ -90,6 +100,10 @@ public class CUBRIDVersionUtils {
 	public void setTargetMultiSchema(boolean isMultiSchema) {
 		try {
 			addUserSchema = isMultiSchema;
+			if (hasMultiSchema.size() == 0) {
+				hasMultiSchema.add(isMultiSchema);
+			}
+			
 			hasMultiSchema.set(1, isMultiSchema);
 		} catch (IndexOutOfBoundsException e) {
 			hasMultiSchema.set(0, isMultiSchema);

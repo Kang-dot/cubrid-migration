@@ -167,6 +167,10 @@ public class Catalog implements
 			addSchema(schema);
 		}
 	}
+	
+	public void removeSchema(List<Schema> removeSchema) {
+		schemas.removeAll(removeSchema);
+	}
 
 	/**
 	 * return schema by a given name
@@ -180,7 +184,7 @@ public class Catalog implements
 			if (schemaName == null) {
 				return schema;
 			}
-			if (schemaName.equals(schema.getName())) {
+			if (schemaName.equalsIgnoreCase(schema.getName())) {
 				return schema;
 			}
 		}

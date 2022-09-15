@@ -54,6 +54,7 @@ import org.apache.log4j.Logger;
 import au.com.bytecode.opencsv.CSVWriter;
 
 import com.cubrid.cubridmigration.core.common.CUBRIDIOUtils;
+import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.common.PathUtils;
 import com.cubrid.cubridmigration.core.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.dbobject.Column;
@@ -98,6 +99,8 @@ public abstract class OfflineImporter extends
 	protected static final int FILE_DATA_LOB = 3;
 
 	protected MigrationConfiguration config;
+	
+	private CUBRIDVersionUtils verUtil = CUBRIDVersionUtils.getInstance();
 
 	//LoadDB command can not support multi-thread. LoadDBFile task runs in this pool.
 	protected final IRunnableExecutor cmTaskService;
@@ -484,7 +487,15 @@ public abstract class OfflineImporter extends
 	 * @return String header
 	 */
 	protected String getDataFileHeader(SourceTableConfig table) {
-		StringBuffer sb = new StringBuffer("%class [").append(table.getTarget()).append("] (");
+		StringBuffer sb = new StringBuffer("%class ");
+		
+		
+		if (verUtil.addUserSchema()) {
+			sb.append("[" + table.getTargetOwner() + "]");
+			sb.append(".");
+		}
+		
+		sb.append("[").append(table.getTarget()).append("] (");
 		String spliter = "";
 		for (SourceColumnConfig col : table.getColumnConfigList()) {
 			sb.append(spliter).append("[").append(col.getTarget()).append("]");

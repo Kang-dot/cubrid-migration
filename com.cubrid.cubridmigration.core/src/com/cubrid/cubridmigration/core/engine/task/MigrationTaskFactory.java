@@ -269,7 +269,6 @@ public class MigrationTaskFactory {
 		task.setMigrationEventHandler(context.getEventsHandler());
 	}
 	
-	//CMT112 import task
 	public ImportTask createImportSchemaTask(Schema dummySchema) {
 		SchemaImportTask task = new SchemaImportTask(dummySchema);
 		initImportTask(task);

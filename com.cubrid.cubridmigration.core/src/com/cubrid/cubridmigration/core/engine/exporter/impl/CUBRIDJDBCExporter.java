@@ -41,6 +41,7 @@ import java.util.Locale;
 
 import org.apache.commons.lang.StringUtils;
 
+import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.common.Closer;
 import com.cubrid.cubridmigration.core.dbobject.PK;
 import com.cubrid.cubridmigration.core.dbobject.Record;
@@ -316,7 +317,16 @@ public class CUBRIDJDBCExporter extends
 			sql.append(" MIN(").append(qtCols[i]).append(") AS M").append(i).append(", MAX(").append(
 					qtCols[i]).append(")AS A").append(i).append(",");
 		}
-		sql.append(" COUNT(*)AS C FROM \"").append(setc.getName() + "\" ");
+		sql.append(" COUNT(*)AS C FROM ");
+		
+		if (CUBRIDVersionUtils.getInstance().isSourceVersionOver112()) {
+			sql.append("\"");
+			sql.append(setc.getOwner());
+			sql.append("\"");
+			sql.append(".");
+		}
+		
+		sql.append("\"" + setc.getName() + "\" ");
 		if (StringUtils.isNotBlank(setc.getCondition())) {
 			if (!setc.getCondition().trim().toLowerCase(Locale.US).startsWith("WHERE")) {
 				sql.append("WHERE");

@@ -164,9 +164,7 @@ public class ObjectMappingPage extends
 							&& util.hasDuplicatedObjects(sourceCatalog)
 							&& !CUBRIDVersionUtils.getInstance().isTargetMultiSchema()) {
 						showDetailMessageDialog(sourceCatalog);
-					} else if (CUBRIDVersionUtils.getInstance().isSourceMultiSchema()) {
-						showAlertMessageDialog(sourceCatalog);
-					}
+					} 
 			}
 
 			showLobInfo(sourceCatalog);
@@ -211,12 +209,6 @@ public class ObjectMappingPage extends
 		if (StringUtils.isNotEmpty(lobInfo)) {
 			DetailMessageDialog.openInfo(getShell(), Messages.titleLobInformation, Messages.msgLobInformation, lobInfo);
 		}
-	}
-	
-	private void showAlertMessageDialog(Catalog sourceCatalog) {
-		String detailMessage = getDetailMessage(sourceCatalog, 0);
-		//TODO: need define message
-		DetailMessageDialog.openWarning(getShell(), "Multi Schema warning", "source has duplicate table", detailMessage);
 	}
 
 	private void showDetailMessageDialog(Catalog sourceCatalog) {
