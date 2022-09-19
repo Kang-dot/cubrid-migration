@@ -698,6 +698,7 @@ public class Messages extends
 	public static String targetDBPageOfflineTargetFileRepositoryErrMsg;
 	public static String targetPKColumns;
 	public static String targetSchema;
+	public static String targetSchemaDes;
 	public static String tblColSourceColumn;
 	public static String tblColSourceTable;
 	public static String tblColTargetColumn;

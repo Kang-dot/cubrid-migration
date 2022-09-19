@@ -186,11 +186,11 @@ public class GeneralObjMappingView extends
 		});
 
 		TableViewerBuilder tvBuilder = new TableViewerBuilder();
-		tvBuilder.setColumnNames(new String[] {Messages.tabTitleSourceTable, "Target Schema", 
+		tvBuilder.setColumnNames(new String[] {Messages.tabTitleSourceTable, Messages.targetSchema, 
 				Messages.tabTitleTargetTable, Messages.tabTitleData, Messages.tabTitleCondition,
 				Messages.lblCreate, Messages.lblReplace, Messages.tabTitlePK});
 		tvBuilder.setColumnWidths(new int[] {160, 80, 160, 70, 150, 80, 90, 60});
-		tvBuilder.setColumnTooltips(new String[] {Messages.tabTitleSourceTableDes, "Target Schema", 
+		tvBuilder.setColumnTooltips(new String[] {Messages.tabTitleSourceTableDes, Messages.tabTitleTargetTableDes, 
 				Messages.tabTitleTargetTableDes, Messages.tabTitleDataDes,
 				Messages.tabTitleConditionDes, Messages.lblCreateDes, Messages.lblReplaceDes,
 				Messages.tabTitlePKDes});

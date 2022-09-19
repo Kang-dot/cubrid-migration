@@ -1129,6 +1129,8 @@ public final class CUBRIDSchemaFetcher extends
 				
 				if (CUBRIDVersionUtils.getInstance().isVersionOver112(catalog)) {
 					owner = rs.getString("owner.name");
+				} else {
+					owner = schema.getName();
 				}
 
 				boolean isCycle = "1".equals(cyclic);

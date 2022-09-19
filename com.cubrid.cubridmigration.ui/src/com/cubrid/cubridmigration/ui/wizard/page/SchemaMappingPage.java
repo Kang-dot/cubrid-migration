@@ -333,7 +333,7 @@ public class SchemaMappingPage extends MigrationWizardPage {
 				
 				//CMT112 : need alert window 
 				
-				Pattern pattern = Pattern.compile("^[a-zA-Z_]*$");
+				Pattern pattern = Pattern.compile("^[a-zA-Z_0-9]*$");
 				Matcher matcher = pattern.matcher(schemaName);
 				
 				boolean isValid = matcher.matches();
