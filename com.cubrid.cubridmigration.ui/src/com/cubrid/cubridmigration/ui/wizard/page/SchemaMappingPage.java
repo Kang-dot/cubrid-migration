@@ -231,26 +231,37 @@ public class SchemaMappingPage extends MigrationWizardPage {
 	
 	private void getSchemaValues() {
 		
-		Catalog catalog = wizard.getTargetCatalog();
+		Catalog targetCatalog = wizard.getTargetCatalog();
+		Catalog sourceCatalog = wizard.getSourceCatalog();
 		
-		List<Schema> schemaList = catalog.getSchemas();
+		List<Schema> targetSchemaList = targetCatalog.getSchemas();
+		List<Schema> sourceSchemaList = sourceCatalog.getSchemas();
+		
 
 		tarSchemaNameList = new ArrayList<String>();
+		ArrayList<String> dropDownSchemaList = new ArrayList<String>();
 		
-		for (Schema schema : schemaList) {
+		
+		for (Schema schema : targetSchemaList) {
 			tarSchemaNameList.add(schema.getName());
+			dropDownSchemaList.add(schema.getName());
 		}
 		
-		if (catalog.isDBAGroup()) {
-			String[] schemaNameArray = tarSchemaNameList.toArray(new String[] {});
+		for (Schema schema : sourceSchemaList) {
+			dropDownSchemaList.add(schema.getName());
+		}
+		
+		if (targetCatalog.isDBAGroup()) {
+//			String[] schemaNameArray = dropDownSchemaList.toArray(new String[] {});
+//			tarSchemaNameArray = new String[schemaNameArray.length + 1];
+//			tarSchemaNameArray[0] = "";
+//			tarSchemaNameArray = new String[schemaNameArray.length];
 			
-			tarSchemaNameArray = new String[schemaNameArray.length + 1];
+			tarSchemaNameArray = dropDownSchemaList.toArray(new String[] {});
 			
-			tarSchemaNameArray[0] = "";
-			
-			System.arraycopy(schemaNameArray, 0, tarSchemaNameArray, 1, schemaNameArray.length);
+//			System.arraycopy(schemaNameArray, 0, tarSchemaNameArray, 0, schemaNameArray.length);
 		} else {
-			tarSchemaNameArray = new String[] {catalog.getConnectionParameters().getConUser()};
+			tarSchemaNameArray = new String[] {targetCatalog.getConnectionParameters().getConUser()};
 			
 			CUBRIDVersionUtils verUtil = CUBRIDVersionUtils.getInstance();
 			
@@ -321,31 +332,34 @@ public class SchemaMappingPage extends MigrationWizardPage {
 				return 0;
 			}
 			public String returnValue(int index, TableItem item) {
-				
 				if (index != -1) {
 					return tarSchemaNameArray[index];
 				} else {
-					return isSchemaNameValid(comboEditor.getInputString());
+					String testValue = item.getText();
+					
+					MessageDialog.openError(getShell(), Messages.msgError, "This schema does not exist");
+					
+					return testValue;
 				}
 			}
 			
-			public String isSchemaNameValid(String schemaName) {
-				
-				//CMT112 : need alert window 
-				
-				Pattern pattern = Pattern.compile("^[a-zA-Z_0-9]*$");
-				Matcher matcher = pattern.matcher(schemaName);
-				
-				boolean isValid = matcher.matches();
-				
-				System.out.println(isValid);
-				
-				if (isValid){
-					return schemaName;
-				} else {
-					return "";
-				}
-			}
+//			public String isSchemaNameValid(String schemaName) {
+//				
+//				//CMT112 : need alert window 
+//				
+//				Pattern pattern = Pattern.compile("^[a-zA-Z_0-9]*$");
+//				Matcher matcher = pattern.matcher(schemaName);
+//				
+//				boolean isValid = matcher.matches();
+//				
+//				System.out.println(isValid);
+//				
+//				if (isValid){
+//					return schemaName;
+//				} else {
+//					return "";
+//				}
+//			}
 		});
 	}
 	

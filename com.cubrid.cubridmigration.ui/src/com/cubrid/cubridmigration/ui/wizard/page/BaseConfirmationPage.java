@@ -262,7 +262,14 @@ public class BaseConfirmationPage extends MigrationWizardPage {
 			if (!setc.isCreateNewTable()) {
 				continue;
 			}
-			Table tarTbl = cfg.getTargetTableSchema(setc.getTargetOwner(), setc.getTarget());
+			Table tarTbl = null;
+			
+			if (setc.getTargetOwner() == null) {
+				tarTbl = cfg.getTargetTableSchema(setc.getTarget());
+			} else {
+				tarTbl = cfg.getTargetTableSchema(setc.getTargetOwner(), setc.getTarget());
+			}
+			
 			if (tarTbl == null || tables.contains(tarTbl)) {
 				continue;
 			}

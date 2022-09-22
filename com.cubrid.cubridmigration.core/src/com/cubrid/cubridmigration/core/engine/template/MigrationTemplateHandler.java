@@ -423,6 +423,7 @@ public final class MigrationTemplateHandler extends
 		seq.setCurrentValue(new BigInteger(attributes.getValue(TemplateTags.ATTR_START)));
 		seq.setCycleFlag(getBoolean(attributes.getValue(TemplateTags.ATTR_CYCLE), false));
 		seq.setNoCache(!getBoolean(attributes.getValue(TemplateTags.ATTR_CACHE), true));
+		seq.setOwner(attributes.getValue(TemplateTags.ATTR_OWNER));
 		if (!seq.isNoCache()) {
 			final String cs = attributes.getValue(TemplateTags.ATTR_CACHE_SIZE);
 			seq.setCacheSize(cs == null ? 2 : Integer.parseInt(cs));
@@ -445,6 +446,8 @@ public final class MigrationTemplateHandler extends
 		targetTable = new Table();
 		targetTable.setName(attributes.getValue(TemplateTags.ATTR_NAME));
 		targetTable.setReuseOID(getBoolean(attributes.getValue(TemplateTags.ATTR_REUSE_OID), false));
+		targetTable.setOwner(attributes.getValue(TemplateTags.ATTR_OWNER));
+		targetTable.setTargetOwner(attributes.getValue(TemplateTags.ATTR_TARGET_OWNER));
 		config.addTargetTableSchema(targetTable);
 	}
 
@@ -455,8 +458,10 @@ public final class MigrationTemplateHandler extends
 	 */
 	private void parseTargetView(Attributes attributes) {
 		targetView = new View();
+		targetView.setOwner(attributes.getValue(TemplateTags.ATTR_OWNER));
+		targetView.setTargetOwner(attributes.getValue(TemplateTags.ATTR_OWNER));
 		config.addTargetViewSchema(targetView);
-		targetView.setName(attributes.getValue(TemplateTags.ATTR_NAME));
+ 		targetView.setName(attributes.getValue(TemplateTags.ATTR_NAME));
 	}
 
 	/**
@@ -591,6 +596,7 @@ public final class MigrationTemplateHandler extends
 			srcTableCfg.setSqlBefore(attributes.getValue(TemplateTags.ATTR_BEFORE_SQL));
 			srcTableCfg.setSqlAfter(attributes.getValue(TemplateTags.ATTR_AFTER_SQL));
 			srcTableCfg.setOwner(attributes.getValue(TemplateTags.ATTR_OWNER));
+			srcTableCfg.setTargetOwner(attributes.getValue(TemplateTags.ATTR_TARGET_OWNER));
 
 			SourceEntryTableConfig setc = ((SourceEntryTableConfig) srcTableCfg);
 			setc.setCreatePartition(getBoolean(attributes.getValue(TemplateTags.ATTR_PARTITION),

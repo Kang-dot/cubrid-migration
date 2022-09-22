@@ -300,6 +300,8 @@ public final class MigrationTemplateParser {
 		for (View tt : targetViews) {
 			Element view = createElement(document, views, TemplateTags.TAG_VIEW);
 			view.setAttribute(TemplateTags.ATTR_NAME, tt.getName());
+			//CMT112 script control. add owner in view
+			view.setAttribute(TemplateTags.ATTR_OWNER, tt.getTargetOwner());
 			Element viewQuerySQL = createElement(document, view, TemplateTags.TAG_VIEWQUERYSQL);
 			viewQuerySQL.setTextContent(tt.getQuerySpec());
 			Element createViewSQL = createElement(document, view, TemplateTags.TAG_CREATEVIEWSQL);
@@ -339,6 +341,8 @@ public final class MigrationTemplateParser {
 		Element sequences = createElement(document, target, TemplateTags.TAG_SEQUENCES);
 		for (Sequence sc : targetSerials) {
 			Element sequence = createElement(document, sequences, TemplateTags.TAG_SEQUENCE);
+			//CMT112 script control. add owner in sequence
+			sequence.setAttribute(TemplateTags.ATTR_OWNER, sc.getTargetOwner());
 			sequence.setAttribute(TemplateTags.ATTR_NAME, sc.getName());
 			sequence.setAttribute(TemplateTags.ATTR_START, String.valueOf(sc.getCurrentValue()));
 			sequence.setAttribute(TemplateTags.ATTR_NO_MAX, getBooleanString(sc.isNoMaxValue()));
@@ -381,6 +385,8 @@ public final class MigrationTemplateParser {
 		for (Table targetTable : targetTables) {
 			Element table = createElement(document, tables, TemplateTags.TAG_TABLE);
 			table.setAttribute(TemplateTags.ATTR_NAME, targetTable.getName());
+			//CMT112 script control. add owner in table
+			table.setAttribute(TemplateTags.ATTR_OWNER, targetTable.getOwner());
 			table.setAttribute(TemplateTags.ATTR_REUSE_OID,
 					getBooleanString(targetTable.isReuseOID()));
 
@@ -726,6 +732,8 @@ public final class MigrationTemplateParser {
 		List<SourceEntryTableConfig> exportEntryTables = config.getExpEntryTableCfg();
 		for (SourceEntryTableConfig setc : exportEntryTables) {
 			Element tbe = createElement(document, tables, TemplateTags.TAG_TABLE);
+			//CMT112 source table targetOwner
+			tbe.setAttribute(TemplateTags.ATTR_TARGET_OWNER, setc.getTargetOwner());
 			tbe.setAttribute(TemplateTags.ATTR_NAME, setc.getName());
 			tbe.setAttribute(TemplateTags.ATTR_CREATE, getBooleanString(setc.isCreateNewTable()));
 			tbe.setAttribute(TemplateTags.ATTR_REPLACE, getBooleanString(setc.isReplace()));

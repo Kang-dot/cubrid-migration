@@ -52,6 +52,7 @@ public final class TemplateTags {
 	public static final String ATTR_CYCLE = "cycle";
 	public static final String ATTR_DB_TYPE = "db_type";
 	public static final String ATTR_DBA_PASSWORD = "dba_password";
+	public static final String ATTR_DB_VERSION = "db_version";
 	public static final String ATTR_DEFAULT = "default";
 	public static final String ATTR_DRIVER = "driver";
 	public static final String ATTR_EXPORT_THREAD = "export_thread";
@@ -94,6 +95,7 @@ public final class TemplateTags {
 	public static final String ATTR_START = "start";
 	public static final String ATTR_SUB_TYPE = "sub_type";
 	public static final String ATTR_TARGET = "target";
+	public static final String ATTR_TARGET_OWNER = "target_owner";
 	public static final String ATTR_TIMEZONE = "timezone";
 	public static final String ATTR_TYPE = "type";
 	public static final String ATTR_UNIQUE = "unique";
