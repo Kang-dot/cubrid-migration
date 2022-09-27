@@ -197,6 +197,12 @@ public abstract class AbstractJDBCSchemaFetcher implements
 		final Schema schema = factory.createSchema();
 		schema.setName(schemaName);
 		catalog.addSchema(schema);
+		
+		if (schema.getName().equalsIgnoreCase(catalog.getConnectionParameters().getConUser())) {
+			schema.setGrantorSchema(false);
+		} else {
+			schema.setGrantorSchema(true);
+		}
 
 		// Get Tables
 		try {

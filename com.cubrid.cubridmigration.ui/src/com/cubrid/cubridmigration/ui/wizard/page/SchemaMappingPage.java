@@ -1,11 +1,8 @@
 
 package com.cubrid.cubridmigration.ui.wizard.page;
 
-import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.apache.log4j.Logger;
 import org.eclipse.jface.dialogs.MessageDialog;
@@ -22,15 +19,16 @@ import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.jface.viewers.TextCellEditor;
 import org.eclipse.jface.viewers.Viewer;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Group;
 import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.swt.widgets.TableItem;
 
-import com.cubrid.common.ui.swt.Resources;
 import com.cubrid.common.ui.swt.table.celleditor.EditableComboBoxCellEditor;
 import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.common.log.LogUtil;
@@ -47,7 +45,7 @@ public class SchemaMappingPage extends MigrationWizardPage {
 	private MigrationWizard wizard = null;
 	private MigrationConfiguration config = null;
 	
-	private String[] propertyList = {Messages.sourceSchema, Messages.msgSrcType, Messages.targetSchema, Messages.msgTarType};
+	private String[] propertyList = {Messages.sourceSchema, Messages.msgNote, Messages.msgSrcType, Messages.targetSchema, Messages.msgTarType};
 	private String[] tarSchemaNameArray =  null;
 	
 	Catalog srcCatalog;
@@ -74,6 +72,8 @@ public class SchemaMappingPage extends MigrationWizardPage {
 	protected class SrcTable {
 		private boolean isSelected;
 		
+		private String note;		
+				
 		private String srcSchema;
 		private String srcDBType;
 
@@ -86,6 +86,22 @@ public class SchemaMappingPage extends MigrationWizardPage {
 		
 		public void setSelected(boolean isSelected) {
 			this.isSelected = isSelected;
+		}
+		
+		public String getNote() {
+			return note;
+		}
+		
+		public void setNote(String note){
+			this.note = note;
+		}
+		
+		public void setNote(boolean note) {
+			if (note == true) {
+				setNote(Messages.msgGrantSchema);
+			} else {
+				setNote(Messages.msgMainSchema);
+			}
 		}
 		
 		public String getSrcSchema() {
@@ -173,12 +189,13 @@ public class SchemaMappingPage extends MigrationWizardPage {
 				case 0:
 					return obj.getSrcSchema();
 				case 1:
-					return obj.getSrcDBType();
+					return obj.getNote();
 				case 2:
-					return obj.getTarSchema();
+					return obj.getSrcDBType();
 				case 3:
+					return obj.getTarSchema();
+				case 4:
 					return obj.getTarDBType();
-					
 				default:
 					return null;
 						
@@ -208,10 +225,11 @@ public class SchemaMappingPage extends MigrationWizardPage {
 		
 		TableLayout tableLayout = new TableLayout();
 		
-		tableLayout.addColumnData(new ColumnWeightData(25, true));
-		tableLayout.addColumnData(new ColumnWeightData(25, true));
-		tableLayout.addColumnData(new ColumnWeightData(25, true));
-		tableLayout.addColumnData(new ColumnWeightData(25, true));
+		tableLayout.addColumnData(new ColumnWeightData(20, true));
+		tableLayout.addColumnData(new ColumnWeightData(13, true));
+		tableLayout.addColumnData(new ColumnWeightData(20, true));
+		tableLayout.addColumnData(new ColumnWeightData(20, true));
+		tableLayout.addColumnData(new ColumnWeightData(20, true));
 		
 		srcTableViewer.getTable().setLayout(tableLayout);
 		srcTableViewer.getTable().setLinesVisible(true);
@@ -221,11 +239,20 @@ public class SchemaMappingPage extends MigrationWizardPage {
 		TableColumn col3 = new TableColumn(srcTableViewer.getTable(), SWT.LEFT);
 		TableColumn col4 = new TableColumn(srcTableViewer.getTable(), SWT.LEFT);
 		TableColumn col5 = new TableColumn(srcTableViewer.getTable(), SWT.LEFT);
+		TableColumn col6 = new TableColumn(srcTableViewer.getTable(), SWT.LEFT);
 		
 		col2.setText(propertyList[0]);
 		col3.setText(propertyList[1]);
 		col4.setText(propertyList[2]);
 		col5.setText(propertyList[3]);
+		col6.setText(propertyList[4]);
+		
+//		Canvas canvas = new Canvas(srcTableViewer.getTable(), SWT.NONE);
+//		canvas.setSize(200, 200);
+//		canvas.setLocation(100, 100);
+//		
+//		GC gc = new GC(canvas);
+//		gc.drawString("sample text", 100, 100);
 		
 	}
 	
@@ -251,6 +278,8 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			dropDownSchemaList.add(schema.getName());
 		}
 		
+		dropDownSchemaList.add(0, Messages.msgDefaultSchema);
+		
 		if (targetCatalog.isDBAGroup()) {
 //			String[] schemaNameArray = dropDownSchemaList.toArray(new String[] {});
 //			tarSchemaNameArray = new String[schemaNameArray.length + 1];
@@ -275,6 +304,7 @@ public class SchemaMappingPage extends MigrationWizardPage {
 		CellEditor[] editors = new CellEditor[] {
 				null,
 				null,
+				null,
 				comboEditor,
 				null
 		};
@@ -293,7 +323,7 @@ public class SchemaMappingPage extends MigrationWizardPage {
 				TableItem tabItem = (TableItem) element;
 				SrcTable srcTable = (SrcTable) tabItem.getData();
 				
-				if (property.equals(propertyList[2])) {
+				if (property.equals(propertyList[3])) {
 					srcTable.setTarSchema(returnValue((Integer) value, tabItem));
 				}
 				
@@ -302,7 +332,7 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			
 			@Override
 			public Object getValue(Object element, String property) {
-				if (property.equals(propertyList[2])) {
+				if (property.equals(propertyList[3])) {
 					return returnIndex(element);
 				} else {
 					return null;
@@ -311,7 +341,7 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			
 			@Override
 			public boolean canModify(Object element, String property) {
-				if (property.equals(propertyList[2])) {
+				if (property.equals(propertyList[3])) {
 					return true;
 				} else {
 					return false;
@@ -369,6 +399,7 @@ public class SchemaMappingPage extends MigrationWizardPage {
 		CellEditor[] editors = new CellEditor[] {
 				null,
 				null,
+				null,
 				textEditor,
 				null
 		};
@@ -378,7 +409,7 @@ public class SchemaMappingPage extends MigrationWizardPage {
 
 			@Override
 			public boolean canModify(Object element, String property) {
-				if (property.equals(propertyList[2])) {
+				if (property.equals(propertyList[3])) {
 					return true;
 				} else {
 					return false;
@@ -387,7 +418,7 @@ public class SchemaMappingPage extends MigrationWizardPage {
 
 			@Override
 			public Object getValue(Object element, String property) {
-				if (property.equals(propertyList[2])) {
+				if (property.equals(propertyList[3])) {
 					return ((SrcTable) element).getTarSchema();
 				} else {
 					return null;
@@ -399,7 +430,7 @@ public class SchemaMappingPage extends MigrationWizardPage {
 				TableItem tabItem = (TableItem) element;
 				SrcTable srcTable = (SrcTable) tabItem.getData();
 				
-				if (property.equals(propertyList[2])) {
+				if (property.equals(propertyList[3])) {
 					srcTable.setTarSchema((String) value);
 				}
 				srcTableViewer.refresh();
@@ -427,15 +458,21 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			SrcTable srcTable = new SrcTable();
 			srcTable.setSrcDBType(srcCatalog.getDatabaseType().getName());
 			srcTable.setSrcSchema(schema.getName());
+			srcTable.setNote(schema.isGrantorSchema());
 			
 			if (CUBRIDVersionUtils.getInstance().addUserSchema()) {
 				srcTable.setTarSchema("");
 			} else {
-				srcTable.setTarSchema("(user schema disabled)");
+				srcTable.setTarSchema(Messages.msgUserSchemaDisable);
 			}
-			srcTable.setTarDBType("CUBRID dump");
 			
-			srcTableList.add(srcTable);
+			srcTable.setTarDBType(Messages.msgCubridDump);
+			
+			if (!schema.isGrantorSchema()) {
+				srcTableList.add(0, srcTable);
+			} else {
+				srcTableList.add(srcTable);
+			}
 		}
 	}
 	
@@ -464,15 +501,21 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			SrcTable srcTable = new SrcTable();
 			srcTable.setSrcDBType(srcCatalog.getDatabaseType().getName());
 			srcTable.setSrcSchema(schema.getName());
+			srcTable.setNote(schema.isGrantorSchema());
 			
 			if (tarCatalog.isDBAGroup() && verUtil.isTargetVersionOver112()) {
-				srcTable.setTarSchema(schema.getName());
+//				srcTable.setTarSchema(schema.getName());
+				srcTable.setTarSchema(Messages.msgDefaultSchema);
 			} else {
 				srcTable.setTarSchema(tarCatalog.getSchemas().get(0).getName());
 			}
 			srcTable.setTarDBType(tarCatalog.getDatabaseType().getName());
 			
-			srcTableList.add(srcTable);
+			if (!schema.isGrantorSchema()) {
+				srcTableList.add(0, srcTable);
+			} else {
+				srcTableList.add(srcTable);
+			}
 		}
 	}
 	
@@ -513,7 +556,7 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			for (Schema schema : srcSchemaList) {
 				if (srcTable.getSrcSchema().equals(schema.getName())) {
 					
-					if (srcTable.getTarSchema().isEmpty()) {
+					if (srcTable.getTarSchema().isEmpty() || srcTable.getTarSchema().equals(Messages.msgDefaultSchema)) {
 						//CMT112 need alert dialog
 						MessageDialog.openError(getShell(), Messages.msgError, Messages.msgErrEmptySchemaName);
 						

@@ -486,11 +486,13 @@ public class Messages extends
 	public static String msgConnectingHDFS;
 	public static String msgConnectSuccess;
 	public static String msgCSVFilesList;
+	public static String msgCubridDump;
 	public static String msgCubridHelpSiteUrl;
 	public static String msgCubridHomePageUrl;
 	public static String msgCubridProjectSiteUrl;
 	public static String msgCUBRIDToolsSiteURL;
 	public static String msgDefault;
+	public static String msgDefaultSchema;
 	public static String msgDestOutputFilesSetting;
 	public static String msgDestOutputFilesSettingDes;
 	public static String msgDestSelectOnlineCUBRIDDB;
@@ -558,6 +560,7 @@ public class Messages extends
 	public static String msgExportScriptSuccess;
 	public static String msgFetchingXMLSchema;
 	public static String msgFile;
+	public static String msgGrantSchema;
 	public static String msgImplicitEstimate;
 	public static String msgInformation;
 	public static String msgInputJDBCURL;
@@ -568,10 +571,12 @@ public class Messages extends
 	public static String msgIsUseScriptCatalog;
 	public static String msgLobInformation;
 	public static String msgLowerCaseWarning;
+	public static String msgMainSchema;
 	public static String msgMappingOverride;
 	public static String msgNoIndexColumn;
 	public static String msgNoSQLImported;
 	public static String msgNotAccomplished;
+	public static String msgNote;
 	public static String msgOOMWarning;
 	public static String msgOpenReportNow;
 	public static String msgParsingCSVFiles;
@@ -606,6 +611,7 @@ public class Messages extends
 	public static String msgTitleImportSQL;
 	public static String msgToggleExitConfirm;
 	public static String msgTTLocateSourceTable;
+	public static String msgUserSchemaDisable;
 	public static String msgWarning;
 	public static String msgWarnTableRecreated;
 	public static String msgWizardStep;

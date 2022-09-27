@@ -209,7 +209,7 @@ public class MigrationConfiguration {
 	private String name;
 	//True by default
 	private boolean updateStatistics = true;
-
+	
 	/**
 	 * Add a CSV file to exporting list.
 	 * 
@@ -545,7 +545,12 @@ public class MigrationConfiguration {
 					sc.setReplace(false);
 				}
 				tempList.add(sc);
-				Sequence tseq = getTargetSerialSchema(sc.getOwner(), sc.getTarget());
+				Sequence tseq = null;
+				if (sc.getOwner() == null) {
+					tseq = getTargetSerialSchema(sc.getTarget());
+				} else {
+					tseq = getTargetSerialSchema(sc.getOwner(), sc.getTarget());
+				}
 				if (tseq == null) {
 					tseq = (Sequence) seq.clone();
 					tseq.setName(sc.getTarget());
@@ -559,6 +564,15 @@ public class MigrationConfiguration {
 		expSerials.addAll(tempList);
 		targetSequences.clear();
 		targetSequences.addAll(tempSerials);
+	}
+	
+	private String fkNameCfg(String fkName, String uniqueName) {
+		if (foreignKeyCounter.contains(fkName)) {
+			return uniqueName + "_" + fkName;
+		} else {
+			foreignKeyCounter.add(fkName);
+			return fkName;
+		}
 	}
 	
 	private boolean isDuplicatedObject(Map<String, Integer> allObjectsMap, String objectName) {
@@ -883,6 +897,7 @@ public class MigrationConfiguration {
 			if (tfk == null) {
 				tfk = new FK(tarTable);
 				tfk.setName(sfc.getTarget());
+//				tfk.setName(fkNameCfg(sfc.getName(), tarTable.getName()));
 				
 				String referencedTableName = fk.getReferencedTableName();
 				Map<String, Integer> allTablesCountMap = srcCatalog.getAllTablesCountMap();

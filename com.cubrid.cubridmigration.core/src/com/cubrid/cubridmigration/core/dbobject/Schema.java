@@ -50,6 +50,8 @@ public class Schema extends DBObject implements
 	private String targetSchemaName;
 	
 	private boolean isNewTargetSchema = false;
+	private boolean isGrantorSchema = false;
+	
 	private String createDDL;
 
 	private List<Table> tables = new ArrayList<Table>();
@@ -64,6 +66,14 @@ public class Schema extends DBObject implements
 	}
 	
 	
+	public boolean isGrantorSchema() {
+		return isGrantorSchema;
+	}
+
+	public void setGrantorSchema(boolean isGrantorSchema) {
+		this.isGrantorSchema = isGrantorSchema;
+	}
+
 	public boolean isNewTargetSchema() {
 		return isNewTargetSchema;
 	}
