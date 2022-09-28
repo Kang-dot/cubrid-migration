@@ -60,6 +60,7 @@ public class Index extends
 	//Key is column name, and value is order "A" or "D" or "null"
 	protected Map<String, Boolean> indexColumns = new TreeMap<String, Boolean>(comparator);
 	protected Table table;
+	private String comment;
 
 	private int indexType;
 	protected String ddl;
@@ -289,5 +290,13 @@ public class Index extends
 			}
 		}
 		return false;
+	}
+
+	public String getComment() {
+		return comment;
+	}
+
+	public void setComment(String comment) {
+		this.comment = comment;
 	}
 }

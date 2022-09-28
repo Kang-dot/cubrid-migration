@@ -543,6 +543,7 @@ public class MigrationConfiguration {
 					sc.setTarget(getTargetName(allSequencesCountMap, seq.getOwner(), seq.getName()));
 					sc.setCreate(false);
 					sc.setReplace(false);
+					sc.setComment(seq.getComment());
 				}
 				tempList.add(sc);
 				Sequence tseq = null;
@@ -556,6 +557,7 @@ public class MigrationConfiguration {
 					tseq.setName(sc.getTarget());
 					tseq.setTargetOwner(sourceDBSchema.getTargetSchemaName());
 					tseq.setDDL(cubridddlUtil.getSequenceDDL(tseq));
+					tseq.setComment(seq.getComment());
 				}
 				tempSerials.add(tseq);
 			}
@@ -566,14 +568,14 @@ public class MigrationConfiguration {
 		targetSequences.addAll(tempSerials);
 	}
 	
-	private String fkNameCfg(String fkName, String uniqueName) {
-		if (foreignKeyCounter.contains(fkName)) {
-			return uniqueName + "_" + fkName;
-		} else {
-			foreignKeyCounter.add(fkName);
-			return fkName;
-		}
-	}
+//	private String fkNameCfg(String fkName, String uniqueName) {
+//		if (foreignKeyCounter.contains(fkName)) {
+//			return uniqueName + "_" + fkName;
+//		} else {
+//			foreignKeyCounter.add(fkName);
+//			return fkName;
+//		}
+//	}
 	
 	private boolean isDuplicatedObject(Map<String, Integer> allObjectsMap, String objectName) {
 		if (allObjectsMap == null) {
@@ -950,6 +952,7 @@ public class MigrationConfiguration {
 				sic.setReplace(isReset);
 				sic.setParent(setc);
 				sic.setTarget(StringUtils.lowerCase(idx.getName()));
+				sic.setComment(idx.getComment());
 			}
 			sics.add(sic);
 
@@ -965,6 +968,10 @@ public class MigrationConfiguration {
 				tidx.setReverse(idx.isReverse());
 				tidx.setUnique(idx.isUnique());
 				tidx.setIndexType(idx.getIndexType());
+			}
+			
+			if (idx.getComment() != null) {
+				tidx.setComment(idx.getComment());
 			}
 			tidxs.add(tidx);
 		}
@@ -1049,6 +1056,7 @@ public class MigrationConfiguration {
 					sc.setTargetOwner(sourceDBSchema.getTargetSchemaName());
 					sc.setCreate(false);
 					sc.setReplace(false);
+					sc.setComment(vw.getComment());
 				}
 				tempSCList.add(sc);
 				View tVw = getTargetViewSchema(sc.getTarget());
@@ -1058,6 +1066,7 @@ public class MigrationConfiguration {
 					tVw.setName(sc.getTarget());
 					tVw.setTargetOwner(sourceDBSchema.getTargetSchemaName());
 					tVw.setOwner(vw.getOwner());
+					tVw.setComment(vw.getComment());
 				}
 				tempTarList.add(tVw);
 			}

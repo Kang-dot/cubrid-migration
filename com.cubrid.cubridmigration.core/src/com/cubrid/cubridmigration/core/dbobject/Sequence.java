@@ -56,7 +56,9 @@ public class Sequence extends
 
 	private String ddl;
 	private String owner;
+	private String comment;
 	private String targetOwner;
+
 
 	public Sequence() {
 		//do nothing: for json to bean
@@ -127,6 +129,10 @@ public class Sequence extends
 	public String getObjType() {
 		return OBJ_TYPE_SEQUENCE;
 	}
+	
+	public String getComment() {
+		return comment;
+	}
 
 	public boolean isCycleFlag() {
 		return cycleFlag;
@@ -154,6 +160,10 @@ public class Sequence extends
 
 	public void setCycleFlag(boolean cycleFlag) {
 		this.cycleFlag = cycleFlag;
+	}
+	
+	public void setComment(String comment) {
+		this.comment = comment;
 	}
 
 	public void setDDL(String ddl) {

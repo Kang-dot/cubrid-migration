@@ -39,6 +39,8 @@ package com.cubrid.cubridmigration.core.engine.config;
 public class SourceIndexConfig extends
 		SourceConfig {
 	private SourceEntryTableConfig parent;
+	
+	private String comment;
 
 	/**
 	 * Parent table configuration.
@@ -54,5 +56,13 @@ public class SourceIndexConfig extends
 	 */
 	public void setParent(SourceEntryTableConfig parent) {
 		this.parent = parent;
+	}
+	
+	public String getComment() {
+		return comment;
+	}
+
+	public void setComment(String comment) {
+		this.comment = comment;
 	}
 }

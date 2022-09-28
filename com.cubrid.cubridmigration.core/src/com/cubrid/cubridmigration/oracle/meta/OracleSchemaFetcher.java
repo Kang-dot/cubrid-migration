@@ -147,6 +147,12 @@ public final class OracleSchemaFetcher extends
 
 	private static final String SQL_SHOW_VIEW_QUERYTEXT = "SELECT TEXT from ALL_VIEWS WHERE OWNER=? AND VIEW_NAME=?";
 	
+	private static final String SQL_GET_VIEW_COMMENT = "SELECT COMMENTS FROM ALL_TAB_COMMENTS WHERE OWNER=? AND "
+			+ "TABLE_NAME=?";
+	
+	private static final String SQL_GET_VIEW_COLUMN_COMMENT = "SELECT COMMENTS FROM ALL_COL_COMMENTS WHERE OWNER=? AND "
+			+ "TABLE_NAME=? AND COLUMN_NAME=?";
+	
 	private static final String SQL_GET_TABLE_COMMENT = "SELECT COMMENTS FROM ALL_TAB_COMMENTS WHERE OWNER=? AND "
 			+ "TABLE_NAME=?";
 	
@@ -207,7 +213,10 @@ public final class OracleSchemaFetcher extends
 			for (View view : viewList) {
 				String ddl = getObjectDDL(conn, schema.getName(), view.getName(), OBJECT_TYPE_VIEW);
 				view.setDDL(ddl);
-				view.setQuerySpec(getQueryText(conn, schema.getName(), view.getName()));
+				view.setQuerySpec(getQueryText(conn, schema.getName(), view.getName(), view));
+				
+				String comment = getViewComment(conn, schema.getName(), view.getName());
+				view.setComment(comment);
 			}
 			buildPartitions(conn, catalog, schema);
 		}
@@ -734,6 +743,7 @@ public final class OracleSchemaFetcher extends
 				LOG.debug("[VAR]shownDataType=" + shownDataType + ", column=" + column);
 			}
 			column.setShownDataType(shownDataType);
+			column.setComment(getViewColumnComment(conn, schema.getName(), view.getName(), column));
 		}
 	}
 
@@ -1014,6 +1024,55 @@ public final class OracleSchemaFetcher extends
 		}
 	}
 	
+	private String getViewComment(Connection conn, String schemaName, String viewName) {
+		PreparedStatement pstmt = null;
+		ResultSet rs = null;
+		try {
+			pstmt = conn.prepareStatement(SQL_GET_VIEW_COMMENT);
+			pstmt.setString(1, schemaName);
+			pstmt.setString(2, viewName);
+			
+			rs = pstmt.executeQuery();
+			
+			String comment = "";
+			while (rs.next()) {
+				comment = rs.getString("COMMENTS");
+			}
+			return comment;
+		} catch (Exception e){
+			e.printStackTrace();
+			return null;
+		} finally {
+			Closer.close(rs);
+			Closer.close(pstmt);
+		}
+	}
+	
+	private String getViewColumnComment(Connection conn, String schemaName, String viewName, Column column) {
+		PreparedStatement pstmt = null;
+		ResultSet rs = null;
+		try {
+			pstmt = conn.prepareStatement(SQL_GET_VIEW_COLUMN_COMMENT);
+			pstmt.setString(1, schemaName);
+			pstmt.setString(2, viewName);
+			pstmt.setString(3, column.getName());
+			
+			rs = pstmt.executeQuery();
+			
+			String comment = "";
+			while (rs.next()) {
+				comment = rs.getString("COMMENTS");
+			}
+			return "\'" + comment + "\'";
+		} catch (Exception e){
+			e.printStackTrace();
+			return null;
+		} finally {
+			Closer.close(rs);
+			Closer.close(pstmt);
+		}
+	}
+	
 	/**
 	 * get column comment
 	 * 
@@ -1190,7 +1249,7 @@ public final class OracleSchemaFetcher extends
 	 * @return String
 	 * @throws SQLException e
 	 */
-	private String getQueryText(final Connection conn, String schemaName, final String viewName) throws SQLException {
+	private String getQueryText(final Connection conn, String schemaName, final String viewName, View view) throws SQLException {
 		if (LOG.isDebugEnabled()) {
 			LOG.debug("[IN]getQueryText()");
 		}
@@ -1214,6 +1273,12 @@ public final class OracleSchemaFetcher extends
 			Closer.close(rs);
 			Closer.close(stmt);
 		}
+	}
+	
+	private String setViewColumnComment(String queryString, View view) {
+		
+		
+		return null;
 	}
 
 	//	/**

@@ -218,6 +218,10 @@ public class Oracle2CUBRIDTranformHelper extends
 		}
 		cubCol.setShownDataType(dataTypeHelper.getShownDataType(cubCol));
 		dataTypeHelper.setColumnDataType(cubCol.getShownDataType(), cubCol);
+		
+		if (srcColumn.getComment() != null) {
+			cubCol.setComment(srcColumn.getComment());
+		}
 		return cubCol;
 	}
 

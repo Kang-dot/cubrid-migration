@@ -43,6 +43,7 @@ public class SourceViewConfig extends
 	private String owner;
 	private List<String> referenceTableNames;
 	private String targetOwner;
+	private String comment;
 
 	public String getOwner() {
 		return owner;
@@ -69,4 +70,12 @@ public class SourceViewConfig extends
 	}
 
 
+	public String getComment() {
+		return comment;
+	}
+
+	public void setComment(String comment) {
+		this.comment = comment;
+	}
+	
 }
