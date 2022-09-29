@@ -534,6 +534,7 @@ public final class MigrationTemplateParser {
 			dir.setAttribute(TemplateTags.ATTR_INDEX, config.getTargetIndexFileName());
 			dir.setAttribute(TemplateTags.ATTR_TIMEZONE, config.getTargetFileTimeZone());
 			dir.setAttribute(TemplateTags.ATTR_CHARSET, config.getTargetCharSet());
+			dir.setAttribute(TemplateTags.ATTR_ADD_SCHEMA, config.getOfflineUserSchema().toString());
 
 			dir.setAttribute(TemplateTags.ATTR_ONETABLEONEFILE,
 					getBooleanString(config.isOneTableOneFile()));

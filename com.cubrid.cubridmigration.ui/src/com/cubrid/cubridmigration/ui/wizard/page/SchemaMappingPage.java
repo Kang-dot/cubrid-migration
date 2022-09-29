@@ -308,7 +308,6 @@ public class SchemaMappingPage extends MigrationWizardPage {
 				null
 		};
 		
-		//script run judge
 		if (!tarCatalog.isDBAGroup()) {
 			return;
 		}
@@ -446,12 +445,8 @@ public class SchemaMappingPage extends MigrationWizardPage {
 	
 	private void setOfflineData() {
 		srcCatalog = wizard.getSourceCatalog();
-		
-		setOfflineSchemaData();
-	}
-	
-	private void setOfflineSchemaData() {
 		srcSchemaList = srcCatalog.getSchemas();
+		Map<String, String> scriptSchemaMap = config.getScriptSchemaMapping();
 		
 		for (Schema schema : srcSchemaList) {
 			SrcTable srcTable = new SrcTable();
@@ -459,18 +454,22 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			srcTable.setSrcSchema(schema.getName());
 			srcTable.setNote(schema.isGrantorSchema());
 			
-			if (CUBRIDVersionUtils.getInstance().addUserSchema()) {
-				srcTable.setTarSchema(Messages.msgTypeSchema);
-			} else {
-				srcTable.setTarSchema(Messages.msgUserSchemaDisable);
-			}
-			
 			srcTable.setTarDBType(Messages.msgCubridDump);
-			
 			if (!schema.isGrantorSchema()) {
 				srcTableList.add(0, srcTable);
 			} else {
 				srcTableList.add(srcTable);
+			}
+			
+			if (scriptSchemaMap.size() != 0) {
+				logger.info("offline script schema");
+				srcTable.setTarSchema(scriptSchemaMap.get(srcTable.getSrcSchema().toUpperCase()));
+			} else {
+				if (CUBRIDVersionUtils.getInstance().addUserSchema()) {
+					srcTable.setTarSchema(Messages.msgTypeSchema);
+				} else {
+					srcTable.setTarSchema(Messages.msgUserSchemaDisable);
+				}
 			}
 		}
 	}
@@ -491,7 +490,7 @@ public class SchemaMappingPage extends MigrationWizardPage {
 		//TODO: extract schema names and DB type
 		srcSchemaList = srcCatalog.getSchemas();
 		tarSchemaList = tarCatalog.getSchemas();
-		Map<String, String> scriptSchemaMap = config.getScriptSchemaMapping(); 
+		Map<String, String> scriptSchemaMap = config.getScriptSchemaMapping();
 		
 		for (Schema schema : srcSchemaList) {
 			SrcTable srcTable = new SrcTable();

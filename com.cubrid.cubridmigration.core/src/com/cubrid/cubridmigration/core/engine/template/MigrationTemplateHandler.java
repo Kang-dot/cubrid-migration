@@ -784,6 +784,7 @@ public final class MigrationTemplateHandler extends
 								: value.charAt(0));
 			}
 			config.setTargetLOBRootPath(attr.getValue(TemplateTags.ATTR_LOB_ROOT_DIR));
+			config.setAddUserSchema(Boolean.parseBoolean(attr.getValue(TemplateTags.ATTR_ADD_SCHEMA)));
 		} else if (TemplateTags.TAG_PARTITION_DDL.equals(qName)) {
 			sqlStatement = new StringBuffer();
 		}

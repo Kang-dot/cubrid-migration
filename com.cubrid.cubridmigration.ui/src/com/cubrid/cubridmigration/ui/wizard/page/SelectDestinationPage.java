@@ -673,6 +673,9 @@ public class SelectDestinationPage extends
 			btnAddUserSchema = new Button(fileRepositoryContainer, SWT.CHECK);
 			btnAddUserSchema.setLayoutData(new GridData(SWT.LEFT, SWT.CENTER, false, false));
 			btnAddUserSchema.setText(Messages.btnAddUserSchema);
+			
+			//CMT112 offline add schema button
+			btnAddUserSchema.setSelection(cfg.getAddUserSchema());
 
 		}
 
@@ -805,6 +808,7 @@ public class SelectDestinationPage extends
 			config.setTargetCharSet(cboCharset.getText());
 			
 			CUBRIDVersionUtils.getInstance().setAddUserSchema(btnAddUserSchema.getSelection());
+			config.setOfflineUserSchema(btnAddUserSchema.getSelection());
 			
 			return true;
 		}
