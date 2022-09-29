@@ -284,7 +284,7 @@ public final class MigrationTemplateParser {
 		createTargetSequenceNodes(config, document, target);
 		createTargetViewNodes(config, document, target);
 	}
-
+	
 	/**
 	 * Create Target View Nodes
 	 * 

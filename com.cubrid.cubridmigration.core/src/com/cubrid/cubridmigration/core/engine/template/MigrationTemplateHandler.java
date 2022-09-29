@@ -597,6 +597,8 @@ public final class MigrationTemplateHandler extends
 			srcTableCfg.setSqlAfter(attributes.getValue(TemplateTags.ATTR_AFTER_SQL));
 			srcTableCfg.setOwner(attributes.getValue(TemplateTags.ATTR_OWNER));
 			srcTableCfg.setTargetOwner(attributes.getValue(TemplateTags.ATTR_TARGET_OWNER));
+			config.addScriptSchemaMapping(attributes.getValue(TemplateTags.ATTR_OWNER), 
+					attributes.getValue(TemplateTags.ATTR_TARGET_OWNER));
 
 			SourceEntryTableConfig setc = ((SourceEntryTableConfig) srcTableCfg);
 			setc.setCreatePartition(getBoolean(attributes.getValue(TemplateTags.ATTR_PARTITION),

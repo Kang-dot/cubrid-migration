@@ -3,6 +3,7 @@ package com.cubrid.cubridmigration.ui.wizard.page;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.log4j.Logger;
 import org.eclipse.jface.dialogs.MessageDialog;
@@ -19,11 +20,9 @@ import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.jface.viewers.TextCellEditor;
 import org.eclipse.jface.viewers.Viewer;
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.layout.GridData;
-import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Group;
 import org.eclipse.swt.widgets.TableColumn;
@@ -308,8 +307,8 @@ public class SchemaMappingPage extends MigrationWizardPage {
 				comboEditor,
 				null
 		};
-
 		
+		//script run judge
 		if (!tarCatalog.isDBAGroup()) {
 			return;
 		}
@@ -461,7 +460,7 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			srcTable.setNote(schema.isGrantorSchema());
 			
 			if (CUBRIDVersionUtils.getInstance().addUserSchema()) {
-				srcTable.setTarSchema("");
+				srcTable.setTarSchema(Messages.msgTypeSchema);
 			} else {
 				srcTable.setTarSchema(Messages.msgUserSchemaDisable);
 			}
@@ -489,32 +488,42 @@ public class SchemaMappingPage extends MigrationWizardPage {
 		srcCatalog = wizard.getSourceCatalog();
 		tarCatalog = wizard.getTargetCatalog();
 		
-		setOnlineSchemaData();
-	}
-	
-	private void setOnlineSchemaData() {
 		//TODO: extract schema names and DB type
 		srcSchemaList = srcCatalog.getSchemas();
 		tarSchemaList = tarCatalog.getSchemas();
-				
+		Map<String, String> scriptSchemaMap = config.getScriptSchemaMapping(); 
+		
 		for (Schema schema : srcSchemaList) {
 			SrcTable srcTable = new SrcTable();
 			srcTable.setSrcDBType(srcCatalog.getDatabaseType().getName());
 			srcTable.setSrcSchema(schema.getName());
 			srcTable.setNote(schema.isGrantorSchema());
 			
-			if (tarCatalog.isDBAGroup() && verUtil.isTargetVersionOver112()) {
-//				srcTable.setTarSchema(schema.getName());
-				srcTable.setTarSchema(Messages.msgDefaultSchema);
-			} else {
-				srcTable.setTarSchema(tarCatalog.getSchemas().get(0).getName());
-			}
-			srcTable.setTarDBType(tarCatalog.getDatabaseType().getName());
-			
 			if (!schema.isGrantorSchema()) {
 				srcTableList.add(0, srcTable);
 			} else {
 				srcTableList.add(srcTable);
+			}
+			
+			srcTable.setTarDBType(tarCatalog.getDatabaseType().getName());
+			
+			if (scriptSchemaMap.size() != 0) {
+				logger.info("script schema");
+				
+				if (!verUtil.isSourceVersionOver112() && verUtil.isCUBRIDSource()) {
+					srcTable.setTarSchema(scriptSchemaMap.get(""));
+				} else {
+					srcTable.setTarSchema(scriptSchemaMap.get(srcTable.getSrcSchema().toUpperCase()));
+				}
+				
+				logger.info("srcTable target schema : " + srcTable.getTarSchema());
+			} else {
+				if (tarCatalog.isDBAGroup() && verUtil.isTargetVersionOver112()) {
+	//				srcTable.setTarSchema(schema.getName());
+					srcTable.setTarSchema(Messages.msgDefaultSchema);
+				} else {
+					srcTable.setTarSchema(tarCatalog.getSchemas().get(0).getName());
+				}
 			}
 		}
 	}
@@ -534,6 +543,7 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			} else {
 				setOnlineSchemaMappingPage();
 			}
+			
 			srcTableViewer.setInput(srcTableList);
 			
 			firstVisible = false;
@@ -556,7 +566,7 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			for (Schema schema : srcSchemaList) {
 				if (srcTable.getSrcSchema().equals(schema.getName())) {
 					
-					if (srcTable.getTarSchema().isEmpty() || srcTable.getTarSchema().equals(Messages.msgDefaultSchema)) {
+					if (srcTable.getTarSchema().isEmpty() || isDefaultMessage(srcTable.getTarSchema())) {
 						//CMT112 need alert dialog
 						MessageDialog.openError(getShell(), Messages.msgError, Messages.msgErrEmptySchemaName);
 						
@@ -583,6 +593,15 @@ public class SchemaMappingPage extends MigrationWizardPage {
 		}
 		
 		return true;
+	}
+	
+	private boolean isDefaultMessage(String enterSchema) {
+		if (enterSchema.equals(Messages.msgDefaultSchema) ||
+				enterSchema.equals(Messages.msgTypeSchema)) {
+			return true;
+		}
+		
+		return false;
 	}
 	
 	private boolean containsIgnoreCase(List<String> stringList, String schemaName) {

@@ -210,6 +210,8 @@ public class MigrationConfiguration {
 	//True by default
 	private boolean updateStatistics = true;
 	
+	private Map<String, String> scriptSchemaMapping = new HashMap<String, String>();
+	
 	/**
 	 * Add a CSV file to exporting list.
 	 * 
@@ -3680,4 +3682,21 @@ public class MigrationConfiguration {
 		}
 		return ".sql";
 	}
+	
+	public void clearScriptMapping() {
+		this.scriptSchemaMapping.clear();
+	}
+
+	public Map<String, String> getScriptSchemaMapping() {
+		return scriptSchemaMapping;
+	}
+
+	public void setScriptSchemaMapping(Map<String, String> scriptSchemaMapping) {
+		this.scriptSchemaMapping = scriptSchemaMapping;
+	}
+	
+	public void addScriptSchemaMapping(String source, String target) {
+		scriptSchemaMapping.put(source, target);
+	}
+	
 }

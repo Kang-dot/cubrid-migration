@@ -95,7 +95,7 @@ public final class CUBRIDSchemaFetcher extends
 	
 	private static final String GET_OWNER_SERIAL_SQL = "select name, owner.name, current_val, "
 			+ "increment_val, max_val, min_val, "
-			+ "cyclic, started, class_name, att_name, cached_num " 
+			+ "cyclic, started, class_name, att_name, cached_num, comment " 
 			+ "from db_serial "
 			+ "where class_name is NULL and owner.name = ?";
 
@@ -1109,16 +1109,21 @@ public final class CUBRIDSchemaFetcher extends
 		List<Sequence> sequenceList = new ArrayList<Sequence>();
 
 		try {
-			if (CUBRIDVersionUtils.getInstance().isVersionOver112(catalog)) {
-				
-				PreparedStatement pstmt = conn.prepareStatement(GET_OWNER_SERIAL_SQL);
-				pstmt.setString(1, schema.getName().toUpperCase());
-				
-				rs = pstmt.executeQuery();
-			} else {
-				stmt = conn.createStatement();
-				rs = stmt.executeQuery(GET_ALLSERIALINFO_SQL);				
-			}
+//			if (CUBRIDVersionUtils.getInstance().isVersionOver112(catalog)) {
+//				
+//				PreparedStatement pstmt = conn.prepareStatement(GET_OWNER_SERIAL_SQL);
+//				pstmt.setString(1, schema.getName().toUpperCase());
+//				
+//				rs = pstmt.executeQuery();
+//			} else {
+//				stmt = conn.createStatement();
+//				rs = stmt.executeQuery(GET_ALLSERIALINFO_SQL);				
+//			}
+			
+			PreparedStatement pstmt = conn.prepareStatement(GET_OWNER_SERIAL_SQL);
+			pstmt.setString(1, schema.getName().toUpperCase());
+			
+			rs = pstmt.executeQuery();
 			
 			while (rs.next()) {
 				String sequenceName = rs.getString("name");

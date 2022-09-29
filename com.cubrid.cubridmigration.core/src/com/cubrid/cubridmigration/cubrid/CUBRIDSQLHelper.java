@@ -190,7 +190,7 @@ public class CUBRIDSQLHelper extends
 	 * @param fk FK
 	 * @return String
 	 */
-	private String getFKDDL(String tableOwner, FK fk) {
+	private String getFKDDLConstraint(String tableOwner, String tableName, FK fk) {
 		StringBuffer bf = new StringBuffer();
 
 		bf.append(getQuotedObjName(fk.getName()));
@@ -254,7 +254,7 @@ public class CUBRIDSQLHelper extends
 		}
 		bf.append(getQuotedObjName(tableName));
 		bf.append(" ADD CONSTRAINT ");
-		bf.append(getFKDDL(tableOwner, fk));
+		bf.append(getFKDDLConstraint(tableOwner, tableName, fk));
 		return bf.toString();
 	}
 

@@ -541,6 +541,7 @@ public class Messages extends
 	public static String msgErrInvalidFKName;
 	public static String msgErrInvalidIndexName;
 	public static String msgErrInvalidMigrationHistory;
+	public static String msgErrInvalidSchemaName;
 	public static String msgErrInvalidSerialName;
 	public static String msgErrInvalidTableName;
 	public static String msgErrInvalidViewName;
@@ -611,6 +612,7 @@ public class Messages extends
 	public static String msgTitleImportSQL;
 	public static String msgToggleExitConfirm;
 	public static String msgTTLocateSourceTable;
+	public static String msgTypeSchema;
 	public static String msgUserSchemaDisable;
 	public static String msgWarning;
 	public static String msgWarnTableRecreated;
