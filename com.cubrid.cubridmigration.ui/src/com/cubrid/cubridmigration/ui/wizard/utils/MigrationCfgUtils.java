@@ -69,6 +69,7 @@ import com.cubrid.cubridmigration.core.engine.config.SourceIndexConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceSQLTableConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceSequenceConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceTableConfig;
+import com.cubrid.cubridmigration.core.engine.config.SourceViewConfig;
 import com.cubrid.cubridmigration.core.engine.exception.JDBCConnectErrorException;
 import com.cubrid.cubridmigration.core.mapping.model.VerifyInfo;
 import com.cubrid.cubridmigration.core.sql.SQLHelper;
@@ -345,7 +346,8 @@ public class MigrationCfgUtils {
 			throw new MigrationConfigurationCheckingErrorException("Can't find the table ["
 					+ setc.getTarget() + "] in source database schema.");
 		}
-		Table targetTable = config.getTargetTableSchema(setc.getTarget());
+		//CMT112
+		Table targetTable = config.getTargetTableSchema(setc.getTargetOwner(), setc.getTarget());
 		if (targetTable == null) {
 			throw new MigrationConfigurationCheckingErrorException("Can't find the table ["
 					+ setc.getTarget() + "] in target database schema.");
@@ -483,7 +485,8 @@ public class MigrationCfgUtils {
 			}
 			checkSerialCfg(config, sc);
 			//Check duplicated
-			if (serials.indexOf(sc.getTarget()) >= 0) {
+			//CMT112
+			if (serials.indexOf(sc.getTargetOwner() + "." + sc.getTarget()) >= 0) {
 				throw new MigrationConfigurationCheckingErrorException(Messages.bind(
 						Messages.errDuplicateSequenceName, sc.getTarget()));
 			}
@@ -709,7 +712,8 @@ public class MigrationCfgUtils {
 	 */
 	protected VerifyResultMessages checkViewCfg(MigrationConfiguration config) {
 		List<String> views = new ArrayList<String>();
-		for (SourceConfig sc : config.getExpViewCfg()) {
+		//CMT112 change SourceConfig -> SourceViewConfig
+		for (SourceViewConfig sc : config.getExpViewCfg()) {
 			if (!sc.isCreate()) {
 				continue;
 			}
@@ -723,7 +727,8 @@ public class MigrationCfgUtils {
 					break;
 				}
 			}
-			if (flag || views.indexOf(sc.getTarget()) >= 0) {
+			//CMT112
+			if (flag || views.indexOf(sc.getTargetOwner() + "." + sc.getTarget()) >= 0) {
 				throw new MigrationConfigurationCheckingErrorException(NLS.bind(
 						Messages.objectMapPageErrMsgDuplicatedTable3, sc.getTarget()));
 			}
