@@ -278,6 +278,7 @@ public final class CUBRIDSchemaFetcher extends
 					+ "WHERE i.class_name=c.class_name AND c.is_system_class='NO' "
 					+ "AND c.class_type='CLASS' AND i.is_foreign_key='YES' "
 					+ "GROUP BY i.class_name";
+			
 			stmt = conn.createStatement();
 			rs = stmt.executeQuery(sql);
 
@@ -776,10 +777,13 @@ public final class CUBRIDSchemaFetcher extends
 		ResultSet rs = null; //NOPMD
 		Statement stmt = null;
 		try {
-			String sql = "SELECT i.class_name, c.owner_name " + "FROM db_index i, db_class c "
-					+ "WHERE i.class_name=c.class_name AND c.is_system_class='NO' "
-					+ "AND c.class_type='CLASS' AND i.is_foreign_key='YES' "
-					+ "GROUP BY i.class_name";
+//			String sql = "SELECT i.class_name, i.owner_name FROM db_index i, db_class c "
+//					+ "WHERE i.class_name=c.class_name AND c.is_system_class='NO' "
+//					+ "AND c.class_type='CLASS' AND i.is_foreign_key='YES' "
+//					+ "GROUP BY i.index_name";
+			
+			String sql = "select class_name, owner_name from db_index where is_foreign_key = 'YES'";
+			
 			stmt = conn.createStatement();
 			rs = stmt.executeQuery(sql);
 
@@ -787,7 +791,7 @@ public final class CUBRIDSchemaFetcher extends
 				String tableName = rs.getString("class_name");
 				String owner = rs.getString("owner_name");
 				if (tableName == null) {
-					continue;
+					continue; 
 				}
 
 				Table table = tables.get(owner + "." + tableName);

@@ -45,6 +45,7 @@ import java.util.Map;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 
+import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.common.Closer;
 import com.cubrid.cubridmigration.core.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.connection.ConnParameters;
@@ -464,7 +465,16 @@ public abstract class AbstractJDBCSchemaFetcher implements
 					if (StringUtils.isEmpty(fkTableName)) {
 						continue;
 					}
-					foreignKey.setReferencedTableName(fkTableName);
+					
+					if (CUBRIDVersionUtils.getInstance().isVersionOver112(catalog)) {
+						String noSchemaFkTableName = fkTableName.split("\\.")[1];
+						foreignKey.setReferencedTableName(noSchemaFkTableName);
+					} else {
+						foreignKey.setReferencedTableName(fkTableName);						
+					}
+					
+//					foreignKey.setReferencedTableName(fkTableName);
+					
 					//foreignKey.setDeferability(rs.getInt("DEFERRABILITY"));
 
 					switch (rs.getShort("DELETE_RULE")) {

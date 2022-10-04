@@ -900,6 +900,7 @@ public class MigrationConfiguration {
 			sFKCfgs.add(sfc);
 
 			FK tfk = tarTable.getFKByName(sfc.getTarget());
+				
 			if (tfk == null) {
 				tfk = new FK(tarTable);
 				tfk.setName(sfc.getTarget());
@@ -908,7 +909,7 @@ public class MigrationConfiguration {
 				String referencedTableName = fk.getReferencedTableName();
 				Map<String, Integer> allTablesCountMap = srcCatalog.getAllTablesCountMap();
 				Integer integer = allTablesCountMap.get(referencedTableName);
-				
+
 				boolean isMultiSchema = CUBRIDVersionUtils.getInstance().isTargetMultiSchema();
 				if (integer != null && integer > 1 && !isMultiSchema) {
 					String owner = fk.getTable().getOwner();
@@ -928,6 +929,9 @@ public class MigrationConfiguration {
 				//tfk.setOnCacheObject(fk.getOnCacheObject());
 				tfk.setUpdateRule(fk.getUpdateRule());
 			}
+//			else if (tfk.getReferencedTableName().equals(setc.getTarget())) {
+//				tfk.setReferencedTableName(setc.getTarget());
+//			} 
 			tfks.add(tfk);
 		}
 		setc.setFKs(sFKCfgs);

@@ -209,11 +209,11 @@ public class CUBRIDSQLHelper extends
 
 		String refTable = fk.getReferencedTableName();
 		
-		if (verUtil.isSourceVersionOver112()) {
-			String[] stringArray = refTable.split("\\.");
-			
- 			refTable = stringArray[1];
-		}
+//		if (verUtil.isSourceVersionOver112()) {
+//			String[] stringArray = refTable.split("\\.");
+//			
+// 			refTable = stringArray[1];
+//		}
 		
 		bf.append(" REFERENCES ");
 		if (verUtil.addUserSchema() || verUtil.isTargetVersionOver112()) {
