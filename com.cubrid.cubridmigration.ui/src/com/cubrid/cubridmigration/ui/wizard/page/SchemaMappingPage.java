@@ -274,10 +274,18 @@ public class SchemaMappingPage extends MigrationWizardPage {
 		}
 		
 		for (Schema schema : sourceSchemaList) {
+//			if (schema.getName().equalsIgnoreCase("DBA") || schema.getName().equalsIgnoreCase("PUBLIC")) {
+//				continue;
+//			}
+			
+			if (tarSchemaNameList.contains(schema.getName().toUpperCase())) {
+				continue;
+			}
+			
 			dropDownSchemaList.add(schema.getName());
 		}
 		
-		dropDownSchemaList.add(0, Messages.msgDefaultSchema);
+//		dropDownSchemaList.add(0, Messages.msgDefaultSchema);
 		
 		if (targetCatalog.isDBAGroup()) {
 //			String[] schemaNameArray = dropDownSchemaList.toArray(new String[] {});
@@ -370,24 +378,6 @@ public class SchemaMappingPage extends MigrationWizardPage {
 					return testValue;
 				}
 			}
-			
-//			public String isSchemaNameValid(String schemaName) {
-//				
-//				//CMT112 : need alert window 
-//				
-//				Pattern pattern = Pattern.compile("^[a-zA-Z_0-9]*$");
-//				Matcher matcher = pattern.matcher(schemaName);
-//				
-//				boolean isValid = matcher.matches();
-//				
-//				System.out.println(isValid);
-//				
-//				if (isValid){
-//					return schemaName;
-//				} else {
-//					return "";
-//				}
-//			}
 		});
 	}
 	
@@ -463,7 +453,7 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			
 			if (scriptSchemaMap.size() != 0) {
 				logger.info("offline script schema");
-				srcTable.setTarSchema(scriptSchemaMap.get(srcTable.getSrcSchema().toUpperCase()));
+				srcTable.setTarSchema(scriptSchemaMap.get(srcTable.getSrcSchema()));
 			} else {
 				if (CUBRIDVersionUtils.getInstance().addUserSchema()) {
 					srcTable.setTarSchema(Messages.msgTypeSchema);
@@ -509,17 +499,16 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			if (scriptSchemaMap.size() != 0) {
 				logger.info("script schema");
 				
-				if (!verUtil.isSourceVersionOver112() && verUtil.isCUBRIDSource()) {
-					srcTable.setTarSchema(scriptSchemaMap.get(""));
+				if (!verUtil.isSourceVersionOver112() && /* verUtil.isCUBRIDSource() */ srcCatalog.getDatabaseType().getID() == 1) {
+					srcTable.setTarSchema(scriptSchemaMap.get("").toUpperCase());
 				} else {
-					srcTable.setTarSchema(scriptSchemaMap.get(srcTable.getSrcSchema().toUpperCase()));
+					srcTable.setTarSchema(scriptSchemaMap.get(srcTable.getSrcSchema()).toUpperCase());
 				}
 				
 				logger.info("srcTable target schema : " + srcTable.getTarSchema());
 			} else {
 				if (tarCatalog.isDBAGroup() && verUtil.isTargetVersionOver112()) {
-	//				srcTable.setTarSchema(schema.getName());
-					srcTable.setTarSchema(Messages.msgDefaultSchema);
+					srcTable.setTarSchema(srcTable.getSrcSchema());
 				} else {
 					srcTable.setTarSchema(tarCatalog.getSchemas().get(0).getName());
 				}

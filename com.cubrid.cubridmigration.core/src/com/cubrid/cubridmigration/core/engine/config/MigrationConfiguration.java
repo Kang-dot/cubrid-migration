@@ -737,6 +737,8 @@ public class MigrationConfiguration {
 					setc.setMigrateData(false);
 					setc.setReplace(false);
 					setc.setEnableExpOpt(srcTable.getPk() != null);
+				} else if (!sourceDBSchema.getTargetSchemaName().equals(setc.getTargetOwner())) {
+					setc.setTargetOwner(sourceDBSchema.getTargetSchemaName());
 				}
 				tempExpEntryTables.add(setc);
 
