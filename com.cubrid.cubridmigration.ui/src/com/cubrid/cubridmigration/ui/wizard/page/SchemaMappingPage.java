@@ -496,10 +496,10 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			
 			srcTable.setTarDBType(tarCatalog.getDatabaseType().getName());
 			
-			if (scriptSchemaMap.size() != 0) {
+			if (scriptSchemaMap.size() != 0 && srcCatalog.getDatabaseType().getID() == 1) {
 				logger.info("script schema");
 				
-				if (!verUtil.isSourceVersionOver112() && /* verUtil.isCUBRIDSource() */ srcCatalog.getDatabaseType().getID() == 1) {
+				if (!verUtil.isSourceVersionOver112()) {
 					srcTable.setTarSchema(scriptSchemaMap.get("").toUpperCase());
 				} else {
 					srcTable.setTarSchema(scriptSchemaMap.get(srcTable.getSrcSchema()).toUpperCase());

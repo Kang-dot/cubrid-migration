@@ -466,7 +466,7 @@ public abstract class AbstractJDBCSchemaFetcher implements
 						continue;
 					}
 					
-					if (CUBRIDVersionUtils.getInstance().isVersionOver112(catalog)) {
+					if (CUBRIDVersionUtils.getInstance().isVersionOver112(catalog) && catalog.getDatabaseType().getID() == 1) {
 						String noSchemaFkTableName = fkTableName.split("\\.")[1];
 						foreignKey.setReferencedTableName(noSchemaFkTableName);
 					} else {

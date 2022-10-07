@@ -58,6 +58,8 @@ import com.cubrid.cubridmigration.core.engine.config.SourceColumnConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceEntryTableConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceSQLTableConfig;
+import com.cubrid.cubridmigration.core.engine.config.SourceSequenceConfig;
+import com.cubrid.cubridmigration.core.engine.config.SourceViewConfig;
 import com.cubrid.cubridmigration.cubrid.CUBRIDSQLHelper;
 import com.cubrid.cubridmigration.ui.SWTResourceConstents;
 import com.cubrid.cubridmigration.ui.message.Messages;
@@ -337,21 +339,21 @@ public class BaseConfirmationPage extends MigrationWizardPage {
 			txtDDL.append(sql);
 			txtDDL.append(NEWLINE);
 		}
-		for (SourceConfig sc : cfg.getExpViewCfg()) {
+		for (SourceViewConfig sc : cfg.getExpViewCfg()) {
 			if (!sc.isCreate()) {
 				continue;
 			}
-			View vw = cfg.getTargetViewSchema(sc.getTarget());
+			View vw = cfg.getTargetViewSchema(sc.getOwner(), sc.getTarget());
 			String ddl = ddlUtils.getViewDDL(vw);
 			txtDDL.append(ddl);
 			txtDDL.append(NEWLINE);
 			txtDDL.append(NEWLINE);
 		}
-		for (SourceConfig sc : cfg.getExpSerialCfg()) {
+		for (SourceSequenceConfig sc : cfg.getExpSerialCfg()) {
 			if (!sc.isCreate()) {
 				continue;
 			}
-			Sequence sq = cfg.getTargetSerialSchema(sc.getTarget());
+			Sequence sq = cfg.getTargetSerialSchema(sc.getOwner(), sc.getTarget());
 			String ddl = ddlUtils.getSequenceDDL(sq);
 			txtDDL.append(ddl);
 			txtDDL.append(NEWLINE);

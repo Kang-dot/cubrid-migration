@@ -2650,7 +2650,7 @@ public class MigrationConfiguration {
 	
 	public Table getTargetTableSchema(String owner, String name) {
 		for (Table tt : this.targetTables) {
-			if (tt.getName().equals(name) && tt.getOwner().equals(owner)) {
+			if (tt.getName().equalsIgnoreCase(name) && tt.getOwner().equalsIgnoreCase(owner)) {
 				return tt;
 			}
 		}
@@ -2675,6 +2675,17 @@ public class MigrationConfiguration {
 		}
 		return null;
 	}
+	
+	public View getTargetViewSchema(String owner, String viewName) {
+		for (View view : targetViews) {
+			if (view.getName().equals(viewName) && view.getOwner().equals(owner)) {
+				return view;
+			}
+		}
+		
+		return null;
+	}
+	
 
 	/**
 	 * If there are FKs of source DB being exported.
