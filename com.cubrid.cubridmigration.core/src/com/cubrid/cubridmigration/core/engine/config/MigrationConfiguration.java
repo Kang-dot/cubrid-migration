@@ -2617,7 +2617,7 @@ public class MigrationConfiguration {
 	
 	public Sequence getTargetSerialSchema(String owner, String target) {
 		for (Sequence seq : this.targetSequences) {
-			if (seq.getName().equals(target) && seq.getOwner().equals(owner)) {
+			if (seq.getName().equalsIgnoreCase(target) && seq.getOwner().equalsIgnoreCase(owner)) {
 				return seq;
 			}
 		}
@@ -2678,7 +2678,7 @@ public class MigrationConfiguration {
 	
 	public View getTargetViewSchema(String owner, String viewName) {
 		for (View view : targetViews) {
-			if (view.getName().equals(viewName) && view.getOwner().equals(owner)) {
+			if (view.getName().equalsIgnoreCase(viewName) && view.getOwner().equalsIgnoreCase(owner)) {
 				return view;
 			}
 		}

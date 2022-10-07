@@ -61,6 +61,7 @@ public class TableSchemaExportTask extends
 	 */
 	protected void executeExportTask() {
 		Table target = config.getTargetTableSchema(sourceTable.getTargetOwner(), sourceTable.getTarget());
+		
 		if (target == null) {
 			return;
 		}
