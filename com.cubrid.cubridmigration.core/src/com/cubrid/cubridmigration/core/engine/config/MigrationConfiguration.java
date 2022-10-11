@@ -2656,6 +2656,10 @@ public class MigrationConfiguration {
 	}
 	
 	public Table getTargetTableSchema(String owner, String name) {
+		if (owner == null) {
+			getTargetTableSchema(name);
+		}
+		
 		for (Table tt : this.targetTables) {
 			if (tt.getName().equalsIgnoreCase(name) && tt.getOwner().equalsIgnoreCase(owner)) {
 				return tt;
@@ -2684,6 +2688,10 @@ public class MigrationConfiguration {
 	}
 	
 	public View getTargetViewSchema(String owner, String viewName) {
+		if (owner == null) {
+			return getTargetViewSchema(viewName);
+		}
+		
 		for (View view : targetViews) {
 			if (view.getName().equalsIgnoreCase(viewName) && view.getOwner().equalsIgnoreCase(owner)) {
 				return view;
