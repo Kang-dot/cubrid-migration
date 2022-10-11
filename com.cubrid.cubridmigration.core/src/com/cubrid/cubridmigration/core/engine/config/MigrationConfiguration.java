@@ -737,9 +737,12 @@ public class MigrationConfiguration {
 					setc.setMigrateData(false);
 					setc.setReplace(false);
 					setc.setEnableExpOpt(srcTable.getPk() != null);
-				} else if (!sourceDBSchema.getTargetSchemaName().equals(setc.getTargetOwner())) {
-					setc.setTargetOwner(sourceDBSchema.getTargetSchemaName());
+				} else if (sourceDBSchema.getTargetSchemaName() != null) {
+					if (!sourceDBSchema.getTargetSchemaName().equals(setc.getTargetOwner())) {
+						setc.setTargetOwner(sourceDBSchema.getTargetSchemaName());
+					}
 				}
+						
 				tempExpEntryTables.add(setc);
 
 				Table tt = null;
@@ -2657,7 +2660,7 @@ public class MigrationConfiguration {
 	
 	public Table getTargetTableSchema(String owner, String name) {
 		if (owner == null) {
-			getTargetTableSchema(name);
+			return getTargetTableSchema(name);
 		}
 		
 		for (Table tt : this.targetTables) {

@@ -459,6 +459,7 @@ public class SchemaMappingPage extends MigrationWizardPage {
 					srcTable.setTarSchema(Messages.msgTypeSchema);
 				} else {
 					srcTable.setTarSchema(Messages.msgUserSchemaDisable);
+					verUtil.setTargetMultiSchema(false);
 				}
 			}
 		}
