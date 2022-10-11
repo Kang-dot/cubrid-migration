@@ -742,7 +742,14 @@ public class MigrationConfiguration {
 				}
 				tempExpEntryTables.add(setc);
 
-				Table tt = getTargetTableSchema(setc.getTarget());
+				Table tt = null;
+				
+				if (CUBRIDVersionUtils.getInstance().isTargetVersionOver112()) {
+					tt = getTargetTableSchema(setc.getTargetOwner(), setc.getTarget());
+				} else {
+					tt = getTargetTableSchema(setc.getTarget());
+				}
+				
 				if (tt == null) {
 					//If there is invalid information in source database, the target table will be NULL
 					try {
