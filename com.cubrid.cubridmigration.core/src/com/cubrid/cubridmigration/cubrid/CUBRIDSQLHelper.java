@@ -37,7 +37,6 @@ import java.util.regex.Pattern;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 
-import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.common.DBUtils;
 import com.cubrid.cubridmigration.core.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.dbobject.Column;
@@ -72,7 +71,6 @@ public class CUBRIDSQLHelper extends
 	private static final String HINT = "/*+ NO_STATS */";
 	private static final String END_LINE_CHAR = ";";
 
-	CUBRIDVersionUtils verUtil = CUBRIDVersionUtils.getInstance();
 
 	private final static CUBRIDSQLHelper HELPER = new CUBRIDSQLHelper();
 
@@ -209,14 +207,9 @@ public class CUBRIDSQLHelper extends
 
 		String refTable = fk.getReferencedTableName();
 		
-//		if (verUtil.isSourceVersionOver112()) {
-//			String[] stringArray = refTable.split("\\.");
-//			
-// 			refTable = stringArray[1];
-//		}
-		
 		bf.append(" REFERENCES ");
-		if (verUtil.addUserSchema() || verUtil.isTargetVersionOver112()) {
+		
+		if (tableOwner != null) {
 			bf.append(getOwnerNameWithDot(tableOwner));
 		}
 		bf.append(getQuotedObjName(refTable));
@@ -249,8 +242,9 @@ public class CUBRIDSQLHelper extends
 	public String getFKDDL(String tableOwner, String tableName, FK fk) {
 		StringBuffer bf = new StringBuffer();
 		bf.append("ALTER " + HINT + " TABLE ");
-		if (verUtil.addUserSchema() || verUtil.isTargetVersionOver112())	{
-			bf.append(getOwnerNameWithDot(tableOwner));		
+		
+		if (tableOwner != null) {
+			bf.append(getOwnerNameWithDot(tableOwner));
 		}
 		bf.append(getQuotedObjName(tableName));
 		bf.append(" ADD CONSTRAINT ");
@@ -283,9 +277,11 @@ public class CUBRIDSQLHelper extends
 		}
 
 		bf.append(" ON ");
-		if (verUtil.addUserSchema() || verUtil.isTargetVersionOver112())	{
-			bf.append(getOwnerNameWithDot(tableOwner));		
+		
+		if (tableOwner != null) {
+			bf.append(getOwnerNameWithDot(tableOwner));
 		}
+		
 		bf.append(getQuotedObjName(tableName));
 
 		List<String> list = new ArrayList<String>();
@@ -338,7 +334,7 @@ public class CUBRIDSQLHelper extends
 		StringBuffer bf = new StringBuffer();
 
 		bf.append("ALTER " + HINT + " TABLE ");
-		if (verUtil.addUserSchema() || verUtil.isTargetVersionOver112()) {
+		if (tableOwner != null) {
 			bf.append(getOwnerNameWithDot(tableOwner));		
 		}
 		
@@ -375,11 +371,14 @@ public class CUBRIDSQLHelper extends
 		StringBuffer buf = new StringBuffer(256);
 		buf.append("CREATE SERIAL ");
 		
-		if (verUtil.addUserSchema() || verUtil.isTargetVersionOver112()) {
-			buf.append(getOwnerNameWithDot(sequence.getTargetOwner()));		
+		if (sequence.getOwner() == null || sequence.getOwner().isEmpty()) {
+			buf.append(getQuotedObjName(sequence.getName()));			
+		} else {
+			buf.append(getQuotedObjName(sequence.getOwner()));
+			buf.append(".");
+			buf.append(getQuotedObjName(sequence.getName()));
 		}
 		
-		buf.append(getQuotedObjName(sequence.getName()));
 
 		buf.append(" START WITH ").append(String.valueOf(sequence.getCurrentValue()));
 
@@ -426,14 +425,18 @@ public class CUBRIDSQLHelper extends
 		StringBuffer bf = new StringBuffer();
 		bf.append("CREATE TABLE ");
 		String tableName = table.getName();
-
+		
 		if (StringUtils.isEmpty(tableName)) {
 			bf.append("<class_name>");
 		} else {
-			if (verUtil.addUserSchema() || verUtil.isTargetVersionOver112())	{
-				bf.append(getOwnerNameWithDot(table.getOwner()));		
+			if (table.getOwner() == null || table.getOwner().isEmpty()) {
+				bf.append(getQuotedObjName(tableName));
+			} else {
+//				bf.append(verUtil.getSchemaMapping().get(table.getOwner()));
+				bf.append(getQuotedObjName(table.getOwner()));
+				bf.append(".");
+				bf.append(getQuotedObjName(tableName));
 			}
-			bf.append(getQuotedObjName(tableName));
 		}
 
 		// instance attribute
@@ -611,12 +614,15 @@ public class CUBRIDSQLHelper extends
 		sb.append("CREATE OR REPLACE VIEW ");
 		String viewName = view.getName();
 
-		if (viewName != null) {
-			if (verUtil.addUserSchema() || verUtil.isTargetVersionOver112())	{
-				sb.append(getOwnerNameWithDot(view.getTargetOwner()));		
-			}
+		if (view.getOwner() == null || view.getOwner().isEmpty()) {
+			sb.append(getQuotedObjName(viewName));
+		} else {
+			sb.append(getQuotedObjName(view.getOwner()));
+			sb.append(".");
 			sb.append(getQuotedObjName(viewName));
 		}
+		
+		
 		//Column definitions are not necessarily.
 		//		sb.append("(");
 		//		List<Column> list = view.getColumns();

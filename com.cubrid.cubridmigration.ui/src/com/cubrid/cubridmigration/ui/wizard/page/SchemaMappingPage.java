@@ -149,7 +149,6 @@ public class SchemaMappingPage extends MigrationWizardPage {
 		createSrcTable(container);
 		
 		setControl(container);
-		
 	}
 	
 	private void createSrcTable(Composite container) {
@@ -274,10 +273,6 @@ public class SchemaMappingPage extends MigrationWizardPage {
 		}
 		
 		for (Schema schema : sourceSchemaList) {
-//			if (schema.getName().equalsIgnoreCase("DBA") || schema.getName().equalsIgnoreCase("PUBLIC")) {
-//				continue;
-//			}
-			
 			if (tarSchemaNameList.contains(schema.getName().toUpperCase())) {
 				continue;
 			}
@@ -288,14 +283,8 @@ public class SchemaMappingPage extends MigrationWizardPage {
 //		dropDownSchemaList.add(0, Messages.msgDefaultSchema);
 		
 		if (targetCatalog.isDBAGroup()) {
-//			String[] schemaNameArray = dropDownSchemaList.toArray(new String[] {});
-//			tarSchemaNameArray = new String[schemaNameArray.length + 1];
-//			tarSchemaNameArray[0] = "";
-//			tarSchemaNameArray = new String[schemaNameArray.length];
-			
 			tarSchemaNameArray = dropDownSchemaList.toArray(new String[] {});
 			
-//			System.arraycopy(schemaNameArray, 0, tarSchemaNameArray, 0, schemaNameArray.length);
 		} else {
 			tarSchemaNameArray = new String[] {targetCatalog.getConnectionParameters().getConUser()};
 			
@@ -428,8 +417,11 @@ public class SchemaMappingPage extends MigrationWizardPage {
 	
 	private void setOfflineSchemaMappingPage() {
 		setOfflineData();
-		if (CUBRIDVersionUtils.getInstance().addUserSchema()) {
-			setOfflineEditor();			
+		
+		config.getAddUserSchema();
+		
+		if (config.getAddUserSchema()) {
+			setOfflineEditor();
 		}
 	}
 	
@@ -455,7 +447,7 @@ public class SchemaMappingPage extends MigrationWizardPage {
 				logger.info("offline script schema");
 				srcTable.setTarSchema(scriptSchemaMap.get(srcTable.getSrcSchema()));
 			} else {
-				if (CUBRIDVersionUtils.getInstance().addUserSchema()) {
+				if (config.getAddUserSchema()) {
 					srcTable.setTarSchema(Messages.msgTypeSchema);
 				} else {
 					srcTable.setTarSchema(Messages.msgUserSchemaDisable);
@@ -481,6 +473,8 @@ public class SchemaMappingPage extends MigrationWizardPage {
 		//TODO: extract schema names and DB type
 		srcSchemaList = srcCatalog.getSchemas();
 		tarSchemaList = tarCatalog.getSchemas();
+		
+//		boolean tempValue = tarCatalog.getDatabaseType().isSupportMultiSchema();
 		Map<String, String> scriptSchemaMap = config.getScriptSchemaMapping();
 		
 		for (Schema schema : srcSchemaList) {
@@ -507,7 +501,11 @@ public class SchemaMappingPage extends MigrationWizardPage {
 				}
 				
 				logger.info("srcTable target schema : " + srcTable.getTarSchema());
+				
+				
+				
 			} else {
+//				if (tarCatalog.isDBAGroup() && tempValue) {
 				if (tarCatalog.isDBAGroup() && verUtil.isTargetVersionOver112()) {
 					srcTable.setTarSchema(srcTable.getSrcSchema());
 				} else {
@@ -522,7 +520,7 @@ public class SchemaMappingPage extends MigrationWizardPage {
 		// TODO need reset when select different target connection
 		wizard = getMigrationWizard();
 		config = wizard.getMigrationConfig();
-		
+
 		if (firstVisible) {
 			setTitle(Messages.schemaMappingPageTitle);
 			setDescription(Messages.schemaMappingPageDescription);
@@ -545,39 +543,74 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			return;
 		}
 		if (isGotoNextPage(event)) {
-			event.doit = saveSelectedTable();
+			if (config.targetIsOnline()) {
+				event.doit = saveOnlineData();
+			} else {
+				event.doit = saveOfflineData(config.getAddUserSchema());
+			}
 		}
 	}
-	//TODO: return false only
-	private boolean saveSelectedTable() {
-		
+	
+	private boolean saveOnlineData() {
 		for (SrcTable srcTable : srcTableList) {
-			for (Schema schema : srcSchemaList) {
-				if (srcTable.getSrcSchema().equals(schema.getName())) {
+			if (!verUtil.isVersionOver112(tarCatalog)) {
+				srcTable.setTarSchema(null);
+				
+				continue;
+			}
+			
+			config.setAddUserSchema(true);
+			
+			if (srcTable.getTarSchema().isEmpty() || isDefaultMessage(srcTable.getTarSchema())) {
+				MessageDialog.openError(getShell(), Messages.msgError, Messages.msgErrEmptySchemaName);
+				
+				return false;
+			}
+			
+			String targetSchemaName = srcTable.getTarSchema();
+			
+			logger.info("src schema : " + srcTable.getSrcSchema());
+			logger.info("tar schema : " + srcTable.getTarSchema());
+			
+			Schema targetSchema = tarCatalog.getSchemaByName(targetSchemaName);
+			
+			if (targetSchema != null) {
+				verUtil.addSchemaMapping(srcTable.getSrcSchema(), targetSchema);
+				
+				Schema srcSchema = srcCatalog.getSchemaByName(srcTable.getSrcSchema());
+				srcSchema.setTargetSchemaName(targetSchema.getName());
+			} else {
+				logger.info("need to create a new schema for target db");
+				Schema newSchema = new Schema();
+				newSchema.setName(srcTable.getTarSchema());
+				newSchema.setNewTargetSchema(true);
+				verUtil.addSchemaMapping(srcTable.getSrcSchema(), newSchema);
+				
+				Schema srcSchema = srcCatalog.getSchemaByName(srcTable.getSrcSchema());
+				srcSchema.setTargetSchemaName(newSchema.getName());
+				
+				config.setNewTargetSchema(newSchema.getName());
+				logger.info("-------------------------------------------");
+			}
+		}
+		
+		return true;
+	}
+	
+	private boolean saveOfflineData(boolean addUserSchema) {
+		for (SrcTable srcTable : srcTableList) {
+			if (addUserSchema) {
+				if (srcTable.getTarSchema().isEmpty() || srcTable.getTarSchema() == null) {
+					MessageDialog.openError(getShell(), Messages.msgError, Messages.msgErrEmptySchemaName);
 					
-					if (srcTable.getTarSchema().isEmpty() || isDefaultMessage(srcTable.getTarSchema())) {
-						//CMT112 need alert dialog
-						MessageDialog.openError(getShell(), Messages.msgError, Messages.msgErrEmptySchemaName);
-						
-						return false;
-					}
-					
-					schema.setTargetSchemaName(srcTable.getTarSchema());
-					
-					logger.info("src schema : " + srcTable.getSrcSchema());
-					logger.info("tar schema : " + srcTable.getTarSchema());
-					
-					if (!containsIgnoreCase(tarSchemaNameList, srcTable.getTarSchema())) {
-						logger.info("need to create a new schema for target db");
-						schema.setNewTargetSchema(true);
-						config.setNewTargetSchema(srcTable.getTarSchema());
-					} else {
-						schema.setNewTargetSchema(false);
-					}
-					
-					logger.info("------------------------------------------");
-					
+					return false;
 				}
+				
+				Schema sourceSchema = srcCatalog.getSchemaByName(srcTable.getSrcSchema());
+				sourceSchema.setTargetSchemaName(srcTable.getTarSchema());
+				
+			} else {
+				
 			}
 		}
 		
@@ -588,16 +621,6 @@ public class SchemaMappingPage extends MigrationWizardPage {
 		if (enterSchema.equals(Messages.msgDefaultSchema) ||
 				enterSchema.equals(Messages.msgTypeSchema)) {
 			return true;
-		}
-		
-		return false;
-	}
-	
-	private boolean containsIgnoreCase(List<String> stringList, String schemaName) {
-		for (String containSchemaName : stringList) {
-			if (containSchemaName.equalsIgnoreCase(schemaName)) {
-				return true;
-			}
 		}
 		
 		return false;

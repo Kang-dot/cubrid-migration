@@ -43,7 +43,6 @@ import java.util.Map;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 
-import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.connection.ConnParameters;
 import com.cubrid.cubridmigration.core.dbobject.Column;
@@ -184,10 +183,6 @@ public abstract class DBExportHelper implements
 		// it will make a query with a schema and table name 
 		// if it required a schema name when there create sql such as SCOTT.EMP
 		addSchemaPrefix(setc, buf);
-		
-//		if (CUBRIDVersionUtils.getInstance().isSourceVersionOver112()) {
-//			buf.append(setc.getTargetOwner() + ".");
-//		}
 		
 		buf.append(getQuotedObjName(setc.getName()));
 

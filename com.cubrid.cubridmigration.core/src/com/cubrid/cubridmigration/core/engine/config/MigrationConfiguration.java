@@ -431,7 +431,7 @@ public class MigrationConfiguration {
 		if (srcCatalog != null) {
 			throw new RuntimeException("Source database was specified.");
 		}
-		View vw = getTargetViewSchema(view.getName());
+		View vw = getTargetViewSchema(view.getOwner(), view.getName());
 		if (vw == null) {
 			targetViews.add(view);
 		} else {
@@ -554,12 +554,13 @@ public class MigrationConfiguration {
 				if (sc.getOwner() == null) {
 					tseq = getTargetSerialSchema(sc.getTarget());
 				} else {
-					tseq = getTargetSerialSchema(sc.getOwner(), sc.getTarget());
+					tseq = getTargetSerialSchema(sc.getTargetOwner(), sc.getTarget());
 				}
 				if (tseq == null) {
 					tseq = (Sequence) seq.clone();
 					tseq.setName(sc.getTarget());
-					tseq.setTargetOwner(sourceDBSchema.getTargetSchemaName());
+//					tseq.setTargetOwner(sourceDBSchema.getTargetSchemaName());
+					tseq.setOwner(sc.getTargetOwner());
 					tseq.setDDL(cubridddlUtil.getSequenceDDL(tseq));
 					tseq.setComment(seq.getComment());
 				}
@@ -730,7 +731,6 @@ public class MigrationConfiguration {
 					setc.setTargetOwner(sourceDBSchema.getTargetSchemaName());
 					setc.setTarget(getTargetName(allTablesCountMap, srcTable.getOwner(), srcTable.getName()));
 					
-					setc.setCreateNewSchema(sourceDBSchema.isNewTargetSchema());					
 					setc.setCreateNewTable(false);
 					setc.setCreatePartition(false);
 					setc.setCreatePK(false);
@@ -747,11 +747,7 @@ public class MigrationConfiguration {
 
 				Table tt = null;
 				
-				if (CUBRIDVersionUtils.getInstance().isTargetVersionOver112()) {
-					tt = getTargetTableSchema(setc.getTargetOwner(), setc.getTarget());
-				} else {
-					tt = getTargetTableSchema(setc.getTarget());
-				}
+				tt = getTargetTableSchema(setc.getTargetOwner(), setc.getTarget());
 				
 				if (tt == null) {
 					//If there is invalid information in source database, the target table will be NULL
@@ -922,8 +918,10 @@ public class MigrationConfiguration {
 				Map<String, Integer> allTablesCountMap = srcCatalog.getAllTablesCountMap();
 				Integer integer = allTablesCountMap.get(referencedTableName);
 
-				boolean isMultiSchema = CUBRIDVersionUtils.getInstance().isTargetMultiSchema();
-				if (integer != null && integer > 1 && !isMultiSchema) {
+//				boolean isMultiSchema = CUBRIDVersionUtils.getInstance().isTargetMultiSchema();
+//				boolean isMultiSchema = addUserSchema;
+				
+				if (integer != null && integer > 1 && !addUserSchema) {
 					String owner = fk.getTable().getOwner();
 					tfk.setReferencedTableName(owner + "_" + referencedTableName);
 				} else {
@@ -1079,13 +1077,13 @@ public class MigrationConfiguration {
 					sc.setComment(vw.getComment());
 				}
 				tempSCList.add(sc);
-				View tVw = getTargetViewSchema(sc.getTarget());
+				View tVw = getTargetViewSchema(sc.getTargetOwner(), sc.getTarget());
 				if (tVw == null) {
 					tVw = getDBTransformHelper().getCloneView(vw, this);
 					tVw.setReferenceTableNames(referenceTableNameList);
 					tVw.setName(sc.getTarget());
-					tVw.setTargetOwner(sourceDBSchema.getTargetSchemaName());
-					tVw.setOwner(vw.getOwner());
+//					tVw.setTargetOwner(sourceDBSchema.getTargetSchemaName());
+					tVw.setOwner(sc.getTargetOwner());
 					tVw.setComment(vw.getComment());
 				}
 				tempTarList.add(tVw);
@@ -1098,11 +1096,13 @@ public class MigrationConfiguration {
 	}
 
 	private String getTargetName(Map<String, Integer> map, String owner, String name) {
-		if (!CUBRIDVersionUtils.getInstance().isTargetMultiSchema()) {
+		
+		if (addUserSchema) {
 			if (isDuplicatedObject(map, name)) {
 				return StringUtils.lowerCase(owner + "_" + name);
-			}			
+			}
 		}
+		
 		return StringUtils.lowerCase(name);
 	}
 
@@ -2441,7 +2441,7 @@ public class MigrationConfiguration {
 		newTargetSchema.add(schemaName);
 	}
 	
-	public void SetNewTargetSchema(List<String> schemaNameList) {
+	public void setNewTargetSchema(List<String> schemaNameList) {
 		clearNewTargetShemaList();
 		newTargetSchema = schemaNameList;
 	}
@@ -2626,6 +2626,10 @@ public class MigrationConfiguration {
 	}
 	
 	public Sequence getTargetSerialSchema(String owner, String target) {
+		if (owner == null) {
+			return getTargetSerialSchema(target);
+		}
+		
 		for (Sequence seq : this.targetSequences) {
 			if (seq.getName().equalsIgnoreCase(target) && seq.getOwner().equalsIgnoreCase(owner)) {
 				return seq;
@@ -2662,6 +2666,8 @@ public class MigrationConfiguration {
 		if (owner == null) {
 			return getTargetTableSchema(name);
 		}
+		
+//		Schema targetSchema = verUtil.getSchemaMapping().get(owner);
 		
 		for (Table tt : this.targetTables) {
 			if (tt.getName().equalsIgnoreCase(name) && tt.getOwner().equalsIgnoreCase(owner)) {
@@ -2704,6 +2710,17 @@ public class MigrationConfiguration {
 		return null;
 	}
 	
+	public boolean nullCheckEquals(String owner, Schema targetSchema) {
+		if (owner == null || targetSchema == null) {
+			return false;
+		}
+		
+		if (owner.equalsIgnoreCase(targetSchema.getName())) {
+			return true;
+		}
+		
+		return false;
+	}
 
 	/**
 	 * If there are FKs of source DB being exported.
@@ -3743,7 +3760,7 @@ public class MigrationConfiguration {
 	public void setOfflineUserSchema(boolean addOfflineUserSchema) {
 		this.addOfflineUserSchema = addOfflineUserSchema;
 	}
-
 	
+
 	
 }

@@ -29,7 +29,6 @@
  */
 package com.cubrid.cubridmigration.core.engine.event;
 
-import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.dbobject.DBObject;
 import com.cubrid.cubridmigration.core.dbobject.FK;
 import com.cubrid.cubridmigration.core.dbobject.Function;
@@ -96,8 +95,10 @@ public class CreateObjectEvent extends
 		if (dbObject instanceof Schema) {
 			sb.append("Schema[").append(dbObject.getName()).append("]");
 		} else if (dbObject instanceof Table) {
-			if (CUBRIDVersionUtils.getInstance().addUserSchema()) {
-				sb.append("table[").append(((Table) dbObject).getOwner()).append(".").append(dbObject.getName()).append("]");
+			Table tempTable = (Table) dbObject;
+			
+			if (tempTable.getOwner() != null) {
+				sb.append("table[").append(tempTable.getOwner()).append(".").append(dbObject.getName()).append("]");
 			} else {
 				sb.append("table[").append(dbObject.getName()).append("]");
 			}

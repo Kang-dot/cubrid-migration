@@ -280,9 +280,21 @@ public final class MigrationTemplateParser {
 
 		target.setAttribute(TemplateTags.ATTR_DB_TYPE, "cubrid");
 		createTargetConInfoNode(config, document, target);
+		createTargetSchemaNodes(config, document, target);
 		createTargetTableNodes(config, document, target);
 		createTargetSequenceNodes(config, document, target);
 		createTargetViewNodes(config, document, target);
+	}
+	
+	private static void createTargetSchemaNodes(MigrationConfiguration config, Document document, Element target) {
+		Element schemas = createElement(document, target, TemplateTags.TAG_SCHEMAS);
+		List<Schema> schemaList = config.getTargetSchemaList();
+		
+		for (Schema schema : schemaList) {
+			Element schemaElement = createElement(document, schemas, TemplateTags.TAG_SCHEMA_INFO);
+			
+			schemaElement.setAttribute(TemplateTags.ATTR_SCHEMA_NAME, schema.getName());
+		}
 	}
 	
 	/**
@@ -301,7 +313,8 @@ public final class MigrationTemplateParser {
 			Element view = createElement(document, views, TemplateTags.TAG_VIEW);
 			view.setAttribute(TemplateTags.ATTR_NAME, tt.getName());
 			//CMT112 script control. add owner in view
-			view.setAttribute(TemplateTags.ATTR_OWNER, tt.getTargetOwner());
+			view.setAttribute(TemplateTags.ATTR_OWNER, tt.getOwner());
+			view.setAttribute(TemplateTags.ATTR_TARGET_OWNER, tt.getOwner());
 			Element viewQuerySQL = createElement(document, view, TemplateTags.TAG_VIEWQUERYSQL);
 			viewQuerySQL.setTextContent(tt.getQuerySpec());
 			Element createViewSQL = createElement(document, view, TemplateTags.TAG_CREATEVIEWSQL);
@@ -342,7 +355,7 @@ public final class MigrationTemplateParser {
 		for (Sequence sc : targetSerials) {
 			Element sequence = createElement(document, sequences, TemplateTags.TAG_SEQUENCE);
 			//CMT112 script control. add owner in sequence
-			sequence.setAttribute(TemplateTags.ATTR_OWNER, sc.getTargetOwner());
+			sequence.setAttribute(TemplateTags.ATTR_OWNER, sc.getOwner());
 			sequence.setAttribute(TemplateTags.ATTR_NAME, sc.getName());
 			sequence.setAttribute(TemplateTags.ATTR_START, String.valueOf(sc.getCurrentValue()));
 			sequence.setAttribute(TemplateTags.ATTR_NO_MAX, getBooleanString(sc.isNoMaxValue()));
@@ -728,13 +741,25 @@ public final class MigrationTemplateParser {
 			}
 			return;
 		}
+		Element schemas = createElement(document, source, TemplateTags.TAG_SCHEMAS);
+		List<Schema> schemaList = config.getSrcCatalog().getSchemas();
+		
+		for (Schema schema : schemaList) {
+			Element schemaElement = createElement(document, schemas, TemplateTags.TAG_SCHEMA_INFO);
+			
+			schemaElement.setAttribute(TemplateTags.ATTR_SCHEMA_NAME, schema.getName());
+			schemaElement.setAttribute(TemplateTags.ATTR_TARGET_SCHEMA, schema.getTargetSchemaName());
+			
+		}
 		//tables
 		Element tables = createElement(document, source, TemplateTags.TAG_TABLES);
 		List<SourceEntryTableConfig> exportEntryTables = config.getExpEntryTableCfg();
 		for (SourceEntryTableConfig setc : exportEntryTables) {
+//			if (!setc.getOwner().equalsIgnoreCase(schema.getName())) {
+//				continue;
+//			}
+			
 			Element tbe = createElement(document, tables, TemplateTags.TAG_TABLE);
-			//CMT112 source table targetOwner
-			tbe.setAttribute(TemplateTags.ATTR_TARGET_OWNER, setc.getTargetOwner());
 			tbe.setAttribute(TemplateTags.ATTR_NAME, setc.getName());
 			tbe.setAttribute(TemplateTags.ATTR_CREATE, getBooleanString(setc.isCreateNewTable()));
 			tbe.setAttribute(TemplateTags.ATTR_REPLACE, getBooleanString(setc.isReplace()));
@@ -753,7 +778,7 @@ public final class MigrationTemplateParser {
 				tbe.setAttribute(TemplateTags.ATTR_START_TAR_MAX,
 						getBooleanString(setc.isStartFromTargetMax()));
 			}
-
+			
 			Element columns = createElement(document, tbe, TemplateTags.TAG_COLUMNS);
 			List<SourceColumnConfig> columnConfigList = setc.getColumnConfigList();
 			for (SourceColumnConfig scc : columnConfigList) {
@@ -764,20 +789,20 @@ public final class MigrationTemplateParser {
 				col.setAttribute(TemplateTags.ATTR_REPLACE_EXPRESSION, scc.getReplaceExp());
 				col.setAttribute(TemplateTags.ATTR_USER_DATA_HANDLER, scc.getUserDataHandler());
 			}
-
+			
 			List<SourceIndexConfig> indexConfigList = setc.getIndexConfigList();
 			List<SourceFKConfig> fkConfigList = setc.getFKConfigList();
 			if (indexConfigList.isEmpty() && fkConfigList.isEmpty()) {
 				continue;
 			}
-
+			
 			Element constraints = createElement(document, tbe, TemplateTags.TAG_CONSTRAINTS);
 			for (SourceFKConfig fkc : fkConfigList) {
 				Element fk = createElement(document, constraints, TemplateTags.TAG_FK);
 				fk.setAttribute(TemplateTags.ATTR_NAME, fkc.getName());
 				fk.setAttribute(TemplateTags.ATTR_TARGET, fkc.getTarget());
 			}
-
+			
 			for (SourceIndexConfig sic : indexConfigList) {
 				Element index = createElement(document, constraints, TemplateTags.TAG_INDEX);
 				index.setAttribute(TemplateTags.ATTR_NAME, sic.getName());
@@ -789,6 +814,11 @@ public final class MigrationTemplateParser {
 		if (!exportSQLTables.isEmpty()) {
 			Element sqltables = createElement(document, source, TemplateTags.TAG_SQLTABLES);
 			for (SourceSQLTableConfig setc : exportSQLTables) {
+				
+//				if (!setc.getOwner().equalsIgnoreCase(schema.getName())) {
+//					continue;
+//				}
+				
 				Element tbe = createElement(document, sqltables, TemplateTags.TAG_SQLTABLE);
 				tbe.setAttribute(TemplateTags.ATTR_NAME, setc.getName());
 				tbe.setAttribute(TemplateTags.ATTR_CREATE,
@@ -797,7 +827,7 @@ public final class MigrationTemplateParser {
 				tbe.setAttribute(TemplateTags.ATTR_MIGRATE_DATA,
 						getBooleanString(setc.isMigrateData()));
 				tbe.setAttribute(TemplateTags.ATTR_TARGET, setc.getTarget());
-
+				
 				Element statement = createElement(document, tbe, TemplateTags.TAG_STATEMENT);
 				statement.setTextContent(setc.getSql());
 				Element columns = createElement(document, tbe, TemplateTags.TAG_COLUMNS);
@@ -817,6 +847,10 @@ public final class MigrationTemplateParser {
 		if (!exportSerials.isEmpty()) {
 			Element sequences = createElement(document, source, TemplateTags.TAG_SEQUENCES);
 			for (SourceSequenceConfig sc : exportSerials) {
+//				if (!sc.getOwner().equalsIgnoreCase(schema.getName())) {
+//					continue;
+//				}
+				
 				Element sequence = createElement(document, sequences, TemplateTags.TAG_SEQUENCE);
 				sequence.setAttribute(TemplateTags.ATTR_OWNER, sc.getOwner());
 				sequence.setAttribute(TemplateTags.ATTR_NAME, sc.getName());
@@ -830,12 +864,18 @@ public final class MigrationTemplateParser {
 		if (!exportViews.isEmpty()) {
 			Element views = createElement(document, source, TemplateTags.TAG_VIEWS);
 			for (SourceViewConfig sc : exportViews) {
+				
+//				if (!sc.getOwner().equalsIgnoreCase(schema.getName())) {
+//					continue;
+//				}
+				
 				Element vwNode = createElement(document, views, TemplateTags.TAG_VIEW);
 				vwNode.setAttribute(TemplateTags.ATTR_OWNER, sc.getOwner());
 				vwNode.setAttribute(TemplateTags.ATTR_NAME, sc.getName());
 				vwNode.setAttribute(TemplateTags.ATTR_TARGET, sc.getTarget());
 			}
 		}
+		
 		//source triggers
 		List<String> exportTriggers = config.getExpTriggerCfg();
 		if (!exportTriggers.isEmpty()) {

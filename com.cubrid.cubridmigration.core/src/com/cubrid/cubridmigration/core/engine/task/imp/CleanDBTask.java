@@ -37,12 +37,10 @@ import java.util.List;
 import org.apache.log4j.Logger;
 
 import com.cubrid.cubridmigration.core.common.CUBRIDIOUtils;
-import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.common.PathUtils;
 import com.cubrid.cubridmigration.core.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
 import com.cubrid.cubridmigration.core.engine.config.SourceCSVConfig;
-import com.cubrid.cubridmigration.core.engine.config.SourceConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceEntryTableConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceFKConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceIndexConfig;
@@ -65,8 +63,6 @@ public class CleanDBTask extends
 
 	private final MigrationConfiguration config;
 	
-	private CUBRIDVersionUtils verUtil = CUBRIDVersionUtils.getInstance();
-
 	public CleanDBTask(MigrationConfiguration config) {
 		this.config = config;
 	}
@@ -86,7 +82,7 @@ public class CleanDBTask extends
 					StringBuffer query = new StringBuffer();
 					query.append("ALTER TABLE ");
 					
-					if (verUtil.isTargetVersionOver112() || verUtil.addUserSchema()) {
+					if (config.getAddUserSchema()) {
 						query.append("\"");
 						query.append(setc.getTargetOwner());
 						query.append("\"");
@@ -109,7 +105,7 @@ public class CleanDBTask extends
 					
 					query.append("ALTER TABLE ");
 					
-					if (verUtil.isTargetVersionOver112() || verUtil.addUserSchema()) {
+					if (config.getAddUserSchema()) {
 						query.append("\"");
 						query.append(setc.getTargetOwner());
 						query.append("\"");
@@ -131,7 +127,7 @@ public class CleanDBTask extends
 				
 				query.append("DROP TABLE ");
 				
-				if (verUtil.isTargetVersionOver112() || verUtil.addUserSchema()) {
+				if (config.getAddUserSchema()) {
 					query.append("\"");
 					query.append(setc.getTargetOwner());
 					query.append("\"");
@@ -153,7 +149,7 @@ public class CleanDBTask extends
 				
 				query.append("DROP TABLE ");
 				
-				if (verUtil.isTargetVersionOver112() || verUtil.addUserSchema()) {
+				if (config.getAddUserSchema()) {
 					query.append("\"");
 					query.append(sstc.getTargetOwner());
 					query.append("\"");
@@ -175,7 +171,7 @@ public class CleanDBTask extends
 				
 				query.append("DROP TABLE ");
 				
-				if (verUtil.isTargetVersionOver112() || verUtil.addUserSchema()) {
+				if (config.getAddUserSchema()) {
 					query.append("\"");
 					query.append(scc.getTargetOwner());
 					query.append("\"");
@@ -197,7 +193,7 @@ public class CleanDBTask extends
 				
 				query.append("DROP VIEW ");
 				
-				if (verUtil.isTargetVersionOver112() || verUtil.addUserSchema()) {
+				if (config.getAddUserSchema()) {
 					query.append("\"");
 					query.append(sc.getTargetOwner());
 					query.append("\"");
@@ -219,7 +215,7 @@ public class CleanDBTask extends
 				
 				query.append("DROP SERIAL ");
 				
-				if (verUtil.isTargetVersionOver112() || verUtil.addUserSchema()) {
+				if (config.getAddUserSchema()) {
 					query.append("\"");
 					query.append(sc.getTargetOwner());
 					query.append("\"");

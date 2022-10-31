@@ -41,7 +41,7 @@ public class DBObjMigrationResult implements
 		Serializable {
 
 	private static final long serialVersionUID = 7283320978882945903L;
-	private String owner;
+	private String objOwner;
 
 	private String objName;
 
@@ -67,8 +67,8 @@ public class DBObjMigrationResult implements
 		return objType;
 	}
 
-	public String getOwner() {
-		return owner;
+	public String getObjOwner() {
+		return objOwner;
 	}
 
 	public boolean isSucceed() {
@@ -91,8 +91,8 @@ public class DBObjMigrationResult implements
 		this.objType = objType;
 	}
 
-	public void setOwner(String owner) {
-		this.owner = owner;
+	public void setObjOwner(String objOwner) {
+		this.objOwner = objOwner;
 	}
 
 	public void setSucceed(boolean succeed) {

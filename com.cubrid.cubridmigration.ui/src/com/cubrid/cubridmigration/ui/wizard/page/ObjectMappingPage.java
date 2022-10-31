@@ -152,6 +152,7 @@ public class ObjectMappingPage extends
 		try {
 			//Update migration source database schema
 			Catalog sourceCatalog = mw.getSourceCatalog();
+			
 			final MigrationConfiguration cfg = mw.getMigrationConfig();
 			if (cfg.sourceIsOnline() && !cfg.getSourceDBType().equals(DatabaseType.CUBRID)) {
 				MessageDialog.openInformation(getShell(), Messages.msgInformation,

@@ -424,6 +424,7 @@ public final class MigrationTemplateHandler extends
 		seq.setCycleFlag(getBoolean(attributes.getValue(TemplateTags.ATTR_CYCLE), false));
 		seq.setNoCache(!getBoolean(attributes.getValue(TemplateTags.ATTR_CACHE), true));
 		seq.setOwner(attributes.getValue(TemplateTags.ATTR_OWNER));
+		seq.setTargetOwner(attributes.getValue(TemplateTags.ATTR_OWNER));
 		if (!seq.isNoCache()) {
 			final String cs = attributes.getValue(TemplateTags.ATTR_CACHE_SIZE);
 			seq.setCacheSize(cs == null ? 2 : Integer.parseInt(cs));
@@ -447,7 +448,9 @@ public final class MigrationTemplateHandler extends
 		targetTable.setName(attributes.getValue(TemplateTags.ATTR_NAME));
 		targetTable.setReuseOID(getBoolean(attributes.getValue(TemplateTags.ATTR_REUSE_OID), false));
 		targetTable.setOwner(attributes.getValue(TemplateTags.ATTR_OWNER));
-		targetTable.setTargetOwner(attributes.getValue(TemplateTags.ATTR_TARGET_OWNER));
+		if (targetTable.getOwner().isEmpty()) {
+			targetTable.setOwner(null);
+		}
 		config.addTargetTableSchema(targetTable);
 	}
 
@@ -459,9 +462,9 @@ public final class MigrationTemplateHandler extends
 	private void parseTargetView(Attributes attributes) {
 		targetView = new View();
 		targetView.setOwner(attributes.getValue(TemplateTags.ATTR_OWNER));
-		targetView.setTargetOwner(attributes.getValue(TemplateTags.ATTR_OWNER));
-		config.addTargetViewSchema(targetView);
+		targetView.setTargetOwner(attributes.getValue(TemplateTags.ATTR_TARGET_OWNER));
  		targetView.setName(attributes.getValue(TemplateTags.ATTR_NAME));
+ 		config.addTargetViewSchema(targetView);
 	}
 
 	/**
@@ -575,8 +578,12 @@ public final class MigrationTemplateHandler extends
 			scp.setUserJDBCURL(attributes.getValue(TemplateTags.ATTR_USER_JDBC_URL));
 			scp.setTimeZone(attributes.getValue(TemplateTags.ATTR_TIMEZONE));
 			config.setSourceConParams(scp);
-		} else if (TemplateTags.TAG_SCHEMA.equals(qName)) {
+		} else if (TemplateTags.TAG_SCHEMA.equals(qName)){
 			schemaCache = new StringBuffer();
+		}
+		else if (TemplateTags.TAG_SCHEMA_INFO.equals(qName)) {
+			config.addScriptSchemaMapping(attributes.getValue(TemplateTags.ATTR_SCHEMA_NAME), 
+					attributes.getValue(TemplateTags.ATTR_TARGET_SCHEMA));
 		} else if (TemplateTags.TAG_SQL_SCHEMA.equals(qName)) {
 			schemaCache = new StringBuffer();
 		} else if (TemplateTags.TAG_FILE.equals(qName)) {
@@ -596,9 +603,7 @@ public final class MigrationTemplateHandler extends
 			srcTableCfg.setSqlBefore(attributes.getValue(TemplateTags.ATTR_BEFORE_SQL));
 			srcTableCfg.setSqlAfter(attributes.getValue(TemplateTags.ATTR_AFTER_SQL));
 			srcTableCfg.setOwner(attributes.getValue(TemplateTags.ATTR_OWNER));
-			srcTableCfg.setTargetOwner(attributes.getValue(TemplateTags.ATTR_TARGET_OWNER));
-			config.addScriptSchemaMapping(attributes.getValue(TemplateTags.ATTR_OWNER), 
-					attributes.getValue(TemplateTags.ATTR_TARGET_OWNER));
+			srcTableCfg.setTargetOwner(attributes.getValue(TemplateTags.ATTR_TARGET_SCHEMA));
 
 			SourceEntryTableConfig setc = ((SourceEntryTableConfig) srcTableCfg);
 			setc.setCreatePartition(getBoolean(attributes.getValue(TemplateTags.ATTR_PARTITION),

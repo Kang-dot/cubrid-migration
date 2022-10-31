@@ -31,7 +31,6 @@ package com.cubrid.cubridmigration.core.engine.task.exp;
 
 import java.math.BigInteger;
 
-import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
 import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
 import com.cubrid.cubridmigration.core.engine.config.SourceSequenceConfig;
@@ -62,12 +61,8 @@ public class SequenceExportTask extends
 	protected void executeExportTask() {
 		//CMT112
 		Sequence targetSequence = null; 
-				
-		if (CUBRIDVersionUtils.getInstance().isTargetVersionOver112()) {
-			targetSequence = config.getTargetSerialSchema(sq.getOwner(), sq.getTarget());
-		} else {
-			targetSequence = config.getTargetSerialSchema(sq.getTarget());
-		}
+		
+		targetSequence = config.getTargetSerialSchema(sq.getTargetOwner(), sq.getTarget());
 		
 		if (targetSequence == null) {
 			return;

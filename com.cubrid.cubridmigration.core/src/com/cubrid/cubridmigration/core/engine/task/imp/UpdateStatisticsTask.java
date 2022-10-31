@@ -38,7 +38,6 @@ import java.util.List;
 
 import org.apache.log4j.Logger;
 
-import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.common.Closer;
 import com.cubrid.cubridmigration.core.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
@@ -61,8 +60,6 @@ public class UpdateStatisticsTask extends
 
 	private final MigrationConfiguration config;
 
-	private CUBRIDVersionUtils verUtil = CUBRIDVersionUtils.getInstance();
-	
 	public UpdateStatisticsTask(MigrationConfiguration config) {
 		this.config = config;
 	}
@@ -80,7 +77,7 @@ public class UpdateStatisticsTask extends
 		}
 		List<String> objectsToBeUpdated = new ArrayList<String>();
 		
-		if (verUtil.addUserSchema() || verUtil.isTargetVersionOver112()) {
+		if (config.getAddUserSchema()) {
 			if (config.sourceIsCSV()) {
 				List<SourceCSVConfig> csvConfigs = config.getCSVConfigs();
 				for (SourceCSVConfig csvf : csvConfigs) {
@@ -123,7 +120,6 @@ public class UpdateStatisticsTask extends
 				}
 			}
 		}
-		
 		
 		for (String target : objectsToBeUpdated) {
 			

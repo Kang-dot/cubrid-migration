@@ -527,14 +527,17 @@ public class SelectSourcePage extends
 				return false;
 			}
 			final MigrationWizard wzd = getMigrationWizard();
-			CUBRIDVersionUtils.getInstance().setCUBRIDSource(true);
 			Catalog catalog = getCatalog();
 			if (catalog == null) {
 				return false;
 			}
-			CUBRIDVersionUtils.getInstance().setCUBRIDSource(false);
+			
 			if (catalog.getDatabaseType().getID() == 1) {
 				CUBRIDVersionUtils.getInstance().isSourceVersionOver112(catalog);
+				CUBRIDVersionUtils.getInstance().setCUBRIDSource(true);
+			} else {
+				CUBRIDVersionUtils.getInstance().isSourceVersionOver112(true);
+				CUBRIDVersionUtils.getInstance().setCUBRIDSource(false);
 			}
 			
 			//

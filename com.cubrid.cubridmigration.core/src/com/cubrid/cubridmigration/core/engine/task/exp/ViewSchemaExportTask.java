@@ -29,7 +29,6 @@
  */
 package com.cubrid.cubridmigration.core.engine.task.exp;
 
-import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.dbobject.View;
 import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
 import com.cubrid.cubridmigration.core.engine.config.SourceConfig;
@@ -59,15 +58,9 @@ public class ViewSchemaExportTask extends
 	 * 
 	 */
 	protected void executeExportTask() {
-		View importView = config.getTargetViewSchema(exportView.getTarget());
+		SourceViewConfig sourceView = (SourceViewConfig) exportView;
 		
-		SourceViewConfig sourceView = (SourceViewConfig) exportView; 
-		
-		if (CUBRIDVersionUtils.getInstance().isTargetVersionOver112()) {
-			importView = config.getTargetViewSchema(sourceView.getTargetOwner(), exportView.getTarget());
-		} else {
-			importView = config.getTargetViewSchema(exportView.getTarget());
-		}
+		View importView = config.getTargetViewSchema(sourceView.getTargetOwner(), sourceView.getTarget());
 		
 		if (importView == null) {
 			return;

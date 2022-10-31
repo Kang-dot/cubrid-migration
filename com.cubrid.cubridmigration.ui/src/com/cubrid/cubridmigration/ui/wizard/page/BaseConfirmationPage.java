@@ -31,6 +31,7 @@ package com.cubrid.cubridmigration.ui.wizard.page;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.lang.StringUtils;
 import org.eclipse.jface.dialogs.MessageDialog;
@@ -45,17 +46,18 @@ import org.eclipse.swt.widgets.ToolBar;
 import org.eclipse.swt.widgets.ToolItem;
 import org.eclipse.ui.PlatformUI;
 
+import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.dbobject.Column;
 import com.cubrid.cubridmigration.core.dbobject.FK;
 import com.cubrid.cubridmigration.core.dbobject.Index;
 import com.cubrid.cubridmigration.core.dbobject.PK;
+import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.View;
 import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
 import com.cubrid.cubridmigration.core.engine.config.SourceCSVConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceColumnConfig;
-import com.cubrid.cubridmigration.core.engine.config.SourceConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceEntryTableConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceSQLTableConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceSequenceConfig;
@@ -82,6 +84,8 @@ public class BaseConfirmationPage extends MigrationWizardPage {
 	private ToolItem btnPreviewDDL;
 	protected Composite comRoot;
 	protected ToolBar tbTools;
+	
+	private CUBRIDVersionUtils verUtil = CUBRIDVersionUtils.getInstance();
 
 	public BaseConfirmationPage(String pageName) {
 		super(pageName);
@@ -266,11 +270,13 @@ public class BaseConfirmationPage extends MigrationWizardPage {
 			}
 			Table tarTbl = null;
 			
-			if (setc.getTargetOwner() == null) {
-				tarTbl = cfg.getTargetTableSchema(setc.getTarget());
-			} else {
-				tarTbl = cfg.getTargetTableSchema(setc.getTargetOwner(), setc.getTarget());
-			}
+//			if (setc.getTargetOwner() == null) {
+//				tarTbl = cfg.getTargetTableSchema(setc.getTarget());
+//			} else {
+//				tarTbl = cfg.getTargetTableSchema(setc.getTargetOwner(), setc.getTarget());
+//			}
+			
+			tarTbl = cfg.getTargetTableSchema(setc.getTargetOwner(), setc.getTarget());
 			
 			if (tarTbl == null || tables.contains(tarTbl)) {
 				continue;
@@ -343,7 +349,7 @@ public class BaseConfirmationPage extends MigrationWizardPage {
 			if (!sc.isCreate()) {
 				continue;
 			}
-			View vw = cfg.getTargetViewSchema(sc.getOwner(), sc.getTarget());
+			View vw = cfg.getTargetViewSchema(sc.getTargetOwner(), sc.getTarget());
 			String ddl = ddlUtils.getViewDDL(vw);
 			txtDDL.append(ddl);
 			txtDDL.append(NEWLINE);
@@ -353,7 +359,7 @@ public class BaseConfirmationPage extends MigrationWizardPage {
 			if (!sc.isCreate()) {
 				continue;
 			}
-			Sequence sq = cfg.getTargetSerialSchema(sc.getOwner(), sc.getTarget());
+			Sequence sq = cfg.getTargetSerialSchema(sc.getTargetOwner(), sc.getTarget());
 			String ddl = ddlUtils.getSequenceDDL(sq);
 			txtDDL.append(ddl);
 			txtDDL.append(NEWLINE);
@@ -376,20 +382,14 @@ public class BaseConfirmationPage extends MigrationWizardPage {
 	}
 	
 	public void appendSchemaDDL(MigrationConfiguration cfg) {
-		MigrationWizard mw = getMigrationWizard();
+		MigrationConfiguration config = getMigrationWizard().getMigrationConfig();
 		
-		List<SourceEntryTableConfig> setcList = cfg.getExpEntryTableCfg();
+		List<String> schemaList = config.getNewTargetSchema();
 		
-		List<String> tarSchemaNameList = new ArrayList<String>();
-		
-		for (SourceEntryTableConfig setc : setcList) {
-			if (!tarSchemaNameList.contains(setc.getTargetOwner()) && setc.isCreateNewSchema()) {
-				tarSchemaNameList.add(setc.getTargetOwner());
-				
-				txtDDL.append("CREATE USER " + setc.getTargetOwner());
-				txtDDL.append(";");
-				txtDDL.append(NEWLINE);
-			}
+		for (String schemaName : schemaList) {
+			txtDDL.append("CREATE USER " + schemaName);
+			txtDDL.append(";");
+			txtDDL.append(NEWLINE);
 		}
 	}
 

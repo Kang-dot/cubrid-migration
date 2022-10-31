@@ -30,8 +30,11 @@
 package com.cubrid.cubridmigration.core.common;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 import com.cubrid.cubridmigration.core.dbobject.Catalog;
+import com.cubrid.cubridmigration.core.dbobject.Schema;
 
 public class CUBRIDVersionUtils {
 	private boolean isCUBRIDSource = false;
@@ -41,7 +44,11 @@ public class CUBRIDVersionUtils {
 	private boolean isSourceVersionOver112 = false;
 	private boolean isTargetVersionOver112 = false;
 	
+	private boolean isScriptMigration = false;
+	
 	private boolean addUserSchema = false;
+	
+	private Map<String, Schema> schemaMapping = new HashMap<String, Schema>();
 
 	
 	private CUBRIDVersionUtils () {}
@@ -174,5 +181,29 @@ public class CUBRIDVersionUtils {
 
 	public void setAddUserSchema(boolean addOfflineUserSchema) {
 		this.addUserSchema = addOfflineUserSchema;
+	}
+	
+	public boolean isScriptMigration() {
+		return isScriptMigration;
+	}
+	
+	public void setScriptMigration(boolean scriptMigration) {
+		this.isScriptMigration = scriptMigration;
+	}
+	
+	public void clearSchemaMapping() {
+		this.schemaMapping.clear();
+	}
+
+	public Map<String, Schema> getSchemaMapping() {
+		return schemaMapping;
+	}
+
+	public void setSchemaMapping(Map<String, Schema> schemaMapping) {
+		this.schemaMapping = schemaMapping;
+	}
+	
+	public void addSchemaMapping(String source, Schema targetSchema) {
+		schemaMapping.put(source, targetSchema);
 	}
 }

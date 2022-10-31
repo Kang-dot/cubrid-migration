@@ -807,7 +807,9 @@ public class SelectDestinationPage extends
 			config.setTargetFileTimeZone(targetFileTimezoneCombo.getItem(targetFileTimezoneCombo.getSelectionIndex()));
 			config.setTargetCharSet(cboCharset.getText());
 			
-			CUBRIDVersionUtils.getInstance().setAddUserSchema(btnAddUserSchema.getSelection());
+			//change to migration configuration
+//			CUBRIDVersionUtils.getInstance().setAddUserSchema(btnAddUserSchema.getSelection());
+			config.setAddUserSchema(btnAddUserSchema.getSelection());
 			config.setOfflineUserSchema(btnAddUserSchema.getSelection());
 			
 			return true;

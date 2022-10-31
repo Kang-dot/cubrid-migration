@@ -61,6 +61,7 @@ import com.cubrid.cubridmigration.core.dbmetadata.IBuildSchemaFilter;
 import com.cubrid.cubridmigration.core.dbobject.Catalog;
 import com.cubrid.cubridmigration.core.dbobject.Column;
 import com.cubrid.cubridmigration.core.dbobject.DBObjectFactory;
+import com.cubrid.cubridmigration.core.dbobject.FK;
 import com.cubrid.cubridmigration.core.dbobject.Function;
 import com.cubrid.cubridmigration.core.dbobject.Index;
 import com.cubrid.cubridmigration.core.dbobject.PK;
@@ -163,10 +164,10 @@ public final class CUBRIDSchemaFetcher extends
 		catalog.setTimezone(TimeZoneUtils.getDefaultID2GMT());
 		List<Schema> schemaList = catalog.getSchemas();
 		
-		if (CUBRIDVersionUtils.getInstance().isCUBRIDSource()) {
-			removeEmptySchema(catalog);
-			CUBRIDVersionUtils.getInstance().setCUBRIDSource(false);
-		}
+//		if (CUBRIDVersionUtils.getInstance().isCUBRIDSource()) {
+//			removeEmptySchema(catalog);
+//			CUBRIDVersionUtils.getInstance().setCUBRIDSource(false);
+//		}
 		
 		CUBRIDSQLHelper ddlUtil = CUBRIDSQLHelper.getInstance(null);
 
@@ -801,7 +802,7 @@ public final class CUBRIDSchemaFetcher extends
 				}
 				
 				table.setName(owner + "." + tableName);
-				buildTableFKs(conn, catalog, schema, table);
+				buildTableFKsWithUserSchema(conn, catalog, schema, table);
 				table.setName(tableName);
 			}
 		} finally {
@@ -809,6 +810,93 @@ public final class CUBRIDSchemaFetcher extends
 			Closer.close(stmt);
 		}
 	}
+	
+	protected void buildTableFKsWithUserSchema (final Connection conn, final Catalog catalog, final Schema schema,
+			final Table table) throws SQLException {
+
+		ResultSet rs = null; //NOPMD
+		try {
+			rs = conn.getMetaData().getImportedKeys(getCatalogName(catalog), getSchemaName(schema),
+					table.getName());
+			String fkName = "";
+			FK foreignKey = null;
+
+			while (rs.next()) {
+				final String newFkName = rs.getString("FK_NAME");
+				if (fkName.compareToIgnoreCase(newFkName) != 0) {
+					if (foreignKey != null) {
+						table.addFK(foreignKey);
+					}
+					fkName = newFkName;
+					foreignKey = factory.createFK(table);
+					foreignKey.setName(fkName);
+					final String fkTableName = rs.getString("PKTABLE_NAME");
+					//Ignore invalid foreign key.
+					if (StringUtils.isEmpty(fkTableName)) {
+						continue;
+					}
+					
+					String noSchemaFkTableName = fkTableName.split("\\.")[1];
+					foreignKey.setReferencedTableName(noSchemaFkTableName);
+					
+//					foreignKey.setReferencedTableName(fkTableName);
+					
+					//foreignKey.setDeferability(rs.getInt("DEFERRABILITY"));
+
+					switch (rs.getShort("DELETE_RULE")) {
+					case DatabaseMetaData.importedKeyCascade:
+						foreignKey.setDeleteRule(DatabaseMetaData.importedKeyCascade);
+						break;
+
+					case DatabaseMetaData.importedKeyRestrict:
+						foreignKey.setDeleteRule(DatabaseMetaData.importedKeyRestrict);
+						break;
+
+					case DatabaseMetaData.importedKeySetNull:
+						foreignKey.setDeleteRule(DatabaseMetaData.importedKeySetNull);
+						break;
+
+					default:
+						foreignKey.setDeleteRule(FK.ON_DELETE_NO_ACTION);
+						break;
+					}
+
+					switch (rs.getShort("UPDATE_RULE")) {
+					case DatabaseMetaData.importedKeyCascade:
+						foreignKey.setUpdateRule(DatabaseMetaData.importedKeyCascade);
+						break;
+
+					case DatabaseMetaData.importedKeyRestrict:
+						foreignKey.setUpdateRule(DatabaseMetaData.importedKeyRestrict);
+						break;
+
+					case DatabaseMetaData.importedKeySetNull:
+						foreignKey.setUpdateRule(DatabaseMetaData.importedKeySetNull);
+						break;
+
+					default:
+						foreignKey.setUpdateRule(FK.ON_UPDATE_NO_ACTION);
+						break;
+					}
+				}
+				if (foreignKey == null) {
+					continue;
+				}
+				// find reference table column
+				final String colName = rs.getString("FKCOLUMN_NAME");
+				final Column column = table.getColumnByName(colName);
+				if (column != null) {
+					foreignKey.addRefColumnName(colName, rs.getString("PKCOLUMN_NAME"));
+				}
+			}
+			if (foreignKey != null) {
+				table.addFK(foreignKey);
+			}
+		} finally {
+			Closer.close(rs);
+		}
+	}
+
 
 	/**
 	 * Build all tables' PKs with user schema for CUBRID version >= 11.2

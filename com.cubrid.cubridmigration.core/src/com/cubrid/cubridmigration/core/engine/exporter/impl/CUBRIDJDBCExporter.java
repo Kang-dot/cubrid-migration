@@ -41,7 +41,6 @@ import java.util.Locale;
 
 import org.apache.commons.lang.StringUtils;
 
-import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.common.Closer;
 import com.cubrid.cubridmigration.core.dbobject.PK;
 import com.cubrid.cubridmigration.core.dbobject.Record;
@@ -319,7 +318,7 @@ public class CUBRIDJDBCExporter extends
 		}
 		sql.append(" COUNT(*)AS C FROM ");
 		
-		if (CUBRIDVersionUtils.getInstance().isSourceVersionOver112()) {
+		if (setc.getOwner() != null) {
 			sql.append("\"");
 			sql.append(setc.getOwner());
 			sql.append("\"");

@@ -37,7 +37,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.common.Closer;
 import com.cubrid.cubridmigration.core.common.DBUtils;
 import com.cubrid.cubridmigration.core.dbobject.Column;
@@ -81,8 +80,6 @@ public class JDBCImporter extends
 	private final CUBRIDParameterSetter parameterSetter;
 	private final ErrorRecords2SQLFileWriter errorRecordsWriter;
 	
-	private CUBRIDVersionUtils verUtil = CUBRIDVersionUtils.getInstance();
-
 	public JDBCImporter(MigrationContext mrManager) {
 		super(mrManager);
 		this.parameterSetter = mrManager.getParamSetter();
@@ -263,10 +260,12 @@ public class JDBCImporter extends
 	 */
 	public String getTargetInsertDML(SourceTableConfig tt) {
 		StringBuffer nameBuf = new StringBuffer("insert into ");
-		if (verUtil.addUserSchema() || verUtil.isTargetVersionOver112()) {
+		
+		if (config.getAddUserSchema()) {
 			nameBuf.append(tt.getTargetOwner())
-			.append(".");		
+			.append(".");
 		}
+		
 		nameBuf.append(CUBRIDSQLHelper.getInstance(null).getQuotedObjName(tt.getTarget()))
 			.append(" (");
 		StringBuffer valueBuf = new StringBuffer(" values (");
