@@ -52,7 +52,6 @@ import org.apache.log4j.Logger;
 import au.com.bytecode.opencsv.CSVReader;
 
 import com.cubrid.cubridmigration.core.common.CUBRIDIOUtils;
-import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.common.CharsetUtils;
 import com.cubrid.cubridmigration.core.common.PathUtils;
 import com.cubrid.cubridmigration.core.common.TimeZoneUtils;
@@ -213,6 +212,8 @@ public class MigrationConfiguration {
 	private Boolean addOfflineUserSchema = false;
 	
 	private Map<String, String> scriptSchemaMapping = new HashMap<String, String>();
+	
+	private boolean isOldScript = false;
 	
 	/**
 	 * Add a CSV file to exporting list.
@@ -559,7 +560,6 @@ public class MigrationConfiguration {
 				if (tseq == null) {
 					tseq = (Sequence) seq.clone();
 					tseq.setName(sc.getTarget());
-//					tseq.setTargetOwner(sourceDBSchema.getTargetSchemaName());
 					tseq.setOwner(sc.getTargetOwner());
 					tseq.setDDL(cubridddlUtil.getSequenceDDL(tseq));
 					tseq.setComment(seq.getComment());
@@ -572,15 +572,6 @@ public class MigrationConfiguration {
 		targetSequences.clear();
 		targetSequences.addAll(tempSerials);
 	}
-	
-//	private String fkNameCfg(String fkName, String uniqueName) {
-//		if (foreignKeyCounter.contains(fkName)) {
-//			return uniqueName + "_" + fkName;
-//		} else {
-//			foreignKeyCounter.add(fkName);
-//			return fkName;
-//		}
-//	}
 	
 	private boolean isDuplicatedObject(Map<String, Integer> allObjectsMap, String objectName) {
 		if (allObjectsMap == null) {
@@ -912,15 +903,11 @@ public class MigrationConfiguration {
 			if (tfk == null) {
 				tfk = new FK(tarTable);
 				tfk.setName(sfc.getTarget());
-//				tfk.setName(fkNameCfg(sfc.getName(), tarTable.getName()));
 				
 				String referencedTableName = fk.getReferencedTableName();
 				Map<String, Integer> allTablesCountMap = srcCatalog.getAllTablesCountMap();
 				Integer integer = allTablesCountMap.get(referencedTableName);
 
-//				boolean isMultiSchema = CUBRIDVersionUtils.getInstance().isTargetMultiSchema();
-//				boolean isMultiSchema = addUserSchema;
-				
 				if (integer != null && integer > 1 && !addUserSchema) {
 					String owner = fk.getTable().getOwner();
 					tfk.setReferencedTableName(owner + "_" + referencedTableName);
@@ -939,9 +926,6 @@ public class MigrationConfiguration {
 				//tfk.setOnCacheObject(fk.getOnCacheObject());
 				tfk.setUpdateRule(fk.getUpdateRule());
 			}
-//			else if (tfk.getReferencedTableName().equals(setc.getTarget())) {
-//				tfk.setReferencedTableName(setc.getTarget());
-//			} 
 			tfks.add(tfk);
 		}
 		setc.setFKs(sFKCfgs);
@@ -1082,7 +1066,6 @@ public class MigrationConfiguration {
 					tVw = getDBTransformHelper().getCloneView(vw, this);
 					tVw.setReferenceTableNames(referenceTableNameList);
 					tVw.setName(sc.getTarget());
-//					tVw.setTargetOwner(sourceDBSchema.getTargetSchemaName());
 					tVw.setOwner(sc.getTargetOwner());
 					tVw.setComment(vw.getComment());
 				}
@@ -3761,6 +3744,12 @@ public class MigrationConfiguration {
 		this.addOfflineUserSchema = addOfflineUserSchema;
 	}
 	
-
+	public void setOldSchema(boolean isOldSchema) {
+		this.isOldScript = isOldSchema;
+	}
+	
+	public boolean isOldSchema() {
+		return this.isOldScript;
+	}
 	
 }

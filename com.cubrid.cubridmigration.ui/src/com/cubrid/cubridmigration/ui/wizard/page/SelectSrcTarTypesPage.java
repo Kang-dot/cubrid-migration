@@ -41,6 +41,7 @@ import org.eclipse.swt.widgets.Composite;
 
 import com.cubrid.cubridmigration.core.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
+import com.cubrid.cubridmigration.ui.common.dialog.DetailMessageDialog;
 import com.cubrid.cubridmigration.ui.message.Messages;
 import com.cubrid.cubridmigration.ui.wizard.MigrationWizard;
 import com.cubrid.cubridmigration.ui.wizard.page.view.SelectSrcTarTypesView;
@@ -57,7 +58,7 @@ public class SelectSrcTarTypesPage extends
 
 	private static final Logger LOG = LogUtil.getLogger(SelectSrcTarTypesPage.class);
 	private SelectSrcTarTypesView comSelection;
-
+	
 	public SelectSrcTarTypesPage(String pageName) {
 		super(pageName);
 		setTitle(Messages.msgSelectMigrationType);
@@ -70,6 +71,12 @@ public class SelectSrcTarTypesPage extends
 	 * @param event PageChangedEvent
 	 */
 	protected void afterShowCurrentPage(PageChangedEvent event) {
+		MigrationConfiguration config = getMigrationWizard().getMigrationConfig();
+		
+		if (config.isOldSchema()) {
+			MessageDialog.openWarning(getShell(), Messages.msgWarning, Messages.oldScriptMigration);
+		}
+		
 		try {
 			if (isFirstVisible) {
 				final MigrationWizard wzd = getMigrationWizard();

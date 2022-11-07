@@ -639,6 +639,7 @@ public class Messages extends
 	public static String objectMapPageTabFolderTables;
 	public static String objectMapPageTabFolderViews;
 	public static String objectMapPageTitle;
+	public static String oldScriptMigration;
 	public static String onlineCUBRIDCommitCount;
 	public static String openConfActionTitle;
 	public static String oracle2CUBRID;

@@ -83,7 +83,7 @@ public final class MigrationTemplateHandler extends
 	private StringBuffer schemaCache;
 	private Catalog srcCatalog;
 	private Catalog srcSQLCatalog;
-
+	
 	private SourceCSVConfig srcCSV;
 
 	private final CUBRIDDataTypeHelper dtHelper = CUBRIDDataTypeHelper.getInstance(null);
@@ -448,9 +448,12 @@ public final class MigrationTemplateHandler extends
 		targetTable.setName(attributes.getValue(TemplateTags.ATTR_NAME));
 		targetTable.setReuseOID(getBoolean(attributes.getValue(TemplateTags.ATTR_REUSE_OID), false));
 		targetTable.setOwner(attributes.getValue(TemplateTags.ATTR_OWNER));
-		if (targetTable.getOwner().isEmpty()) {
-			targetTable.setOwner(null);
+		if (targetTable.getOwner() != null) {
+			if (targetTable.getOwner().isEmpty()) {
+				targetTable.setOwner(null);
+			}
 		}
+			
 		config.addTargetTableSchema(targetTable);
 	}
 
@@ -504,6 +507,13 @@ public final class MigrationTemplateHandler extends
 	public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
 		if (TemplateTags.TAG_MIGRATION.equals(qName)) {
 			config.setName(attributes.getValue(TemplateTags.ATTR_NAME));
+			String version = attributes.getValue(TemplateTags.ATTR_VERSION);
+			int versionValue = convertVersionToInt(version);
+			
+			if (versionValue < 1110) {
+				config.setOldSchema(true);
+			}
+			
 		} else if (TemplateTags.TAG_SOURCE.equals(qName)) {
 			isSourceNode = true;
 			config.setSourceType(attributes.getValue(TemplateTags.ATTR_DB_TYPE));
@@ -796,6 +806,12 @@ public final class MigrationTemplateHandler extends
 		//		else {
 		//			parseCMServer(qName, attr);
 		//		}
+	}
+	
+	private int convertVersionToInt(String version) {
+		String stringValue = version.replaceAll("\\.", "");
+		
+		return Integer.parseInt(stringValue);
 	}
 
 	//	/**

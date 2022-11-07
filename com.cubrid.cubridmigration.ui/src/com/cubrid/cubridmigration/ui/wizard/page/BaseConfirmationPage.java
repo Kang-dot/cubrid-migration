@@ -31,7 +31,6 @@ package com.cubrid.cubridmigration.ui.wizard.page;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.commons.lang.StringUtils;
 import org.eclipse.jface.dialogs.MessageDialog;
@@ -46,12 +45,10 @@ import org.eclipse.swt.widgets.ToolBar;
 import org.eclipse.swt.widgets.ToolItem;
 import org.eclipse.ui.PlatformUI;
 
-import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.dbobject.Column;
 import com.cubrid.cubridmigration.core.dbobject.FK;
 import com.cubrid.cubridmigration.core.dbobject.Index;
 import com.cubrid.cubridmigration.core.dbobject.PK;
-import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.View;
@@ -85,8 +82,6 @@ public class BaseConfirmationPage extends MigrationWizardPage {
 	protected Composite comRoot;
 	protected ToolBar tbTools;
 	
-	private CUBRIDVersionUtils verUtil = CUBRIDVersionUtils.getInstance();
-
 	public BaseConfirmationPage(String pageName) {
 		super(pageName);
 	}
@@ -269,12 +264,6 @@ public class BaseConfirmationPage extends MigrationWizardPage {
 				continue;
 			}
 			Table tarTbl = null;
-			
-//			if (setc.getTargetOwner() == null) {
-//				tarTbl = cfg.getTargetTableSchema(setc.getTarget());
-//			} else {
-//				tarTbl = cfg.getTargetTableSchema(setc.getTargetOwner(), setc.getTarget());
-//			}
 			
 			tarTbl = cfg.getTargetTableSchema(setc.getTargetOwner(), setc.getTarget());
 			

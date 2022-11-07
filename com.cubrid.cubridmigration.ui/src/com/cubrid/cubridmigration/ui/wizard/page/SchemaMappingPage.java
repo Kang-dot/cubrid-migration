@@ -245,27 +245,17 @@ public class SchemaMappingPage extends MigrationWizardPage {
 		col5.setText(propertyList[3]);
 		col6.setText(propertyList[4]);
 		
-//		Canvas canvas = new Canvas(srcTableViewer.getTable(), SWT.NONE);
-//		canvas.setSize(200, 200);
-//		canvas.setLocation(100, 100);
-//		
-//		GC gc = new GC(canvas);
-//		gc.drawString("sample text", 100, 100);
-		
 	}
 	
 	private void getSchemaValues() {
-		
 		Catalog targetCatalog = wizard.getTargetCatalog();
 		Catalog sourceCatalog = wizard.getSourceCatalog();
 		
 		List<Schema> targetSchemaList = targetCatalog.getSchemas();
 		List<Schema> sourceSchemaList = sourceCatalog.getSchemas();
-		
 
 		tarSchemaNameList = new ArrayList<String>();
 		ArrayList<String> dropDownSchemaList = new ArrayList<String>();
-		
 		
 		for (Schema schema : targetSchemaList) {
 			tarSchemaNameList.add(schema.getName());
@@ -279,8 +269,6 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			
 			dropDownSchemaList.add(schema.getName());
 		}
-		
-//		dropDownSchemaList.add(0, Messages.msgDefaultSchema);
 		
 		if (targetCatalog.isDBAGroup()) {
 			tarSchemaNameArray = dropDownSchemaList.toArray(new String[] {});
@@ -474,7 +462,6 @@ public class SchemaMappingPage extends MigrationWizardPage {
 		srcSchemaList = srcCatalog.getSchemas();
 		tarSchemaList = tarCatalog.getSchemas();
 		
-//		boolean tempValue = tarCatalog.getDatabaseType().isSupportMultiSchema();
 		Map<String, String> scriptSchemaMap = config.getScriptSchemaMapping();
 		
 		for (Schema schema : srcSchemaList) {
@@ -502,10 +489,7 @@ public class SchemaMappingPage extends MigrationWizardPage {
 				
 				logger.info("srcTable target schema : " + srcTable.getTarSchema());
 				
-				
-				
 			} else {
-//				if (tarCatalog.isDBAGroup() && tempValue) {
 				if (tarCatalog.isDBAGroup() && verUtil.isTargetVersionOver112()) {
 					srcTable.setTarSchema(srcTable.getSrcSchema());
 				} else {
@@ -605,12 +589,8 @@ public class SchemaMappingPage extends MigrationWizardPage {
 					
 					return false;
 				}
-				
 				Schema sourceSchema = srcCatalog.getSchemaByName(srcTable.getSrcSchema());
 				sourceSchema.setTargetSchemaName(srcTable.getTarSchema());
-				
-			} else {
-				
 			}
 		}
 		

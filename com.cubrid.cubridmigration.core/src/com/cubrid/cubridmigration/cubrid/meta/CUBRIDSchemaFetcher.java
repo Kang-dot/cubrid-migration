@@ -164,11 +164,6 @@ public final class CUBRIDSchemaFetcher extends
 		catalog.setTimezone(TimeZoneUtils.getDefaultID2GMT());
 		List<Schema> schemaList = catalog.getSchemas();
 		
-//		if (CUBRIDVersionUtils.getInstance().isCUBRIDSource()) {
-//			removeEmptySchema(catalog);
-//			CUBRIDVersionUtils.getInstance().setCUBRIDSource(false);
-//		}
-		
 		CUBRIDSQLHelper ddlUtil = CUBRIDSQLHelper.getInstance(null);
 
 		for (Schema schema : schemaList) {
@@ -194,23 +189,6 @@ public final class CUBRIDSchemaFetcher extends
 		return catalog;
 	}
 	
-	private void removeEmptySchema(Catalog catalog) {
-		List<Schema> schemaList = catalog.getSchemas();
-		List<Schema> removeSchema = new ArrayList<Schema>();
-		
-		for (Schema schema : schemaList) {
-			List<Table> tableList = schema.getTables();
-			List<View> viewList = schema.getViews();
-			List<Sequence> sequenceList = schema.getSequenceList();
-			
-			if (tableList.isEmpty() && viewList.isEmpty() && sequenceList.isEmpty()) {
-				removeSchema.add(schema);
-			}
-		}
-		
-		catalog.removeSchema(removeSchema);
-	}
-
 	/**
 	 * Build CUBRID all tables' columns
 	 * 

@@ -41,7 +41,6 @@ import java.util.Map;
 import org.apache.commons.lang.StringUtils;
 
 import com.cubrid.cubridmigration.core.common.CUBRIDIOUtils;
-import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.common.Closer;
 import com.cubrid.cubridmigration.core.dbobject.DBObject;
 import com.cubrid.cubridmigration.core.dbobject.FK;
@@ -85,7 +84,6 @@ public class MigrationReport implements
 	 * @return name displayed in table
 	 */
 	private static String getDBObjName(DBObject obj) {
-//		boolean addUserSchema = CUBRIDVersionUtils.getInstance().addUserSchema();
 		if (obj instanceof PK && ("PRIMARY".equals(obj.getName()) || obj.getName() == null)) {
 			return "primary key of " + ((PK) obj).getTable().getName();
 		} else if (obj instanceof Index) {

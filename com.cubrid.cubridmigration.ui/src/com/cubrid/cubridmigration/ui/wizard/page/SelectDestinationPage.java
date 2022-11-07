@@ -808,7 +808,6 @@ public class SelectDestinationPage extends
 			config.setTargetCharSet(cboCharset.getText());
 			
 			//change to migration configuration
-//			CUBRIDVersionUtils.getInstance().setAddUserSchema(btnAddUserSchema.getSelection());
 			config.setAddUserSchema(btnAddUserSchema.getSelection());
 			config.setOfflineUserSchema(btnAddUserSchema.getSelection());
 			

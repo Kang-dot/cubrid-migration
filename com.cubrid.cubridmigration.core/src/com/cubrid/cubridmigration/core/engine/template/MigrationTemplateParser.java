@@ -90,7 +90,7 @@ import com.cubrid.cubridmigration.mysql.trans.MySQL2CUBRIDMigParas;
 public final class MigrationTemplateParser {
 
 	private static final String DEFAULT_MIGRATION_SCRIPT_NAME = "migration_script";
-	private static final String VERSION = "9.3.0";
+	private static final String VERSION = "11.1.0";
 	private static final String INDENT_AMOUNT = "{http://xml.apache.org/xslt}indent-amount";
 	private static final String UTF_8 = "utf-8";
 
@@ -742,23 +742,21 @@ public final class MigrationTemplateParser {
 			return;
 		}
 		Element schemas = createElement(document, source, TemplateTags.TAG_SCHEMAS);
-		List<Schema> schemaList = config.getSrcCatalog().getSchemas();
+		Catalog srcCatalog = config.getSrcCatalog();
 		
-		for (Schema schema : schemaList) {
-			Element schemaElement = createElement(document, schemas, TemplateTags.TAG_SCHEMA_INFO);
-			
-			schemaElement.setAttribute(TemplateTags.ATTR_SCHEMA_NAME, schema.getName());
-			schemaElement.setAttribute(TemplateTags.ATTR_TARGET_SCHEMA, schema.getTargetSchemaName());
-			
+		if (srcCatalog != null){
+			for (Schema schema : srcCatalog.getSchemas()) {
+				Element schemaElement = createElement(document, schemas, TemplateTags.TAG_SCHEMA_INFO);
+				
+				schemaElement.setAttribute(TemplateTags.ATTR_SCHEMA_NAME, schema.getName());
+				schemaElement.setAttribute(TemplateTags.ATTR_TARGET_SCHEMA, schema.getTargetSchemaName());
+			}			
 		}
+		
 		//tables
 		Element tables = createElement(document, source, TemplateTags.TAG_TABLES);
 		List<SourceEntryTableConfig> exportEntryTables = config.getExpEntryTableCfg();
 		for (SourceEntryTableConfig setc : exportEntryTables) {
-//			if (!setc.getOwner().equalsIgnoreCase(schema.getName())) {
-//				continue;
-//			}
-			
 			Element tbe = createElement(document, tables, TemplateTags.TAG_TABLE);
 			tbe.setAttribute(TemplateTags.ATTR_NAME, setc.getName());
 			tbe.setAttribute(TemplateTags.ATTR_CREATE, getBooleanString(setc.isCreateNewTable()));
@@ -814,11 +812,6 @@ public final class MigrationTemplateParser {
 		if (!exportSQLTables.isEmpty()) {
 			Element sqltables = createElement(document, source, TemplateTags.TAG_SQLTABLES);
 			for (SourceSQLTableConfig setc : exportSQLTables) {
-				
-//				if (!setc.getOwner().equalsIgnoreCase(schema.getName())) {
-//					continue;
-//				}
-				
 				Element tbe = createElement(document, sqltables, TemplateTags.TAG_SQLTABLE);
 				tbe.setAttribute(TemplateTags.ATTR_NAME, setc.getName());
 				tbe.setAttribute(TemplateTags.ATTR_CREATE,
@@ -847,10 +840,6 @@ public final class MigrationTemplateParser {
 		if (!exportSerials.isEmpty()) {
 			Element sequences = createElement(document, source, TemplateTags.TAG_SEQUENCES);
 			for (SourceSequenceConfig sc : exportSerials) {
-//				if (!sc.getOwner().equalsIgnoreCase(schema.getName())) {
-//					continue;
-//				}
-				
 				Element sequence = createElement(document, sequences, TemplateTags.TAG_SEQUENCE);
 				sequence.setAttribute(TemplateTags.ATTR_OWNER, sc.getOwner());
 				sequence.setAttribute(TemplateTags.ATTR_NAME, sc.getName());
@@ -864,11 +853,6 @@ public final class MigrationTemplateParser {
 		if (!exportViews.isEmpty()) {
 			Element views = createElement(document, source, TemplateTags.TAG_VIEWS);
 			for (SourceViewConfig sc : exportViews) {
-				
-//				if (!sc.getOwner().equalsIgnoreCase(schema.getName())) {
-//					continue;
-//				}
-				
 				Element vwNode = createElement(document, views, TemplateTags.TAG_VIEW);
 				vwNode.setAttribute(TemplateTags.ATTR_OWNER, sc.getOwner());
 				vwNode.setAttribute(TemplateTags.ATTR_NAME, sc.getName());
