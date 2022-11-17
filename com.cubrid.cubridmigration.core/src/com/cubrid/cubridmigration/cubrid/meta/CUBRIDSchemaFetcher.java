@@ -45,11 +45,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Properties;
 
 import org.apache.commons.lang.StringUtils;
 
-import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.common.Closer;
 import com.cubrid.cubridmigration.core.common.CommonUtils;
 import com.cubrid.cubridmigration.core.common.DBUtils;
@@ -1179,20 +1177,17 @@ public final class CUBRIDSchemaFetcher extends
 		List<Sequence> sequenceList = new ArrayList<Sequence>();
 
 		try {
-//			if (CUBRIDVersionUtils.getInstance().isVersionOver112(catalog)) {
-//				
-//				PreparedStatement pstmt = conn.prepareStatement(GET_OWNER_SERIAL_SQL);
-//				pstmt.setString(1, schema.getName().toUpperCase());
-//				
-//				rs = pstmt.executeQuery();
-//			} else {
-//				stmt = conn.createStatement();
-//				rs = stmt.executeQuery(GET_ALLSERIALINFO_SQL);				
-//			}
+			Integer ver = Integer.parseInt("" + conn.getMetaData().getDatabaseMajorVersion() 
+					+ conn.getMetaData().getDatabaseMinorVersion());
 			
-			PreparedStatement pstmt = conn.prepareStatement(GET_OWNER_SERIAL_SQL);
-			pstmt.setString(1, schema.getName().toUpperCase());
+			PreparedStatement pstmt = null;
 			
+			if (ver >= 112) {
+				pstmt = conn.prepareStatement(GET_OWNER_SERIAL_SQL);
+				pstmt.setString(1, schema.getName().toUpperCase());
+			} else {
+				pstmt = conn.prepareStatement(GET_ALLSERIALINFO_SQL);
+			}
 			rs = pstmt.executeQuery();
 			
 			while (rs.next()) {
@@ -1209,7 +1204,7 @@ public final class CUBRIDSchemaFetcher extends
 				int cachedNum = rs.getInt("cached_num");
 				String owner = null;
 				
-				if (CUBRIDVersionUtils.getInstance().isVersionOver112(catalog)) {
+				if (ver >= 112) {
 					owner = rs.getString("owner.name");
 				} else {
 					owner = schema.getName();
@@ -1563,10 +1558,8 @@ public final class CUBRIDSchemaFetcher extends
 	protected void buildTables(final Connection conn, final Catalog catalog, final Schema schema,
 			IBuildSchemaFilter filter) throws SQLException {
 		// Fastest gathering schema meta data
-		
 		Integer ver = Integer.parseInt("" + conn.getMetaData().getDatabaseMajorVersion() 
 				+ conn.getMetaData().getDatabaseMinorVersion());
-		
 		if (ver >= 112) {
 			Map<String, Table> tables = buildCUBRIDTablesWithUserSchema(conn, catalog, schema, filter);
 			buildCUBRIDTableColumnsWithUserSchema(conn, tables);
@@ -1633,7 +1626,10 @@ public final class CUBRIDSchemaFetcher extends
 	 */
 	protected void buildViews(Connection conn, Catalog catalog, Schema schema,
 			IBuildSchemaFilter filter) throws SQLException {
-		if (CUBRIDVersionUtils.getInstance().isVersionOver112(catalog)){
+		Integer ver = Integer.parseInt("" + conn.getMetaData().getDatabaseMajorVersion() 
+				+ conn.getMetaData().getDatabaseMinorVersion());
+		
+		if (ver >= 112){
 			buildCUBRIDViews(conn, catalog, schema, filter);
 		} else {
 			super.buildViews(conn, catalog, schema, filter);			
@@ -1890,7 +1886,10 @@ public final class CUBRIDSchemaFetcher extends
 					+ "WHERE TRIG.NAME=T.TRIGGER_NAME AND T.TARGET_CLASS_NAME=C.CLASS_NAME(+) "
 					+ "AND C.IS_SYSTEM_CLASS='NO' ORDER BY NAME";
 			
-			if (CUBRIDVersionUtils.getInstance().isVersionOver112(schema.getCatalog())) {
+			Integer ver = Integer.parseInt("" + conn.getMetaData().getDatabaseMajorVersion() 
+					+ conn.getMetaData().getDatabaseMinorVersion());
+			
+			if (ver >= 112) {
 				stmt = conn.prepareStatement(sqlStr);				
 			} else {
 				stmt = conn.prepareStatement(prevSqlStr);
@@ -2037,12 +2036,10 @@ public final class CUBRIDSchemaFetcher extends
 	 */
 	@Override
 	protected List<String> getSchemaNames(Connection conn, ConnParameters cp) throws SQLException {
-		
 		Integer ver = Integer.parseInt("" + conn.getMetaData().getDatabaseMajorVersion() 
 				+ conn.getMetaData().getDatabaseMinorVersion());
 		
 		if (ver < 112) {
-			CUBRIDVersionUtils.getInstance().hasMultiSchema(false);
 			return super.getSchemaNames(conn, cp);
 		}
 		
@@ -2077,14 +2074,7 @@ public final class CUBRIDSchemaFetcher extends
 			}
 			
 			if (schemaNames.isEmpty()) {
-				CUBRIDVersionUtils.getInstance().hasMultiSchema(false);
 				return super.getSchemaNames(conn, cp);
-			}
-			
-//			schemaNames.add(cp.getConUser().toUpperCase());
-			
-			if (schemaNames.size() > 1) {
-				CUBRIDVersionUtils.getInstance().hasMultiSchema(true);
 			}
 			
 		} catch (Exception e) {

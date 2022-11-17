@@ -388,4 +388,20 @@ public class Catalog implements
 			//Do nothing
 		}
 	}
+	
+	public boolean isDbHasUserSchema() {
+		int dbType = getDatabaseType().getID();
+		
+		if (dbType != 1) {
+			return true;
+		}
+		
+		int	dbVersion = (this.version.getDbMajorVersion() * 10) + this.version.getDbMinorVersion();
+		
+		if (dbVersion >= 112){
+			return true;
+		} else {
+			return false;
+		}
+	}
 }

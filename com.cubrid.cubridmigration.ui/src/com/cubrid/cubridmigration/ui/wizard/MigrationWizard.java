@@ -569,4 +569,11 @@ public class MigrationWizard extends
 	public boolean isTargetOfflineMode() {
 		return tarOfflineMode;
 	}
+	
+	public int getTarCatalogSchemaCount() {
+		if (!getMigrationConfig().targetIsOnline()) {
+			return 0;
+		}
+		return targetCatalog.getSchemas().size();
+	}
 }

@@ -39,7 +39,6 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 
-import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.datatype.DataType;
 import com.cubrid.cubridmigration.core.datatype.DataTypeConstant;
@@ -79,7 +78,7 @@ public abstract class DBTransformHelper {
 	protected final AbstractDataTypeMappingHelper dataTypeMappingHelper;
 
 	protected final IDataConvertorFacade convertFactory;
-
+	
 	protected DBTransformHelper(AbstractDataTypeMappingHelper dataTypeMapping,
 			ToCUBRIDDataConverterFacade cf) {
 		this.dataTypeMappingHelper = dataTypeMapping;
@@ -440,9 +439,9 @@ public abstract class DBTransformHelper {
 				Map<String, Integer> allTablesCountMap = config.getSrcCatalog().getAllTablesCountMap();
 				Integer tableCount = allTablesCountMap.get(referencedTableName);
 				
-				boolean isMultiSchema = CUBRIDVersionUtils.getInstance().isTargetMultiSchema();
+				int tarSchemaSize = config.getTarSchemaSize();
 				
-				if (tableCount != null && tableCount > 1 && !isMultiSchema) {
+				if (tableCount != null && tableCount > 1 && tarSchemaSize <= 1) {
 					//CMT112 if target is single schema, dot must replace to under bar
 					String owner = sfk.getTable().getOwner();
 					tfk.setReferencedTableName(StringUtils.lowerCase(owner) + "_" + referencedTableName);

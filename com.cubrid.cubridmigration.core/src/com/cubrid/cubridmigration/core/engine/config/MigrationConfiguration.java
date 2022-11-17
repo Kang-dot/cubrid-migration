@@ -168,6 +168,7 @@ public class MigrationConfiguration {
 
 	private int sourceType = SOURCE_TYPE_CUBRID;
 	private Catalog srcCatalog;
+	private int tarSchemaSize;
 	private Catalog offlineSrcCatalog;
 
 	private final List<Table> srcSQLSchemas = new ArrayList<Table>();
@@ -214,6 +215,8 @@ public class MigrationConfiguration {
 	private Map<String, String> scriptSchemaMapping = new HashMap<String, String>();
 	
 	private boolean isOldScript = false;
+	
+	private boolean isTarSchemaDuplicate = false;
 	
 	/**
 	 * Add a CSV file to exporting list.
@@ -549,6 +552,10 @@ public class MigrationConfiguration {
 					sc.setCreate(false);
 					sc.setReplace(false);
 					sc.setComment(seq.getComment());
+				} else if (sourceDBSchema.getTargetSchemaName() != null) {
+					if (!sourceDBSchema.getTargetSchemaName().equals(sc.getTargetOwner())) {
+						sc.setTargetOwner(sourceDBSchema.getTargetSchemaName());
+					}
 				}
 				tempList.add(sc);
 				Sequence tseq = null;
@@ -1059,6 +1066,10 @@ public class MigrationConfiguration {
 					sc.setCreate(false);
 					sc.setReplace(false);
 					sc.setComment(vw.getComment());
+				} else if (sourceDBSchema.getTargetSchemaName() != null) {
+					if (!sourceDBSchema.getTargetSchemaName().equals(sc.getTargetOwner())) {
+						sc.setTargetOwner(sourceDBSchema.getTargetSchemaName());
+					}
 				}
 				tempSCList.add(sc);
 				View tVw = getTargetViewSchema(sc.getTargetOwner(), sc.getTarget());
@@ -1079,13 +1090,18 @@ public class MigrationConfiguration {
 	}
 
 	private String getTargetName(Map<String, Integer> map, String owner, String name) {
-		
-		if (addUserSchema) {
+		if (isTarSchemaDuplicate || (!addUserSchema)) {
 			if (isDuplicatedObject(map, name)) {
 				return StringUtils.lowerCase(owner + "_" + name);
 			}
 		}
 		
+//		if (!addUserSchema) {
+//			if (isDuplicatedObject(map, name)) {
+//				return StringUtils.lowerCase(owner + "_" + name);
+//			}
+//		}
+//		
 		return StringUtils.lowerCase(name);
 	}
 
@@ -3750,6 +3766,22 @@ public class MigrationConfiguration {
 	
 	public boolean isOldSchema() {
 		return this.isOldScript;
+	}
+	
+	public void setTarSchemaSize(int tarSchemaSize) {
+		this.tarSchemaSize = tarSchemaSize;
+	}
+	
+	public int getTarSchemaSize() {
+		return this.tarSchemaSize;
+	}
+
+	public boolean isTarSchemaDuplicate() {
+		return isTarSchemaDuplicate;
+	}
+
+	public void setTarSchemaDuplicate(boolean isTarSchemaDuplicate) {
+		this.isTarSchemaDuplicate = isTarSchemaDuplicate;
 	}
 	
 }

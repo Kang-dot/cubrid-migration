@@ -29,7 +29,6 @@ import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.swt.widgets.TableItem;
 
 import com.cubrid.common.ui.swt.table.celleditor.EditableComboBoxCellEditor;
-import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.dbobject.Catalog;
 import com.cubrid.cubridmigration.core.dbobject.Schema;
@@ -65,8 +64,6 @@ public class SchemaMappingPage extends MigrationWizardPage {
 	TextCellEditor textEditor = null;
 	
 	private boolean firstVisible = true;
-	
-	private CUBRIDVersionUtils verUtil = CUBRIDVersionUtils.getInstance();
 	
 	protected class SrcTable {
 		private boolean isSelected;
@@ -275,10 +272,6 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			
 		} else {
 			tarSchemaNameArray = new String[] {targetCatalog.getConnectionParameters().getConUser()};
-			
-			CUBRIDVersionUtils verUtil = CUBRIDVersionUtils.getInstance();
-			
- 			verUtil.setTargetMultiSchema(false);
 		}
 	}
 	
@@ -434,12 +427,15 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			if (scriptSchemaMap.size() != 0) {
 				logger.info("offline script schema");
 				srcTable.setTarSchema(scriptSchemaMap.get(srcTable.getSrcSchema()));
+				if (srcTable.getTarSchema() == null || srcTable.getTarSchema().isEmpty()) {
+					srcTable.setTarSchema(Messages.msgUserSchemaDisable);
+				}
+				
 			} else {
 				if (config.getAddUserSchema()) {
 					srcTable.setTarSchema(Messages.msgTypeSchema);
 				} else {
 					srcTable.setTarSchema(Messages.msgUserSchemaDisable);
-					verUtil.setTargetMultiSchema(false);
 				}
 			}
 		}
@@ -449,7 +445,11 @@ public class SchemaMappingPage extends MigrationWizardPage {
 		setOnlineData();
 		getSchemaValues();
 		
-		if (CUBRIDVersionUtils.getInstance().isTargetMultiSchema()) {
+//		int tarSchemaSize = getMigrationWizard().getTarCatalogSchemaCount();
+		
+		tarCatalog.isDbHasUserSchema();
+		
+		if (tarCatalog.isDbHasUserSchema()) {
 			setOnlineEditor();
 		}
 	}
@@ -481,16 +481,14 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			if (scriptSchemaMap.size() != 0 && srcCatalog.getDatabaseType().getID() == 1) {
 				logger.info("script schema");
 				
-				if (!verUtil.isSourceVersionOver112()) {
-					srcTable.setTarSchema(scriptSchemaMap.get("").toUpperCase());
-				} else {
-					srcTable.setTarSchema(scriptSchemaMap.get(srcTable.getSrcSchema()).toUpperCase());
-				}
+				srcTable.setTarSchema(scriptSchemaMap.get(srcTable.getSrcSchema()).toUpperCase());
 				
 				logger.info("srcTable target schema : " + srcTable.getTarSchema());
 				
 			} else {
-				if (tarCatalog.isDBAGroup() && verUtil.isTargetVersionOver112()) {
+				int version = tarCatalog.getVersion().getDbMajorVersion() * 10 + tarCatalog.getVersion().getDbMinorVersion();
+				
+				if (tarCatalog.isDBAGroup() && version >= 112) {
 					srcTable.setTarSchema(srcTable.getSrcSchema());
 				} else {
 					srcTable.setTarSchema(tarCatalog.getSchemas().get(0).getName());
@@ -536,8 +534,10 @@ public class SchemaMappingPage extends MigrationWizardPage {
 	}
 	
 	private boolean saveOnlineData() {
+		List<String> checkNewSchemaDuplicate = new ArrayList<String>();
+		
 		for (SrcTable srcTable : srcTableList) {
-			if (!verUtil.isVersionOver112(tarCatalog)) {
+			if (!(tarCatalog.isDbHasUserSchema())) {
 				srcTable.setTarSchema(null);
 				
 				continue;
@@ -559,20 +559,24 @@ public class SchemaMappingPage extends MigrationWizardPage {
 			Schema targetSchema = tarCatalog.getSchemaByName(targetSchemaName);
 			
 			if (targetSchema != null) {
-				verUtil.addSchemaMapping(srcTable.getSrcSchema(), targetSchema);
-				
 				Schema srcSchema = srcCatalog.getSchemaByName(srcTable.getSrcSchema());
 				srcSchema.setTargetSchemaName(targetSchema.getName());
+				
 			} else {
 				logger.info("need to create a new schema for target db");
 				Schema newSchema = new Schema();
 				newSchema.setName(srcTable.getTarSchema());
 				newSchema.setNewTargetSchema(true);
-				verUtil.addSchemaMapping(srcTable.getSrcSchema(), newSchema);
 				
 				Schema srcSchema = srcCatalog.getSchemaByName(srcTable.getSrcSchema());
 				srcSchema.setTargetSchemaName(newSchema.getName());
 				
+				if (checkNewSchemaDuplicate.contains(newSchema.getName())) {
+					config.setTarSchemaDuplicate(true);
+					continue;
+				}
+				
+				checkNewSchemaDuplicate.add(newSchema.getName());
 				config.setNewTargetSchema(newSchema.getName());
 				logger.info("-------------------------------------------");
 			}

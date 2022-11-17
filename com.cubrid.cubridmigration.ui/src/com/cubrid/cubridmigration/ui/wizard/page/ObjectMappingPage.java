@@ -61,7 +61,6 @@ import org.eclipse.swt.widgets.ToolBar;
 import org.eclipse.swt.widgets.ToolItem;
 
 import com.cubrid.common.ui.navigator.ICUBRIDNode;
-import com.cubrid.cubridmigration.core.common.CUBRIDVersionUtils;
 import com.cubrid.cubridmigration.core.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.dbobject.Catalog;
 import com.cubrid.cubridmigration.core.dbobject.DBObject;
@@ -158,12 +157,13 @@ public class ObjectMappingPage extends
 				MessageDialog.openInformation(getShell(), Messages.msgInformation,
 						Messages.msgLowerCaseWarning);
 			}
-
+			
+			int tarSchemaSize = getMigrationWizard().getTarCatalogSchemaCount();
 			if (isFirstVisible) {
 					if (util.checkMultipleSchema(sourceCatalog, cfg)
 							&& util.createAllObjectsMap(sourceCatalog)
 							&& util.hasDuplicatedObjects(sourceCatalog)
-							&& !CUBRIDVersionUtils.getInstance().isTargetMultiSchema()) {
+							&& (tarSchemaSize <= 1 || cfg.isTarSchemaDuplicate())) {
 						showDetailMessageDialog(sourceCatalog);
 					} 
 			}
