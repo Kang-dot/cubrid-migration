@@ -403,7 +403,6 @@ public class JDBCImporter extends
 
 	//CMT112 JDBC Importer create Schema
 	public void createSchema(Schema dummySchema) {
-		// TODO Auto-generated method stub
 		String ddl = CUBRIDSQLHelper.getInstance(null).getSchemaDDL(dummySchema);
 		try {
 			executeDDL(ddl);

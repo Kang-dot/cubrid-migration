@@ -605,7 +605,6 @@ public class CUBRIDSQLHelper extends
 	 * @return String
 	 */
 	
-	//CMT112 need to remake this method
 	public String getViewDDL(View view) {
 		if (view == null) {
 			return "";

@@ -346,7 +346,6 @@ public class MigrationCfgUtils {
 			throw new MigrationConfigurationCheckingErrorException("Can't find the table ["
 					+ setc.getTarget() + "] in source database schema.");
 		}
-		//CMT112
 		Table targetTable = config.getTargetTableSchema(setc.getTargetOwner(), setc.getTarget());
 		if (targetTable == null) {
 			throw new MigrationConfigurationCheckingErrorException("Can't find the table ["
@@ -485,7 +484,6 @@ public class MigrationCfgUtils {
 			}
 			checkSerialCfg(config, sc);
 			//Check duplicated
-			//CMT112
 			if (serials.indexOf(sc.getTargetOwner() + "." + sc.getTarget()) >= 0) {
 				throw new MigrationConfigurationCheckingErrorException(Messages.bind(
 						Messages.errDuplicateSequenceName, sc.getTarget()));
@@ -727,7 +725,6 @@ public class MigrationCfgUtils {
 					break;
 				}
 			}
-			//CMT112
 			if (flag || views.indexOf(sc.getTargetOwner() + "." + sc.getTarget()) >= 0) {
 				throw new MigrationConfigurationCheckingErrorException(NLS.bind(
 						Messages.objectMapPageErrMsgDuplicatedTable3, sc.getTarget()));

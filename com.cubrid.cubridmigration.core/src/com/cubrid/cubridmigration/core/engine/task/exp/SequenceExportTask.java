@@ -59,7 +59,6 @@ public class SequenceExportTask extends
 	 * 
 	 */
 	protected void executeExportTask() {
-		//CMT112
 		Sequence targetSequence = null; 
 		
 		targetSequence = config.getTargetSerialSchema(sq.getTargetOwner(), sq.getTarget());
