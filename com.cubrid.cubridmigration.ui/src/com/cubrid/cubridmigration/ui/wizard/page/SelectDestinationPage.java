@@ -460,10 +460,17 @@ public class SelectDestinationPage extends
 			config.setTargetConParams(connParameters);
 			config.setWriteErrorRecords(btnWriteErrorRecords.getSelection());
 			config.setUpdateStatistics(btnUpdateStatistics.getSelection());
-
+			
 			Catalog catalog = conMgrView.getCatalog();
+			
+			int targetCubridVersion = (catalog.getVersion().getDbMajorVersion() * 10) + (catalog.getVersion().getDbMinorVersion());
+			
+			if (targetCubridVersion >= 112) {
+				config.setAddUserSchema(catalog.isDBAGroup());
+			}
+			
+			
 			if (null != catalog) {
-				
 				wzd.setTargetCatalog(catalog);
 				config.setTarSchemaSize(catalog.getSchemas().size());
 				

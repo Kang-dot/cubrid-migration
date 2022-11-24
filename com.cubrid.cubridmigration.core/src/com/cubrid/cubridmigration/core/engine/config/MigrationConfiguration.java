@@ -1096,12 +1096,6 @@ public class MigrationConfiguration {
 			}
 		}
 		
-//		if (!addUserSchema) {
-//			if (isDuplicatedObject(map, name)) {
-//				return StringUtils.lowerCase(owner + "_" + name);
-//			}
-//		}
-//		
 		return StringUtils.lowerCase(name);
 	}
 

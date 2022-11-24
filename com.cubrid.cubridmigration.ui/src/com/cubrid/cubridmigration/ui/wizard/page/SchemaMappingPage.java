@@ -483,6 +483,13 @@ public class SchemaMappingPage extends MigrationWizardPage {
 				
 				srcTable.setTarSchema(scriptSchemaMap.get(srcTable.getSrcSchema()).toUpperCase());
 				
+				String tarSchemaName = scriptSchemaMap.get(srcTable.getSrcSchema()).toUpperCase();
+				
+				if (tarSchemaName.isEmpty() || tarSchemaName == null) {
+					srcTable.setTarSchema(tarCatalog.getName());
+				}
+				
+				
 				logger.info("srcTable target schema : " + srcTable.getTarSchema());
 				
 			} else {
@@ -542,8 +549,6 @@ public class SchemaMappingPage extends MigrationWizardPage {
 				
 				continue;
 			}
-			
-			config.setAddUserSchema(true);
 			
 			if (srcTable.getTarSchema().isEmpty() || isDefaultMessage(srcTable.getTarSchema())) {
 				MessageDialog.openError(getShell(), Messages.msgError, Messages.msgErrEmptySchemaName);
