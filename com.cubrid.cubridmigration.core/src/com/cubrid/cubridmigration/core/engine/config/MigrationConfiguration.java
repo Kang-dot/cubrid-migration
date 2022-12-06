@@ -3754,11 +3754,11 @@ public class MigrationConfiguration {
 		this.addOfflineUserSchema = addOfflineUserSchema;
 	}
 	
-	public void setOldSchema(boolean isOldSchema) {
+	public void setOldScript(boolean isOldSchema) {
 		this.isOldScript = isOldSchema;
 	}
 	
-	public boolean isOldSchema() {
+	public boolean isOldScript() {
 		return this.isOldScript;
 	}
 	

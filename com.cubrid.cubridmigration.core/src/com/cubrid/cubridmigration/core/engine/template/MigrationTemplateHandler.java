@@ -511,7 +511,7 @@ public final class MigrationTemplateHandler extends
 			int versionValue = convertVersionToInt(version);
 			
 			if (versionValue < 1110) {
-				config.setOldSchema(true);
+				config.setOldScript(true);
 			}
 			
 		} else if (TemplateTags.TAG_SOURCE.equals(qName)) {
