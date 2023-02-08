@@ -180,7 +180,7 @@ public final class OracleSchemaFetcher extends
 		final Catalog catalog = super.buildCatalog(conn, cp, filter);
 		
 		
-		System.out.println("Auto commit status: " + conn.getAutoCommit());
+		LOG.info("Auto commit status: " + conn.getAutoCommit());
 		
 		
 		catalog.setDatabaseType(DatabaseType.ORACLE);
