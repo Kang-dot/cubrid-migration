@@ -178,6 +178,11 @@ public final class OracleSchemaFetcher extends
 	 */
 	public Catalog buildCatalog(final Connection conn, ConnParameters cp, IBuildSchemaFilter filter) throws SQLException {
 		final Catalog catalog = super.buildCatalog(conn, cp, filter);
+		
+		
+		System.out.println("Auto commit status: " + conn.getAutoCommit());
+		
+		
 		catalog.setDatabaseType(DatabaseType.ORACLE);
 		setCharset(conn, catalog);
 		setCatalogTimezone(catalog);

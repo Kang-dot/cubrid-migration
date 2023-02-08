@@ -143,6 +143,13 @@ public class OracleDatabase extends
 				method.invoke(conn, timeZone);
 				//				((OracleConnection) conn).setSessionTimeZone(timeZone == null ? "Etc/GMT+0"
 				//						: TimeUtil.getOracleTZID(timeZone));
+				
+				
+				
+				//RND-1795 test
+				conn.setAutoCommit(false);
+				
+				
 				return conn;
 			} catch (IllegalAccessException e) {
 				throw new RuntimeException(e);
