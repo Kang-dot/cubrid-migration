@@ -82,6 +82,8 @@ public class Catalog implements
 	private Map<String, Integer> allViewsCountMap = new HashMap<String, Integer>();
 	private Map<String, Integer> allSequencesCountMap = new HashMap<String, Integer>();
 	
+	private boolean isDBAGroup;
+	
 	public Catalog() {
 		createTime = System.currentTimeMillis();
 	}
@@ -165,6 +167,10 @@ public class Catalog implements
 			addSchema(schema);
 		}
 	}
+	
+	public void removeSchema(List<Schema> removeSchema) {
+		schemas.removeAll(removeSchema);
+	}
 
 	/**
 	 * return schema by a given name
@@ -178,7 +184,7 @@ public class Catalog implements
 			if (schemaName == null) {
 				return schema;
 			}
-			if (schemaName.equals(schema.getName())) {
+			if (schemaName.equalsIgnoreCase(schema.getName())) {
 				return schema;
 			}
 		}
@@ -264,6 +270,14 @@ public class Catalog implements
 		return allSequencesCountMap;
 	}
 
+	public boolean isDBAGroup() {
+		return isDBAGroup;
+	}
+
+	public void setDBAGroup(boolean isDBAGroup) {
+		this.isDBAGroup = isDBAGroup;
+	}
+	
 	/**
 	 * return hash code
 	 * 
@@ -372,6 +386,22 @@ public class Catalog implements
 		} catch (UnsupportedEncodingException e) {
 			return null;
 			//Do nothing
+		}
+	}
+	
+	public boolean isDbHasUserSchema() {
+		int dbType = getDatabaseType().getID();
+		
+		if (dbType != 1) {
+			return true;
+		}
+		
+		int	dbVersion = (this.version.getDbMajorVersion() * 10) + this.version.getDbMinorVersion();
+		
+		if (dbVersion >= 112){
+			return true;
+		} else {
+			return false;
 		}
 	}
 }

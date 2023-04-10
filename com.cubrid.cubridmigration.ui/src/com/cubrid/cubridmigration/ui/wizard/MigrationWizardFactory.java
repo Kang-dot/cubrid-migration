@@ -197,7 +197,7 @@ public final class MigrationWizardFactory {
 			List<DBObjMigrationResult> list = rpt.getDbObjectsResult();
 			for (DBObjMigrationResult rst : list) {
 				if (rst.isSucceed()) {
-					SourceEntryTableConfig setc = config.getExpEntryTableCfg(rst.getOwner(),
+					SourceEntryTableConfig setc = config.getExpEntryTableCfg(rst.getObjOwner(),
 							rst.getObjName());
 					if (setc != null) {
 						setc.setCreateNewTable(false);

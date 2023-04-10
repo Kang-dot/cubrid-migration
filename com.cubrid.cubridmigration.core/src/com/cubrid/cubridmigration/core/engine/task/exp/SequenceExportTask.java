@@ -59,7 +59,10 @@ public class SequenceExportTask extends
 	 * 
 	 */
 	protected void executeExportTask() {
-		Sequence targetSequence = config.getTargetSerialSchema(sq.getTarget());
+		Sequence targetSequence = null; 
+		
+		targetSequence = config.getTargetSerialSchema(sq.getTargetOwner(), sq.getTarget());
+		
 		if (targetSequence == null) {
 			return;
 		}

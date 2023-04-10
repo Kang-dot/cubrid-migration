@@ -48,6 +48,10 @@ public class SourceTableConfig {
 	private String owner;
 	private String comment;
 	private String target;
+	private String targetOwner;
+
+	private boolean createNewSchema = false;
+	
 	private boolean createNewTable = true;
 	private boolean migrateData = true;
 	private boolean replace = true;
@@ -143,6 +147,15 @@ public class SourceTableConfig {
 	 * 
 	 * @return the name
 	 */
+	
+	public String getTargetOwner() {
+		return targetOwner;
+	}
+
+	public void setTargetOwner(String targetOwner) {
+		this.targetOwner = targetOwner;
+	}
+
 	public String getName() {
 		return name;
 	}
@@ -227,6 +240,15 @@ public class SourceTableConfig {
 		}
 	}
 
+	public boolean isCreateNewSchema() {
+		return createNewSchema;
+	}
+
+	public void setCreateNewSchema(boolean createNewSchema) {
+		this.createNewSchema = createNewSchema;
+	}
+
+	
 	/**
 	 * @param createNewTable the createNewTable to set
 	 */

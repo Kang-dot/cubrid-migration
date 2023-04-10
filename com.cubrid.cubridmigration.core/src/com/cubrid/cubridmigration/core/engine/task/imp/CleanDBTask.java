@@ -41,11 +41,12 @@ import com.cubrid.cubridmigration.core.common.PathUtils;
 import com.cubrid.cubridmigration.core.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
 import com.cubrid.cubridmigration.core.engine.config.SourceCSVConfig;
-import com.cubrid.cubridmigration.core.engine.config.SourceConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceEntryTableConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceFKConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceIndexConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceSQLTableConfig;
+import com.cubrid.cubridmigration.core.engine.config.SourceSequenceConfig;
+import com.cubrid.cubridmigration.core.engine.config.SourceViewConfig;
 import com.cubrid.cubridmigration.core.engine.task.ImportTask;
 
 /**
@@ -61,7 +62,7 @@ public class CleanDBTask extends
 	private final static Logger LOG = LogUtil.getLogger(CleanDBTask.class);
 
 	private final MigrationConfiguration config;
-
+	
 	public CleanDBTask(MigrationConfiguration config) {
 		this.config = config;
 	}
@@ -77,54 +78,158 @@ public class CleanDBTask extends
 			}
 			for (SourceFKConfig sfkc : setc.getFKConfigList()) {
 				if (sfkc.isCreate() && sfkc.isReplace()) {
-					String sql = "ALTER TABLE \"" + setc.getTarget()
-							+ "\" DROP CONSTRAINT \"" + sfkc.getTarget() + "\"";
-					sb.add(sql + ";");
-					execDDL(sql);
+					
+					StringBuffer query = new StringBuffer();
+					query.append("ALTER TABLE ");
+					
+					if (config.getAddUserSchema()) {
+						query.append("\"");
+						query.append(setc.getTargetOwner());
+						query.append("\"");
+						query.append(".");
+					}
+					query.append("\"" + setc.getTarget() + "\" DROP CONSTRAINT \"" + sfkc.getTarget() + "\"");
+					query.append(";");
+
+					sb.add(query.toString());
+					
+					LOG.info("drop foreign key : " + query.toString());
+					
+					execDDL(query.toString());
 				}
 			}
 			for (SourceIndexConfig idx : setc.getIndexConfigList()) {
 				if (idx.isCreate() && idx.isReplace()) {
-					String sql = "ALTER TABLE \"" + setc.getTarget()
-							+ "\" DROP CONSTRAINT \"" + idx.getTarget() + "\"";
-					sb.add(sql + ";");
-					execDDL(sql);
+					
+					StringBuffer query = new StringBuffer();
+					
+					query.append("ALTER TABLE ");
+					
+					if (config.getAddUserSchema()) {
+						query.append("\"");
+						query.append(setc.getTargetOwner());
+						query.append("\"");
+						query.append(".");
+					}
+					query.append("\"" + setc.getTarget() + "\" DROP CONSTRAINT \"" + idx.getTarget() + "\"");
+					query.append(";");
+					
+					LOG.info("drop index : " + query.toString());
+					
+					sb.add(query.toString());
+					execDDL(query.toString());
 				}
 			}
 		}
 		for (SourceEntryTableConfig setc : config.getExpEntryTableCfg()) {
 			if (setc.isCreateNewTable() && setc.isReplace()) {
-				String sql = "DROP TABLE \"" + setc.getTarget() + "\"";
-				sb.add(sql + ";");
-				execDDL(sql);
+				StringBuffer query = new StringBuffer();
+				
+				query.append("DROP TABLE ");
+				
+				if (config.getAddUserSchema()) {
+					query.append("\"");
+					query.append(setc.getTargetOwner());
+					query.append("\"");
+					query.append(".");
+				}
+				
+				query.append("\"" + setc.getTarget() + "\"");
+				query.append(";");
+				
+				LOG.info("drop table query : " + query.toString());
+				
+				sb.add(query.toString());
+				execDDL(query.toString());
 			}
 		}
 		for (SourceSQLTableConfig sstc : config.getExpSQLCfg()) {
 			if (sstc.isCreateNewTable() && sstc.isReplace()) {
-				String sql = "DROP TABLE \"" + sstc.getTarget() + "\"";
-				sb.add(sql + ";");
-				execDDL(sql);
+				StringBuffer query = new StringBuffer();
+				
+				query.append("DROP TABLE ");
+				
+				if (config.getAddUserSchema()) {
+					query.append("\"");
+					query.append(sstc.getTargetOwner());
+					query.append("\"");
+					query.append(".");
+				}
+				
+				query.append("\"" + sstc.getTarget() + "\"");
+				query.append(";");
+				
+				LOG.info("drop table query : " + query.toString());
+				
+				sb.add(query.toString());
+				execDDL(query.toString());
 			}
 		}
 		for (SourceCSVConfig scc : config.getCSVConfigs()) {
 			if (scc.isCreate() && scc.isReplace()) {
-				String sql = "DROP TABLE \"" + scc.getTarget() + "\"";
-				sb.add(sql + ";");
-				execDDL(sql);
+				StringBuffer query = new StringBuffer();
+				
+				query.append("DROP TABLE ");
+				
+				if (config.getAddUserSchema()) {
+					query.append("\"");
+					query.append(scc.getTargetOwner());
+					query.append("\"");
+					query.append(".");
+				}
+				
+				query.append("\"" + scc.getTarget() + "\"");
+				query.append(";");
+				
+				LOG.info("drop table query : " + query.toString());
+				
+				sb.add(query.toString());
+				execDDL(query.toString());
 			}
 		}
-		for (SourceConfig sc : config.getExpViewCfg()) {
+		for (SourceViewConfig sc : config.getExpViewCfg()) {
 			if (sc.isCreate() && sc.isReplace()) {
-				String sql = "DROP VIEW \"" + sc.getTarget() + "\"";
-				sb.add(sql + ";");
-				execDDL(sql);
+				StringBuffer query = new StringBuffer();
+				
+				query.append("DROP VIEW ");
+				
+				if (config.getAddUserSchema()) {
+					query.append("\"");
+					query.append(sc.getTargetOwner());
+					query.append("\"");
+					query.append(".");
+				}
+				
+				query.append("\"" + sc.getTarget() + "\"");
+				query.append(";");
+				
+				LOG.info("drop view query : " + query.toString());
+				
+				sb.add(query.toString());
+				execDDL(query.toString());
 			}
 		}
-		for (SourceConfig sc : config.getExpSerialCfg()) {
+		for (SourceSequenceConfig sc : config.getExpSerialCfg()) {
 			if (sc.isCreate() && sc.isReplace()) {
-				String sql = "DROP SERIAL \"" + sc.getTarget() + "\"";
-				sb.add(sql + ";");
-				execDDL(sql);
+				StringBuffer query = new StringBuffer();
+				
+				query.append("DROP SERIAL ");
+				
+				if (config.getAddUserSchema()) {
+					query.append("\"");
+					query.append(sc.getTargetOwner());
+					query.append("\"");
+					query.append(".");
+				}
+				
+				query.append("\"" + sc.getTarget() + "\"");
+				query.append(";");
+				
+				LOG.info("drop serial query : " + query.toString());
+				
+				sb.add(query.toString());
+				execDDL(query.toString());
+				
 			}
 		}
 		if (config.targetIsFile() && !sb.isEmpty()) {

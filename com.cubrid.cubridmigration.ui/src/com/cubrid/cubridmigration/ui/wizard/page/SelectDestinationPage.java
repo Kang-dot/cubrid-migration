@@ -460,11 +460,20 @@ public class SelectDestinationPage extends
 			config.setTargetConParams(connParameters);
 			config.setWriteErrorRecords(btnWriteErrorRecords.getSelection());
 			config.setUpdateStatistics(btnUpdateStatistics.getSelection());
-
+			
 			Catalog catalog = conMgrView.getCatalog();
+			
+			int targetCubridVersion = (catalog.getVersion().getDbMajorVersion() * 10) + (catalog.getVersion().getDbMinorVersion());
+			
+			if (targetCubridVersion >= 112) {
+				config.setAddUserSchema(catalog.isDBAGroup());
+			}
+			
+			
 			if (null != catalog) {
 				wzd.setTargetCatalog(catalog);
-
+				config.setTarSchemaSize(catalog.getSchemas().size());
+				
 				if (!btnCreateConstrainsNow.getSelection() && MigrationCfgUtils.isHACUBRID(config)
 						&& UICommonTool.openConfirmBox(Messages.msgPkHAdatabaseAlert)) {
 					btnCreateConstrainsNow.setSelection(true);
@@ -507,6 +516,8 @@ public class SelectDestinationPage extends
 		private Label lblCharsetSP;
 		private Label lblLobPath;
 		private Text txtLobPath;
+		
+		private Button btnAddUserSchema;
 
 		/**
 		 * checkFileRepositroy
@@ -659,6 +670,15 @@ public class SelectDestinationPage extends
 					txtLobPath.setToolTipText(pathTtt);
 				}
 			});
+			new Label(fileRepositoryContainer, SWT.NONE);
+			
+			new Label(fileRepositoryContainer, SWT.NONE);
+			btnAddUserSchema = new Button(fileRepositoryContainer, SWT.CHECK);
+			btnAddUserSchema.setLayoutData(new GridData(SWT.LEFT, SWT.CENTER, false, false));
+			btnAddUserSchema.setText(Messages.btnAddUserSchema);
+			
+			btnAddUserSchema.setSelection(cfg.getAddUserSchema());
+
 		}
 
 		/**
@@ -788,6 +808,11 @@ public class SelectDestinationPage extends
 			config.setTargetDataFileName(getDataFullName());
 			config.setTargetFileTimeZone(targetFileTimezoneCombo.getItem(targetFileTimezoneCombo.getSelectionIndex()));
 			config.setTargetCharSet(cboCharset.getText());
+			
+			//change to migration configuration
+			config.setAddUserSchema(btnAddUserSchema.getSelection());
+			config.setOfflineUserSchema(btnAddUserSchema.getSelection());
+			
 			return true;
 		}
 

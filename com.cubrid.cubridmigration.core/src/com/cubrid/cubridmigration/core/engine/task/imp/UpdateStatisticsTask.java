@@ -76,27 +76,54 @@ public class UpdateStatisticsTask extends
 			return result;
 		}
 		List<String> objectsToBeUpdated = new ArrayList<String>();
-		if (config.sourceIsCSV()) {
-			List<SourceCSVConfig> csvConfigs = config.getCSVConfigs();
-			for (SourceCSVConfig csvf : csvConfigs) {
-				objectsToBeUpdated.add(csvf.getTarget());
-			}
-		} else {
-			List<SourceEntryTableConfig> expEntryTableCfg = config.getExpEntryTableCfg();
-			for (SourceEntryTableConfig setc : expEntryTableCfg) {
-				if (setc.isMigrateData() && !objectsToBeUpdated.contains(setc.getTarget())) {
-					objectsToBeUpdated.add(setc.getTarget());
+		
+		if (config.getAddUserSchema()) {
+			if (config.sourceIsCSV()) {
+				List<SourceCSVConfig> csvConfigs = config.getCSVConfigs();
+				for (SourceCSVConfig csvf : csvConfigs) {
+					
+					objectsToBeUpdated.add("" + csvf.getTargetOwner() + "\".\"" + csvf.getTarget());
+				}
+			} else {
+				List<SourceEntryTableConfig> expEntryTableCfg = config.getExpEntryTableCfg();
+				for (SourceEntryTableConfig setc : expEntryTableCfg) {
+					if (setc.isMigrateData() && !objectsToBeUpdated.contains(setc.getTarget())) {
+						objectsToBeUpdated.add("" + setc.getTargetOwner() + "\".\"" + setc.getTarget());
+					}
+				}
+				List<SourceSQLTableConfig> expSQLCfg = config.getExpSQLCfg();
+				for (SourceSQLTableConfig sstc : expSQLCfg) {
+					if (sstc.isMigrateData() && !objectsToBeUpdated.contains(sstc.getTarget())) {
+						objectsToBeUpdated.add("" + sstc.getTargetOwner() + "\".\"" + sstc.getTarget());
+					}
 				}
 			}
-			List<SourceSQLTableConfig> expSQLCfg = config.getExpSQLCfg();
-			for (SourceSQLTableConfig sstc : expSQLCfg) {
-				if (sstc.isMigrateData() && !objectsToBeUpdated.contains(sstc.getTarget())) {
-					objectsToBeUpdated.add(sstc.getTarget());
+			
+		} else {
+			if (config.sourceIsCSV()) {
+				List<SourceCSVConfig> csvConfigs = config.getCSVConfigs();
+				for (SourceCSVConfig csvf : csvConfigs) {
+					objectsToBeUpdated.add(csvf.getTarget());
+				}
+			} else {
+				List<SourceEntryTableConfig> expEntryTableCfg = config.getExpEntryTableCfg();
+				for (SourceEntryTableConfig setc : expEntryTableCfg) {
+					if (setc.isMigrateData() && !objectsToBeUpdated.contains(setc.getTarget())) {
+						objectsToBeUpdated.add(setc.getTarget());
+					}
+				}
+				List<SourceSQLTableConfig> expSQLCfg = config.getExpSQLCfg();
+				for (SourceSQLTableConfig sstc : expSQLCfg) {
+					if (sstc.isMigrateData() && !objectsToBeUpdated.contains(sstc.getTarget())) {
+						objectsToBeUpdated.add(sstc.getTarget());
+					}
 				}
 			}
 		}
+		
 		for (String target : objectsToBeUpdated) {
 			String sql = "UPDATE STATISTICS ON \"" + target + "\";";
+
 			result.add(sql);
 		}
 		return result;

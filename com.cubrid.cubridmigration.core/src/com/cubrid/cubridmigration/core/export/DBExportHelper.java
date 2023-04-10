@@ -183,6 +183,7 @@ public abstract class DBExportHelper implements
 		// it will make a query with a schema and table name 
 		// if it required a schema name when there create sql such as SCOTT.EMP
 		addSchemaPrefix(setc, buf);
+		
 		buf.append(getQuotedObjName(setc.getName()));
 
 		String condition = setc.getCondition();

@@ -56,8 +56,9 @@ public class Sequence extends
 
 	private String ddl;
 	private String owner;
-	
 	private String comment;
+	private String targetOwner;
+
 
 	public Sequence() {
 		//do nothing: for json to bean
@@ -176,7 +177,15 @@ public class Sequence extends
 	public String getOwner() {
 		return owner;
 	}
+	
+	public String getTargetOwner() {
+		return targetOwner;
+	}
 
+	public void setTargetOwner(String targetOwner) {
+		this.targetOwner = targetOwner;
+	}
+	
 	public void setMaxValue(BigInteger maxValue) {
 		this.maxValue = maxValue;
 	}

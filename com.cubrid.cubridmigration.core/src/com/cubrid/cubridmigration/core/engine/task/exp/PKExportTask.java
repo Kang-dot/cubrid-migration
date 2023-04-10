@@ -59,7 +59,7 @@ public class PKExportTask extends
 	 * 
 	 */
 	protected void executeExportTask() {
-		Table tt = config.getTargetTableSchema(stable.getTarget());
+		Table tt = config.getTargetTableSchema(stable.getTargetOwner(), stable.getTarget());
 		if (tt == null) {
 			return;
 		}

@@ -59,6 +59,7 @@ import com.cubrid.cubridmigration.core.dbmetadata.IBuildSchemaFilter;
 import com.cubrid.cubridmigration.core.dbobject.Catalog;
 import com.cubrid.cubridmigration.core.dbobject.Column;
 import com.cubrid.cubridmigration.core.dbobject.DBObjectFactory;
+import com.cubrid.cubridmigration.core.dbobject.FK;
 import com.cubrid.cubridmigration.core.dbobject.Function;
 import com.cubrid.cubridmigration.core.dbobject.Index;
 import com.cubrid.cubridmigration.core.dbobject.PK;
@@ -95,6 +96,7 @@ public final class CUBRIDSchemaFetcher extends
 	private CUBRIDDataTypeHelper cubDTHelper = CUBRIDDataTypeHelper.getInstance(null);
 	
 	private final int COMMENT_SUPPORT_VERSION = 100;
+	private final int USERSCHEMA_VERSION = 112;
 
 	/**
 	 * Retrieves the lower case of type, and some type may be changed into stand
@@ -136,6 +138,7 @@ public final class CUBRIDSchemaFetcher extends
 		catalog.setCreateSql(null);
 		catalog.setTimezone(TimeZoneUtils.getDefaultID2GMT());
 		List<Schema> schemaList = catalog.getSchemas();
+		
 		CUBRIDSQLHelper ddlUtil = CUBRIDSQLHelper.getInstance(null);
 
 		for (Schema schema : schemaList) {
@@ -156,9 +159,11 @@ public final class CUBRIDSchemaFetcher extends
 		// get partitions
 		buildPartitions(conn, catalog, catalog.getSchemas().get(0));
 
+		catalog.setDBAGroup(getPrivilege(conn, catalog));
+		
 		return catalog;
 	}
-
+	
 	/**
 	 * Build CUBRID all tables' columns
 	 * 
@@ -473,6 +478,7 @@ public final class CUBRIDSchemaFetcher extends
 					table.setComment(tableComment);
 					table.setReuseOID(isYes(rs.getString("is_reuse_oid_class")));
 					schema.addTable(table);
+					
 					tables.put(tableName, table);
 				}
 
@@ -576,6 +582,487 @@ public final class CUBRIDSchemaFetcher extends
 				column.setAutoIncIncrVal(incrementVal);
 				//To avoid PK conflict if the column is auto increment.
 				column.setAutoIncSeedVal(CommonUtils.str2Long(currentVal) + 1);
+			}
+		} finally {
+			Closer.close(rs);
+			Closer.close(stmt);
+		}
+	}
+	
+	private Map<String, Table> buildCUBRIDTablesWithUserSchema(Connection conn, Catalog catalog, Schema schema,
+			IBuildSchemaFilter filter) throws SQLException {
+		Map<String, Table> tables = new HashMap<String, Table>();
+		// get table information
+		ResultSet rs = null;
+		PreparedStatement stmt = null;
+		
+		String sql = "SELECT a.class_name, c.owner_name, a.attr_name, a.attr_type, a.from_class_name,"
+				+ " a.data_type, a.prec, a.scale, a.is_nullable,"
+				+ " a.domain_class_name, a.default_value, a.def_order,c.is_reuse_oid_class, c.comment"
+				+ " FROM db_attribute a , db_class c"
+				+ " WHERE c.class_name = a.class_name AND c.class_type='CLASS' AND c.is_system_class='NO' and from_class_name is NULL"
+				+ " AND c.owner_name = ? "
+				+ " ORDER BY a.class_name, c.class_type, a.def_order";
+		
+		try {
+			stmt = conn.prepareStatement(sql);
+			stmt.setString(1, schema.getName().toUpperCase());
+			rs = stmt.executeQuery();
+			
+			while (rs.next()) {
+				String tableName = rs.getString("class_name");
+				String comment = rs.getString("comment");
+				String owner = rs.getString("owner_name");
+
+				if (tableName == null) {
+					continue;
+				}
+				if (filter != null && filter.filter(null, tableName)) {
+					//CUBRID is one DB one schema
+					continue;
+				}
+				Table table = tables.get(owner + "." + tableName);
+				if (table == null) {
+					table = factory.createTable();
+					table.setName(tableName);
+					table.setComment(comment);
+					table.setOwner(owner);
+					table.setReuseOID(isYes(rs.getString("is_reuse_oid_class")));
+					schema.addTable(table);
+					
+					tables.put(owner + "." + tableName, table);
+				}
+
+				String attrName = rs.getString("attr_name");
+				boolean isShared = "SHARED".equals(rs.getString("attr_type"));
+				String dataTypeInView = rs.getString("data_type");
+				String domainClassName = rs.getString("domain_class_name");
+				Integer prec = rs.getInt("prec");
+				Integer scale = rs.getInt("scale");
+
+				Column column = factory.createColumn();
+				column.setName(attrName);
+				column.setShared(isShared);
+				if (cubDTHelper.isObjectType(dataTypeInView)) {
+					column.setDataType(domainClassName);
+				} else {
+					String standardDataType = getStdDataType(dataTypeInView);
+					column.setDataType(standardDataType);
+					column.setJdbcIDOfDataType(cubDTHelper.getCUBRIDDataTypeID(standardDataType));
+				}
+				column.setPrecision(prec);
+				column.setScale(scale);
+
+				String isNull = rs.getString("is_nullable");
+				column.setNullable(isYes(isNull));
+
+				String defaultValue = rs.getString("default_value");
+				if (column.isShared()) {
+					column.setSharedValue(defaultValue);
+					column.setDefaultValue(null);
+				} else {
+					column.setSharedValue(null);
+					column.setDefaultValue(defaultValue);
+				}
+				if (cubDTHelper.isEnum(dataTypeInView)) {
+					String realDataType = fetchEnumType(conn, tableName, attrName);
+					DataTypeInstance dti = cubDTHelper.parseDTInstance(realDataType);
+					column.setDataTypeInstance(dti);
+				}
+				if (!cubDTHelper.isCollection(dataTypeInView)) {
+					column.setShownDataType(cubDTHelper.getShownDataType(column));
+				}
+				table.addColumn(column);
+			}
+		} finally {
+			Closer.close(rs);
+			Closer.close(stmt);
+		}
+		return tables;
+	}
+	
+	/**
+	 * Build all tables' indexes with user schema for CUBRID version >= 11.2
+	 * 
+	 * @param conn Connection
+	 * @param tables Map<String, Table> tables
+	 * @throws SQLException ex
+	 */
+	private void buildCUBRIDTableIndexesWithUserSchema(Connection conn,
+			Map<String, Table> tables) throws SQLException {
+		// INDEX
+		ResultSet rs = null; //NOPMD
+		Statement stmt = null;
+		try {
+			//After CUBRID 9.1.0, function based index supported.
+			DatabaseMetaData metaData = conn.getMetaData();
+			String jdbcMajorVersion = metaData.getDatabaseProductVersion();
+			final String sqlFuncCol;
+			boolean supFuncIdx = jdbcMajorVersion.compareToIgnoreCase("9.1.0") >= 0;
+			if (supFuncIdx) {
+				sqlFuncCol = ", b.func";
+			} else {
+				sqlFuncCol = "";
+			}
+
+			String sql = "SELECT a.class_name, a.index_name, a.is_unique, b.key_attr_name, b.asc_desc, c.owner_name "
+					+ sqlFuncCol
+					+ " FROM db_index a, db_index_key b, db_class c "
+					+ "WHERE a.class_name=b.class_name AND c.class_type='CLASS' "
+					+ "AND a.index_name=b.index_name AND a.class_name=c.class_name "
+					+ "AND c.is_system_class='NO' AND is_primary_key='NO' AND is_foreign_key='NO' "
+					+ "ORDER BY a.class_name, b.index_name, b.key_order";
+			stmt = conn.createStatement();
+			rs = stmt.executeQuery(sql);
+
+			Map<String, Index> indexes = new HashMap<String, Index>();
+
+			while (rs.next()) {
+				String tableName = rs.getString("class_name");
+				String owner = rs.getString("owner_name");
+				if (tableName == null) {
+					continue;
+				}
+
+				Table table = tables.get(owner + "." + tableName);
+				if (table == null) {
+					continue;
+				}
+
+				String indexName = rs.getString("index_name");
+				if (indexName == null) {
+					continue;
+				}
+
+				boolean isUnique = isYes(rs.getString("is_unique"));
+
+				String indexFindKey = tableName + "-" + indexName;
+				Index index = indexes.get(indexFindKey);
+				if (index == null) {
+					index = factory.createIndex(table);
+					index.setName(indexName);
+					//index.setIndexType(indexType);
+					index.setUnique(isUnique);
+					table.addIndex(index);
+					indexes.put(indexFindKey, index);
+				}
+				String columnName = rs.getString("key_attr_name");
+				if (columnName == null && supFuncIdx) {
+					columnName = rs.getString("func");
+				}
+				String orderRule = rs.getString("asc_desc");
+				orderRule = orderRule == null ? "A" : orderRule.toUpperCase(Locale.US);
+
+				index.addColumn(columnName, orderRule.startsWith("A"));
+				index.setIndexType(DatabaseMetaData.tableIndexClustered);
+
+				setUniquColumnByIndex(table);
+			}
+			//Set unique
+		} finally {
+			Closer.close(rs);
+			Closer.close(stmt);
+		}
+
+		
+	}
+
+	/**
+	 * Build all table's FKs with user schema for CUBRID version >= 11.2
+	 * 
+	 * @param conn Connection
+	 * @param tables Map<String, Table>
+	 * @param schema Schema
+	 * @param catalog Catalog
+	 * @throws SQLException ex
+	 */
+	private void buildCUBRIDTableFKsWithUserSchema(Connection conn,
+			Map<String, Table> tables, Schema schema, Catalog catalog)throws SQLException {
+		// FK
+		ResultSet rs = null; //NOPMD
+		Statement stmt = null;
+		try {
+//			String sql = "SELECT i.class_name, i.owner_name FROM db_index i, db_class c "
+//					+ "WHERE i.class_name=c.class_name AND c.is_system_class='NO' "
+//					+ "AND c.class_type='CLASS' AND i.is_foreign_key='YES' "
+//					+ "GROUP BY i.index_name";
+			
+			String sql = "select class_name, owner_name from db_index where is_foreign_key = 'YES'";
+			
+			stmt = conn.createStatement();
+			rs = stmt.executeQuery(sql);
+
+			while (rs.next()) {
+				String tableName = rs.getString("class_name");
+				String owner = rs.getString("owner_name");
+				if (tableName == null) {
+					continue; 
+				}
+
+				Table table = tables.get(owner + "." + tableName);
+				
+				if (table == null) {
+					continue;
+				}
+				
+				table.setName(owner + "." + tableName);
+				buildTableFKsWithUserSchema(conn, catalog, schema, table);
+				table.setName(tableName);
+			}
+		} finally {
+			Closer.close(rs);
+			Closer.close(stmt);
+		}
+	}
+	
+	protected void buildTableFKsWithUserSchema (final Connection conn, final Catalog catalog, final Schema schema,
+			final Table table) throws SQLException {
+
+		ResultSet rs = null; //NOPMD
+		try {
+			rs = conn.getMetaData().getImportedKeys(getCatalogName(catalog), getSchemaName(schema),
+					table.getName());
+			String fkName = "";
+			FK foreignKey = null;
+
+			while (rs.next()) {
+				final String newFkName = rs.getString("FK_NAME");
+				if (fkName.compareToIgnoreCase(newFkName) != 0) {
+					if (foreignKey != null) {
+						table.addFK(foreignKey);
+					}
+					fkName = newFkName;
+					foreignKey = factory.createFK(table);
+					foreignKey.setName(fkName);
+					final String fkTableName = rs.getString("PKTABLE_NAME");
+					//Ignore invalid foreign key.
+					if (StringUtils.isEmpty(fkTableName)) {
+						continue;
+					}
+					
+					String noSchemaFkTableName = fkTableName.split("\\.")[1];
+					foreignKey.setReferencedTableName(noSchemaFkTableName);
+					
+//					foreignKey.setReferencedTableName(fkTableName);
+					
+					//foreignKey.setDeferability(rs.getInt("DEFERRABILITY"));
+
+					switch (rs.getShort("DELETE_RULE")) {
+					case DatabaseMetaData.importedKeyCascade:
+						foreignKey.setDeleteRule(DatabaseMetaData.importedKeyCascade);
+						break;
+
+					case DatabaseMetaData.importedKeyRestrict:
+						foreignKey.setDeleteRule(DatabaseMetaData.importedKeyRestrict);
+						break;
+
+					case DatabaseMetaData.importedKeySetNull:
+						foreignKey.setDeleteRule(DatabaseMetaData.importedKeySetNull);
+						break;
+
+					default:
+						foreignKey.setDeleteRule(FK.ON_DELETE_NO_ACTION);
+						break;
+					}
+
+					switch (rs.getShort("UPDATE_RULE")) {
+					case DatabaseMetaData.importedKeyCascade:
+						foreignKey.setUpdateRule(DatabaseMetaData.importedKeyCascade);
+						break;
+
+					case DatabaseMetaData.importedKeyRestrict:
+						foreignKey.setUpdateRule(DatabaseMetaData.importedKeyRestrict);
+						break;
+
+					case DatabaseMetaData.importedKeySetNull:
+						foreignKey.setUpdateRule(DatabaseMetaData.importedKeySetNull);
+						break;
+
+					default:
+						foreignKey.setUpdateRule(FK.ON_UPDATE_NO_ACTION);
+						break;
+					}
+				}
+				if (foreignKey == null) {
+					continue;
+				}
+				// find reference table column
+				final String colName = rs.getString("FKCOLUMN_NAME");
+				final Column column = table.getColumnByName(colName);
+				if (column != null) {
+					foreignKey.addRefColumnName(colName, rs.getString("PKCOLUMN_NAME"));
+				}
+			}
+			if (foreignKey != null) {
+				table.addFK(foreignKey);
+			}
+		} finally {
+			Closer.close(rs);
+		}
+	}
+
+
+	/**
+	 * Build all tables' PKs with user schema for CUBRID version >= 11.2
+	 * 
+	 * @param conn Connection
+	 * @param tables Map<String, Table>
+	 * @throws SQLException ex
+	 */
+	private void buildCUBRIDTablePKsWithUserSchema(Connection conn,
+			Map<String, Table> tables)throws SQLException {
+		// PK
+		ResultSet rs = null; //NOPMD
+		Statement stmt = null;
+		try {
+			String sql = "SELECT a.class_name, a.index_name, a.is_unique, b.key_attr_name, b.asc_desc , c.owner_name "
+					+ "FROM db_index a, db_index_key b, db_class c "
+					+ "WHERE a.class_name=b.class_name AND a.index_name=b.index_name "
+					+ "AND a.class_name=c.class_name AND c.is_system_class='NO' "
+					+ "AND a.is_primary_key='YES' AND c.class_type='CLASS' "
+					+ "ORDER BY a.class_name, b.key_order";
+			stmt = conn.createStatement();
+			rs = stmt.executeQuery(sql);
+
+			while (rs.next()) {
+				String tableName = rs.getString("class_name");
+				String owner = rs.getString("owner_name");
+				if (tableName == null) {
+					continue;
+				}
+
+				Table table = tables.get(owner + "." + tableName);
+				if (table == null) {
+					continue;
+				}
+
+				PK primaryKey = table.getPk();
+				if (primaryKey == null) {
+					primaryKey = factory.createPK(table);
+					table.setPk((PK) primaryKey);
+				}
+
+				String primaryKeyName = rs.getString("index_name");
+				String columnName = rs.getString("key_attr_name");
+
+				primaryKey.setName(primaryKeyName);
+
+				// find reference table column
+				final List<Column> columns = table.getColumns();
+				for (int j = 0; j < columns.size(); j++) {
+					Column column = columns.get(j);
+
+					if (column.getName().compareToIgnoreCase(columnName) == 0) {
+						//column.setUnique(isUnique);
+						primaryKey.addColumn(column.getName());
+						break;
+					}
+				}
+
+				setUniquColumnByPK(table);
+			}
+
+		} finally {
+			Closer.close(rs);
+			Closer.close(stmt);
+		}
+
+	}
+
+	/**
+	 * Build all tables' columns' serials with user schema for CUBRID version >= 11.2
+	 * 
+	 * @param conn Connection
+	 * @param tables Map<String, Table>
+	 * @throws SQLException ex
+	 */
+	private void buildCUBRIDTableSerialsWithUserSchema(Connection conn,
+			Map<String, Table> tables) throws SQLException {
+		ResultSet rs = null; //NOPMD
+		Statement stmt = null;
+		// SERIAL
+		try {
+			String sql = "SELECT class_name,name,owner.name,current_val,increment_val,"
+					+ "max_val,min_val,cyclic,started,att_name " + "FROM db_serial "
+					+ "WHERE class_name IS NOT NULL " + "ORDER BY class_name";
+
+			stmt = conn.createStatement();
+			rs = stmt.executeQuery(sql);
+
+			while (rs.next()) {
+				String tableName = rs.getString("class_name");
+				if (tableName == null) {
+					continue;
+				}
+
+				String currentVal = rs.getString("current_val");
+				String attrName = rs.getString("att_name");
+
+				Table table = tables.get(tableName);
+				if (table == null) {
+					continue;
+				}
+
+				final Column column = table.getColumnByName(attrName);
+				if (column == null) {
+					continue;
+				}
+				column.setAutoIncrement(true);
+				Long incrementVal = rs.getLong("increment_val");
+				incrementVal = incrementVal == null ? 1 : incrementVal;
+				column.setAutoIncIncrVal(incrementVal);
+				//To avoid PK conflict if the column is auto increment.
+				column.setAutoIncSeedVal(CommonUtils.str2Long(currentVal) + 1);
+			}
+		} finally {
+			Closer.close(rs);
+			Closer.close(stmt);
+		}
+	}
+
+	/**
+	 * Build CUBRID all tables' columns with user schema for CUBRID version >= 11.2
+	 * 
+	 * @param conn Connection
+	 * @param tables Map<String, Table>
+	 * @throws SQLException ex
+	 */
+	private void buildCUBRIDTableColumnsWithUserSchema(Connection conn,
+			Map<String, Table> tables) throws SQLException {
+		// get set(object) type information from db_attr_setdomain_elm view
+		//Fetch collection type's sub-data type informations
+		ResultSet rs = null;
+		Statement stmt = null;
+		try {
+			String sql = "SELECT a.class_name, a.attr_name, a.attr_type,"
+					+ " a.data_type, a.prec, a.scale" + " FROM db_attr_setdomain_elm a, db_class c"
+					+ " WHERE c.class_name = a.class_name AND c.class_type='CLASS' "
+					+ " AND c.is_system_class='NO' " + " ORDER BY a.class_name ";
+
+			stmt = conn.createStatement();
+			rs = stmt.executeQuery(sql);
+
+			while (rs.next()) {
+				String tableName = rs.getString("class_name");
+				String attrName = rs.getString("attr_name");
+				String dataType = rs.getString("data_type");
+
+				//				String type = rs.getString("attr_type");
+				Integer precision = rs.getInt("prec");
+				Integer scale = rs.getInt("scale");
+				dataType = getStdDataType(dataType);
+
+				Table table = tables.get(tableName);
+				if (table == null) {
+					continue;
+				}
+
+				Column cubridColumn = table.getColumnByName(attrName);
+				cubridColumn.setSubDataType(dataType);
+				cubridColumn.setJdbcIDOfSubDataType(cubDTHelper.getCUBRIDDataTypeID(dataType));
+				cubridColumn.setPrecision(precision);
+				cubridColumn.setScale(scale);
+				cubridColumn.setShownDataType(cubDTHelper.getShownDataType(cubridColumn));
 			}
 		} finally {
 			Closer.close(rs);
@@ -716,23 +1203,31 @@ public final class CUBRIDSchemaFetcher extends
 	 */
 	protected void buildSequence(final Connection conn, final Catalog catalog, final Schema schema,
 			IBuildSchemaFilter filter) throws SQLException {
-		Statement stmt = null; //NOPMD
+		PreparedStatement pstmt = null; //NOPMD
 		ResultSet rs = null; //NOPMD
 		List<Sequence> sequenceList = new ArrayList<Sequence>();
 
 		try {
 			int dbVersion = getDBVersion(conn);
 			String sqlComment = dbVersion >= COMMENT_SUPPORT_VERSION ? ", comment" : "";
-			
-			String sql = "SELECT name, owner, current_val,"
+			String getUserSchema = dbVersion >= USERSCHEMA_VERSION ? " and owner.name = ?" : "";
+			//owner.name?
+			String sql = "SELECT name, owner.name, current_val,"
 					+ " increment_val, max_val, min_val, cyclic,"
 					+ " started, class_name, att_name, cached_num"
 					+ sqlComment
 					+ " FROM db_serial"
-					+ " WHERE class_name IS NULL";
+					+ " WHERE class_name IS NULL"
+					+ getUserSchema;
 			
-			stmt = conn.createStatement();
-			rs = stmt.executeQuery(sql);
+			
+			pstmt = conn.prepareStatement(sql);
+			
+			if (dbVersion >= USERSCHEMA_VERSION) {
+				pstmt.setString(1, schema.getName());
+			}
+			
+			rs = pstmt.executeQuery();
 			while (rs.next()) {
 				String sequenceName = rs.getString("name");
 				if (filter != null && filter.filter(schema.getName(), sequenceName)) {
@@ -748,8 +1243,16 @@ public final class CUBRIDSchemaFetcher extends
 				if (dbVersion >= COMMENT_SUPPORT_VERSION) {
 					comment = rs.getString("comment");
 					comment = comment != null ? commentEditor(comment) : null;
-				}				
+				}
 				
+				String owner = null;
+				
+				if (dbVersion >= USERSCHEMA_VERSION) {
+					owner = rs.getString("owner.name");
+				} else {
+					owner = schema.getName();
+				}
+
 				boolean isCycle = "1".equals(cyclic);
 
 				Sequence sequence = factory.createSequence(sequenceName, new BigInteger(minVal),
@@ -758,6 +1261,7 @@ public final class CUBRIDSchemaFetcher extends
 				sequence.setComment(comment);
 				String ddl = CUBRIDSQLHelper.getInstance(null).getSequenceDDL(sequence);
 				sequence.setDDL(ddl);
+				sequence.setOwner(owner);
 
 				sequenceList.add(sequence);
 
@@ -766,7 +1270,7 @@ public final class CUBRIDSchemaFetcher extends
 
 		} finally {
 			Closer.close(rs);
-			Closer.close(stmt);
+			Closer.close(pstmt);
 		}
 
 	}
@@ -1112,13 +1616,29 @@ public final class CUBRIDSchemaFetcher extends
 	protected void buildTables(final Connection conn, final Catalog catalog, final Schema schema,
 			IBuildSchemaFilter filter) throws SQLException {
 		// Fastest gathering schema meta data
-		Map<String, Table> tables = buildCUBRIDTables(conn, catalog, schema, filter);
-		buildCUBRIDTableColumns(conn, tables);
-		buildCUBRIDTableSerials(conn, tables);
-		buildCUBRIDTablePKs(conn, tables);
-		buildCUBRIDTableFKs(conn, tables, schema, catalog);
-		buildCUBRIDTableIndexes(conn, tables);
+		Integer ver = Integer.parseInt("" + conn.getMetaData().getDatabaseMajorVersion() 
+				+ conn.getMetaData().getDatabaseMinorVersion());
+		if (ver >= 112) {
+			Map<String, Table> tables = buildCUBRIDTablesWithUserSchema(conn, catalog, schema, filter);
+			buildCUBRIDTableColumnsWithUserSchema(conn, tables);
+			buildCUBRIDTableSerialsWithUserSchema(conn, tables);
+			buildCUBRIDTablePKsWithUserSchema(conn, tables);
+			buildCUBRIDTableFKsWithUserSchema(conn, tables, schema, catalog);
+			buildCUBRIDTableIndexesWithUserSchema(conn, tables);
+			
+		} else {
+			Map<String, Table> tables = buildCUBRIDTables(conn, catalog, schema, filter);
+			buildCUBRIDTableColumns(conn, tables);
+			buildCUBRIDTableSerials(conn, tables);
+			buildCUBRIDTablePKs(conn, tables);
+			buildCUBRIDTableFKs(conn, tables, schema, catalog);
+			buildCUBRIDTableIndexes(conn, tables);
+			
+		}
+		
 	}
+
+
 
 	/**
 	 * Fetch all stored Triggers of the given schemata.
@@ -1134,7 +1654,7 @@ public final class CUBRIDSchemaFetcher extends
 		String user = conn.getMetaData().getUserName();
 		if (null != user && "DBA".equalsIgnoreCase(user)) {
 			// get triggers
-			List<Trigger> trigList = getAllTriggers(conn);
+			List<Trigger> trigList = getAllTriggers(conn, schema);
 			schema.setTriggers(trigList);
 		}
 	}
@@ -1164,7 +1684,15 @@ public final class CUBRIDSchemaFetcher extends
 	 */
 	protected void buildViews(Connection conn, Catalog catalog, Schema schema,
 			IBuildSchemaFilter filter) throws SQLException {
-		super.buildViews(conn, catalog, schema, filter);
+		Integer ver = Integer.parseInt("" + conn.getMetaData().getDatabaseMajorVersion() 
+				+ conn.getMetaData().getDatabaseMinorVersion());
+		
+		if (ver >= 112){
+			buildCUBRIDViews(conn, catalog, schema, filter);
+		} else {
+			super.buildViews(conn, catalog, schema, filter);			
+		}
+		
 		//Set view's DDL
 		ResultSet rs = null; //NOPMD
 		PreparedStatement stmt = null; //NOPMD
@@ -1203,6 +1731,62 @@ public final class CUBRIDSchemaFetcher extends
 		}
 	}
 
+	protected void buildCUBRIDViews(final Connection conn, final Catalog catalog, final Schema schema,
+			IBuildSchemaFilter filter) throws SQLException {
+
+		List<String> viewNameList = getCUBRIDAllViewNames(conn, catalog, schema);
+		for (String viewName : viewNameList) {
+			String viewOwnerName = null;
+			String viewPureName = null;
+			if (viewName != null && viewName.indexOf(".") != -1) {
+				String[] arr = viewName.split("\\.");
+				viewOwnerName = arr[0];
+				viewPureName = arr[1];
+			} else {
+				viewOwnerName = schema.getName();
+				viewPureName = viewName;
+			}
+			if (filter != null && filter.filter(schema.getName(), viewPureName)) {
+				continue;
+			}
+			if (!isViewNameAccepted(viewName)) {
+				continue;
+			}
+
+			final View view = factory.createView();
+			view.setOwner(viewOwnerName);
+			view.setName(viewPureName);
+			view.setSchema(schema);
+			schema.addView(view);
+			buildViewColumns(conn, catalog, schema, view);
+		}
+	}
+	
+	protected List<String> getCUBRIDAllViewNames(final Connection conn, final Catalog catalog, final Schema schema)
+			throws SQLException {
+		ResultSet rs = null; //NOPMD
+		PreparedStatement pstmt = null;
+		List<String> viewNameList = new ArrayList<String>();
+		try {
+			String sql = "SELECT CLASS_NAME " +
+					"FROM DB_CLASS " +
+					"WHERE CLASS_TYPE = 'VCLASS' AND IS_SYSTEM_CLASS = 'NO' AND OWNER_NAME = ?";
+			
+			pstmt = conn.prepareStatement(sql);
+			
+			pstmt.setString(1, schema.getName().toUpperCase());
+			
+			rs = pstmt.executeQuery();
+			
+			while (rs.next()) {
+				viewNameList.add(rs.getString("CLASS_NAME"));
+			}
+			return viewNameList;
+		} finally {
+			Closer.close(rs);
+		}
+	}
+	
 	/**
 	 * creatSPDDL
 	 * 
@@ -1360,13 +1944,22 @@ public final class CUBRIDSchemaFetcher extends
 	 * @return all triggers
 	 * @throws SQLException e
 	 */
-	private List<Trigger> getAllTriggers(Connection conn) throws SQLException {
+	private List<Trigger> getAllTriggers(Connection conn, Schema schema) throws SQLException {
 		PreparedStatement stmt = null;
 		ResultSet rs = null; //NOPMD
+		
+		int dbVersion = getDBVersion(conn);
+		
+		String trigUniqueName = "";
+		if (dbVersion >= USERSCHEMA_VERSION) {
+			trigUniqueName = ", trig.unique_name";
+		}
+		
 		try {
 			String sql = "SELECT t.target_class_name, name, status, priority, event,"
 					+ " target_class, target_attribute, condition_type, condition, condition_time,"
 					+ " trig.action_type, action_definition, trig.action_time"
+					+ trigUniqueName
 					+ " FROM db_class c, db_trigger trig, db_trig t"
 					+ " WHERE trig.name=t.trigger_name AND t.target_class_name=c.class_name(+)"
 					+ " AND c.is_system_class='no'"
@@ -1378,18 +1971,21 @@ public final class CUBRIDSchemaFetcher extends
 
 			while (rs.next()) {
 				CUBRIDTrigger trigger = (CUBRIDTrigger) factory.createTrigger();
-				trigger.setTargetClass(rs.getString("target_class_name"));
-				trigger.setName(rs.getString("name"));
-				trigger.setStatus(rs.getString("status"));
-				trigger.setPriority(rs.getString("priority"));
-				trigger.setEventType(rs.getString("event"));
-				trigger.setTargetAttribute(rs.getString("target_attribute"));
-				trigger.setCondition(rs.getString("condition"));
-				trigger.setConditionTime(rs.getString("condition_time"));
-				trigger.setActionType(rs.getString("action_type"));
-				trigger.setActionDefintion(rs.getString("action_definition"));
-				trigger.setActionTime(rs.getString("action_time"));
-
+				if (!rs.getString("UNIQUE_NAME").equalsIgnoreCase(schema.getName() + "." + rs.getString("NAME"))) {
+					continue;
+				}
+				trigger.setTargetClass(rs.getString("TARGET_CLASS_NAME"));
+				trigger.setName(rs.getString("NAME"));
+				trigger.setStatus(rs.getString("STATUS"));
+				trigger.setPriority(rs.getString("PRIORITY"));
+				trigger.setEventType(rs.getString("EVENT"));
+				trigger.setTargetAttribute(rs.getString("TARGET_ATTRIBUTE"));
+				trigger.setCondition(rs.getString("CONDITION"));
+				trigger.setConditionTime(rs.getString("CONDITION_TIME"));
+				trigger.setActionType(rs.getString("ACTION_TYPE"));
+				trigger.setActionDefintion(rs.getString("ACTION_DEFINITION"));
+				trigger.setActionTime(rs.getString("ACTION_TIME"));
+				
 				triggers.add(trigger);
 			}
 
@@ -1510,6 +2106,144 @@ public final class CUBRIDSchemaFetcher extends
 			Closer.close(rs);
 			Closer.close(stmt);
 		}
+	}
+	/**
+	 * if cubrid version >= 11.2, user name is schema. so get user name which have grant in connection user
+	 * 
+	 * @param conn Connection, cp ConnParameters
+	 * @return schemaList List<String>
+	 * @throws SQLException e
+	 */
+	@Override
+	protected List<String> getSchemaNames(Connection conn, ConnParameters cp) throws SQLException {
+		Integer ver = Integer.parseInt("" + conn.getMetaData().getDatabaseMajorVersion() 
+				+ conn.getMetaData().getDatabaseMinorVersion());
+		
+		if (ver < 112) {
+			return super.getSchemaNames(conn, cp);
+		}
+		
+		if (!getPrivilege(conn, cp)) {
+			return getUserSchemaNames(conn, cp);
+		}
+		
+		
+		List<String> schemaNames = new ArrayList<String>();
+		PreparedStatement stmt = null;
+		ResultSet rs = null;
+		
+		try {			
+//			String sql = "select a.grantor_name, a.grantee_name, a.auth_type, b.auth_type "
+//					+ "from (select grantor_name, grantee_name, class_name, auth_type " 
+//					+ "from db_auth " 
+//					+ "where auth_type = 'SELECT') a " 
+//					+ "join (select auth_type, class_name, grantee_name "
+//					+ "from db_auth " 
+//					+ "where auth_type = 'INSERT') b " 
+//					+ "where (a.class_name = b.class_name and a.grantee_name = b.grantee_name) " 
+//					+ "and a.grantee_name = ? "
+//					+ "group by grantor_name";
+			
+			String sql = "select name from db_user";
+			stmt = conn.prepareStatement(sql);
+//			stmt.setString(1, cp.getConUser().toUpperCase());
+			rs = stmt.executeQuery();
+			
+			while (rs.next()) {
+				schemaNames.add(rs.getString("name"));
+			}
+			
+			if (schemaNames.isEmpty()) {
+				return super.getSchemaNames(conn, cp);
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			Closer.close(rs);
+			Closer.close(stmt);
+		}
+		
+		return schemaNames;
+	}
+	
+	protected List<String> getUserSchemaNames(final Connection conn, ConnParameters cp) throws SQLException {
+		List<String> result = new ArrayList<String>();
+		//		if (StringUtils.isNotBlank(cp.getSchema())) {
+		//			result.add(cp.getSchema());
+		//		} else {
+		//			result.add(cp.getDbName());
+		//		}
+		result.add(cp.getConUser());
+		return result;
+	}
+	
+	private boolean getPrivilege(Connection conn, ConnParameters conParams) {
+		PreparedStatement stmt = null;
+		ResultSet rs = null;
+		
+		try {
+			String user = conParams.getConUser();
+			
+			if (user.equalsIgnoreCase("DBA")) {
+				return true;
+			}
+			
+			String sql = "SELECT u.name FROM db_user AS u, TABLE(u.direct_groups) AS g(x) WHERE x.name='DBA'";
+			
+			stmt = conn.prepareStatement(sql);
+			rs = stmt.executeQuery();
+			
+			while (rs.next()) {
+				String dbaGroup = rs.getString(1);
+				
+				if (user.equalsIgnoreCase("DBA") || dbaGroup.equalsIgnoreCase(user)) {
+					return true;
+				}
+			}
+			
+			return false;
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			Closer.close(rs);
+			Closer.close(stmt);
+		}
+		return false;
+	}
+	
+	private boolean getPrivilege(Connection conn, Catalog catalog) {
+		PreparedStatement stmt = null;
+		ResultSet rs = null;
+		
+		try {
+			String user = catalog.getConnectionParameters().getConUser();
+			
+			if (user.equalsIgnoreCase("DBA")) {
+				return true;
+			}
+			
+			String sql = "SELECT u.name FROM db_user AS u, TABLE(u.direct_groups) AS g(x) WHERE x.name='DBA'";
+			
+			stmt = conn.prepareStatement(sql);
+			rs = stmt.executeQuery();
+			
+			while (rs.next()) {
+				String dbaGroup = rs.getString(1);
+				
+				if (user.equalsIgnoreCase("DBA") || dbaGroup.equalsIgnoreCase(user)) {
+					return true;
+				}
+			}
+			
+			return false;
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			Closer.close(rs);
+			Closer.close(stmt);
+		}
+		return false;
 	}
 
 }

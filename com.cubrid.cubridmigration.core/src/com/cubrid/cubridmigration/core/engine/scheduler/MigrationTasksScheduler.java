@@ -37,6 +37,7 @@ import java.util.Locale;
 import org.apache.commons.lang.StringUtils;
 
 import com.cubrid.cubridmigration.core.common.PathUtils;
+import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.engine.MigrationContext;
 import com.cubrid.cubridmigration.core.engine.ThreadUtils;
 import com.cubrid.cubridmigration.core.engine.UserDefinedDataHandlerManager;
@@ -87,6 +88,7 @@ public class MigrationTasksScheduler {
 		initUserDefinedHandlers();
 
 		clearTargetDB();
+		createSchema();
 		createTables();
 		createViews();
 		alterViews();
@@ -234,6 +236,15 @@ public class MigrationTasksScheduler {
 	protected void executeTask2(IMigrationTask task) {
 		context.getExportRecExe().execute((Runnable) task);
 	}
+	
+	protected void createSchema() {
+		MigrationConfiguration config = context.getConfig();
+		List<Schema> dummySchemaList = config.getTargetSchemaList();
+		
+		for (Schema schema : dummySchemaList) {
+			executeTask(taskFactory.createImportSchemaTask(schema));
+		}
+	}
 
 	/**
 	 * Schedule export table schema tasks.
@@ -249,10 +260,10 @@ public class MigrationTasksScheduler {
 			if (!st.isCreateNewTable()) {
 				continue;
 			}
-			if (tableCreated.indexOf(st.getTarget()) >= 0) {
+			if (tableCreated.indexOf((st.getTargetOwner() + "." + st.getTarget())) >= 0) {
 				continue;
 			}
-			tableCreated.add(st.getTarget());
+			tableCreated.add(st.getTargetOwner() + "." + st.getTarget());
 			executeTask(taskFactory.createExportTableSchemaTask(st));
 		}
 		for (SourceSQLTableConfig st : sourceSQLTables) {
@@ -365,7 +376,7 @@ public class MigrationTasksScheduler {
 			if (!((SourceEntryTableConfig) tb).isCreatePK()) {
 				continue;
 			}
-			final String name = tb.getTarget().trim().toLowerCase(Locale.US);
+			final String name = tb.getOwner() + "." + tb.getTarget().trim().toLowerCase(Locale.US);
 			if (names.indexOf(name) >= 0) {
 				continue;
 			}

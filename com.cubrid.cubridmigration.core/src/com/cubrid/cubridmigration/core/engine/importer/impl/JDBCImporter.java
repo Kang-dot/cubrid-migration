@@ -44,6 +44,7 @@ import com.cubrid.cubridmigration.core.dbobject.FK;
 import com.cubrid.cubridmigration.core.dbobject.Index;
 import com.cubrid.cubridmigration.core.dbobject.PK;
 import com.cubrid.cubridmigration.core.dbobject.Record;
+import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.View;
@@ -78,7 +79,7 @@ public class JDBCImporter extends
 	private final MigrationConfiguration config;
 	private final CUBRIDParameterSetter parameterSetter;
 	private final ErrorRecords2SQLFileWriter errorRecordsWriter;
-
+	
 	public JDBCImporter(MigrationContext mrManager) {
 		super(mrManager);
 		this.parameterSetter = mrManager.getParamSetter();
@@ -163,7 +164,7 @@ public class JDBCImporter extends
 	 * @param pk primary key
 	 */
 	public void createPK(PK pk) {
-		String ddl = CUBRIDSQLHelper.getInstance(null).getPKDDL(pk.getTable().getName(),
+		String ddl = CUBRIDSQLHelper.getInstance(null).getPKDDL(pk.getTable().getOwner(), pk.getTable().getName(),
 				pk.getName(), pk.getPkColumns());
 		pk.setDDL(ddl);
 		try {
@@ -181,7 +182,7 @@ public class JDBCImporter extends
 	 * @param fk foreign key
 	 */
 	public void createFK(FK fk) {
-		String ddl = CUBRIDSQLHelper.getInstance(null).getFKDDL(fk.getTable().getName(), fk);
+		String ddl = CUBRIDSQLHelper.getInstance(null).getFKDDL(fk.getTable().getOwner(), fk.getTable().getName(), fk);
 		fk.setDDL(ddl);
 		try {
 			executeDDL(ddl);
@@ -197,7 +198,7 @@ public class JDBCImporter extends
 	 * @param index Index
 	 */
 	public void createIndex(Index index) {
-		String ddl = CUBRIDSQLHelper.getInstance(null).getIndexDDL(index.getTable().getName(),
+		String ddl = CUBRIDSQLHelper.getInstance(null).getIndexDDL(index.getTable().getOwner(), index.getTable().getName(),
 				index, "");
 		index.setDDL(ddl);
 		try {
@@ -274,8 +275,15 @@ public class JDBCImporter extends
 	 * @return SQL string with parameters
 	 */
 	public String getTargetInsertDML(SourceTableConfig tt) {
-		StringBuffer nameBuf = new StringBuffer("insert into ").append(
-				CUBRIDSQLHelper.getInstance(null).getQuotedObjName(tt.getTarget())).append(" (");
+		StringBuffer nameBuf = new StringBuffer("insert into ");
+		
+		if (config.getAddUserSchema()) {
+			nameBuf.append(tt.getTargetOwner())
+			.append(".");
+		}
+		
+		nameBuf.append(CUBRIDSQLHelper.getInstance(null).getQuotedObjName(tt.getTarget()))
+			.append(" (");
 		StringBuffer valueBuf = new StringBuffer(" values (");
 		List<SourceColumnConfig> columns = tt.getColumnConfigList();
 		int len = columns.size();
@@ -407,6 +415,16 @@ public class JDBCImporter extends
 			trec.addColumnValue(targetColumn, targetValue);
 		}
 		return trec;
+	}
+
+	public void createSchema(Schema dummySchema) {
+		String ddl = CUBRIDSQLHelper.getInstance(null).getSchemaDDL(dummySchema);
+		try {
+			executeDDL(ddl);
+			createObjectSuccess(dummySchema);
+		} catch (RuntimeException e) {
+			createObjectFailed(dummySchema, e);
+		}
 	}
 
 }

@@ -88,7 +88,16 @@ public class MigrationReport implements
 			return "primary key of " + ((PK) obj).getTable().getName();
 		} else if (obj instanceof Index) {
 			return "[" + ((Index) obj).getTable().getName() + "]" + obj.getName();
+		} else if (obj instanceof Table) {
+			Table tempTable = (Table) obj;
+			
+			if (tempTable.getOwner() != null) { 
+				return tempTable.getOwner() + "." + tempTable.getName();
+			} else {
+				return tempTable.getName();
+			}
 		}
+		
 		return obj.getName();
 	}
 
@@ -224,6 +233,7 @@ public class MigrationReport implements
 		DBObjMigrationResult objResult = new DBObjMigrationResult();
 		objResult.setObjName(getDBObjName(dbo));
 		objResult.setObjType(dbo.getObjType());
+		objResult.setObjOwner(getObjectOwner(dbo));
 		dbObjectsResult.add(objResult);
 	}
 
@@ -259,15 +269,43 @@ public class MigrationReport implements
 	public DBObjMigrationResult getDBObjResult(DBObject obj) {
 		for (DBObjMigrationResult or : dbObjectsResult) {
 			if (or.getObjName().equals(getDBObjName(obj))
-					&& or.getObjType().equals(obj.getObjType())) {
+					&& or.getObjType().equals(obj.getObjType())
+					&& dbObjectNullCheck(or, obj)) {
 				return or;
 			}
 		}
 		DBObjMigrationResult result = new DBObjMigrationResult();
+		
 		result.setObjName(getDBObjName(obj));
 		result.setObjType(obj.getObjType());
+		result.setObjOwner(getObjectOwner(obj));
 		dbObjectsResult.add(result);
 		return result;
+	}
+	
+	boolean dbObjectNullCheck(DBObjMigrationResult or, DBObject obj) {
+		if (or.getObjOwner() == null) {
+			return true;
+		}
+		return or.getObjOwner().equalsIgnoreCase(getObjectOwner(obj));
+	}
+	
+	private String getObjectOwner(DBObject obj) {
+		if (obj instanceof Table) {
+			return ((Table) obj).getOwner();
+		} else if (obj instanceof View) {
+			return ((View) obj).getOwner();
+		} else if (obj instanceof Sequence) {
+			return ((Sequence) obj).getOwner();
+		} else if (obj instanceof Index) {
+			return ((Index) obj).getTable().getOwner();
+		} else if (obj instanceof FK) {
+			return ((FK) obj).getTable().getOwner();
+		} else if (obj instanceof PK) {
+			return ((PK) obj).getTable().getOwner();
+		} else {
+			return null;
+		}
 	}
 
 	/**

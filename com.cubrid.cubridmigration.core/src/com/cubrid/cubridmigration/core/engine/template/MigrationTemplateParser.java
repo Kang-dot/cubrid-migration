@@ -90,7 +90,7 @@ import com.cubrid.cubridmigration.mysql.trans.MySQL2CUBRIDMigParas;
 public final class MigrationTemplateParser {
 
 	private static final String DEFAULT_MIGRATION_SCRIPT_NAME = "migration_script";
-	private static final String VERSION = "9.3.0";
+	private static final String VERSION = "11.1.0";
 	private static final String INDENT_AMOUNT = "{http://xml.apache.org/xslt}indent-amount";
 	private static final String UTF_8 = "utf-8";
 
@@ -280,11 +280,23 @@ public final class MigrationTemplateParser {
 
 		target.setAttribute(TemplateTags.ATTR_DB_TYPE, "cubrid");
 		createTargetConInfoNode(config, document, target);
+		createTargetSchemaNodes(config, document, target);
 		createTargetTableNodes(config, document, target);
 		createTargetSequenceNodes(config, document, target);
 		createTargetViewNodes(config, document, target);
 	}
-
+	
+	private static void createTargetSchemaNodes(MigrationConfiguration config, Document document, Element target) {
+		Element schemas = createElement(document, target, TemplateTags.TAG_SCHEMAS);
+		List<Schema> schemaList = config.getTargetSchemaList();
+		
+		for (Schema schema : schemaList) {
+			Element schemaElement = createElement(document, schemas, TemplateTags.TAG_SCHEMA_INFO);
+			
+			schemaElement.setAttribute(TemplateTags.ATTR_SCHEMA_NAME, schema.getName());
+		}
+	}
+	
 	/**
 	 * Create Target View Nodes
 	 * 
@@ -300,6 +312,9 @@ public final class MigrationTemplateParser {
 		for (View tt : targetViews) {
 			Element view = createElement(document, views, TemplateTags.TAG_VIEW);
 			view.setAttribute(TemplateTags.ATTR_NAME, tt.getName());
+			//CMT112 script control. add owner in view
+			view.setAttribute(TemplateTags.ATTR_OWNER, tt.getOwner());
+			view.setAttribute(TemplateTags.ATTR_TARGET_OWNER, tt.getOwner());
 			Element viewQuerySQL = createElement(document, view, TemplateTags.TAG_VIEWQUERYSQL);
 			viewQuerySQL.setTextContent(tt.getQuerySpec());
 			Element createViewSQL = createElement(document, view, TemplateTags.TAG_CREATEVIEWSQL);
@@ -339,6 +354,8 @@ public final class MigrationTemplateParser {
 		Element sequences = createElement(document, target, TemplateTags.TAG_SEQUENCES);
 		for (Sequence sc : targetSerials) {
 			Element sequence = createElement(document, sequences, TemplateTags.TAG_SEQUENCE);
+			//CMT112 script control. add owner in sequence
+			sequence.setAttribute(TemplateTags.ATTR_OWNER, sc.getOwner());
 			sequence.setAttribute(TemplateTags.ATTR_NAME, sc.getName());
 			sequence.setAttribute(TemplateTags.ATTR_START, String.valueOf(sc.getCurrentValue()));
 			sequence.setAttribute(TemplateTags.ATTR_NO_MAX, getBooleanString(sc.isNoMaxValue()));
@@ -381,6 +398,8 @@ public final class MigrationTemplateParser {
 		for (Table targetTable : targetTables) {
 			Element table = createElement(document, tables, TemplateTags.TAG_TABLE);
 			table.setAttribute(TemplateTags.ATTR_NAME, targetTable.getName());
+			//CMT112 script control. add owner in table
+			table.setAttribute(TemplateTags.ATTR_OWNER, targetTable.getOwner());
 			table.setAttribute(TemplateTags.ATTR_REUSE_OID,
 					getBooleanString(targetTable.isReuseOID()));
 
@@ -528,6 +547,7 @@ public final class MigrationTemplateParser {
 			dir.setAttribute(TemplateTags.ATTR_INDEX, config.getTargetIndexFileName());
 			dir.setAttribute(TemplateTags.ATTR_TIMEZONE, config.getTargetFileTimeZone());
 			dir.setAttribute(TemplateTags.ATTR_CHARSET, config.getTargetCharSet());
+			dir.setAttribute(TemplateTags.ATTR_ADD_SCHEMA, config.getOfflineUserSchema().toString());
 
 			dir.setAttribute(TemplateTags.ATTR_ONETABLEONEFILE,
 					getBooleanString(config.isOneTableOneFile()));
@@ -721,6 +741,18 @@ public final class MigrationTemplateParser {
 			}
 			return;
 		}
+		Element schemas = createElement(document, source, TemplateTags.TAG_SCHEMAS);
+		Catalog srcCatalog = config.getSrcCatalog();
+		
+		if (srcCatalog != null){
+			for (Schema schema : srcCatalog.getSchemas()) {
+				Element schemaElement = createElement(document, schemas, TemplateTags.TAG_SCHEMA_INFO);
+				
+				schemaElement.setAttribute(TemplateTags.ATTR_SCHEMA_NAME, schema.getName());
+				schemaElement.setAttribute(TemplateTags.ATTR_TARGET_SCHEMA, schema.getTargetSchemaName());
+			}			
+		}
+		
 		//tables
 		Element tables = createElement(document, source, TemplateTags.TAG_TABLES);
 		List<SourceEntryTableConfig> exportEntryTables = config.getExpEntryTableCfg();
@@ -744,7 +776,7 @@ public final class MigrationTemplateParser {
 				tbe.setAttribute(TemplateTags.ATTR_START_TAR_MAX,
 						getBooleanString(setc.isStartFromTargetMax()));
 			}
-
+			
 			Element columns = createElement(document, tbe, TemplateTags.TAG_COLUMNS);
 			List<SourceColumnConfig> columnConfigList = setc.getColumnConfigList();
 			for (SourceColumnConfig scc : columnConfigList) {
@@ -755,20 +787,20 @@ public final class MigrationTemplateParser {
 				col.setAttribute(TemplateTags.ATTR_REPLACE_EXPRESSION, scc.getReplaceExp());
 				col.setAttribute(TemplateTags.ATTR_USER_DATA_HANDLER, scc.getUserDataHandler());
 			}
-
+			
 			List<SourceIndexConfig> indexConfigList = setc.getIndexConfigList();
 			List<SourceFKConfig> fkConfigList = setc.getFKConfigList();
 			if (indexConfigList.isEmpty() && fkConfigList.isEmpty()) {
 				continue;
 			}
-
+			
 			Element constraints = createElement(document, tbe, TemplateTags.TAG_CONSTRAINTS);
 			for (SourceFKConfig fkc : fkConfigList) {
 				Element fk = createElement(document, constraints, TemplateTags.TAG_FK);
 				fk.setAttribute(TemplateTags.ATTR_NAME, fkc.getName());
 				fk.setAttribute(TemplateTags.ATTR_TARGET, fkc.getTarget());
 			}
-
+			
 			for (SourceIndexConfig sic : indexConfigList) {
 				Element index = createElement(document, constraints, TemplateTags.TAG_INDEX);
 				index.setAttribute(TemplateTags.ATTR_NAME, sic.getName());
@@ -788,7 +820,7 @@ public final class MigrationTemplateParser {
 				tbe.setAttribute(TemplateTags.ATTR_MIGRATE_DATA,
 						getBooleanString(setc.isMigrateData()));
 				tbe.setAttribute(TemplateTags.ATTR_TARGET, setc.getTarget());
-
+				
 				Element statement = createElement(document, tbe, TemplateTags.TAG_STATEMENT);
 				statement.setTextContent(setc.getSql());
 				Element columns = createElement(document, tbe, TemplateTags.TAG_COLUMNS);
@@ -827,6 +859,7 @@ public final class MigrationTemplateParser {
 				vwNode.setAttribute(TemplateTags.ATTR_TARGET, sc.getTarget());
 			}
 		}
+		
 		//source triggers
 		List<String> exportTriggers = config.getExpTriggerCfg();
 		if (!exportTriggers.isEmpty()) {

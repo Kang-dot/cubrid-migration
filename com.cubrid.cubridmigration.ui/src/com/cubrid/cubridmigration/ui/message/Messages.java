@@ -53,6 +53,7 @@ public class Messages extends
 	public static String auoCheckUpdate;
 	public static String btnAdd;
 	public static String btnAddFromHDFS;
+	public static String btnAddUserSchema;
 	public static String btnAdvanced;
 	public static String btnAdvancedSettings;
 	public static String btnAgreed;
@@ -312,9 +313,11 @@ public class Messages extends
 	public static String errMsgLoadSchemaFailed;
 	public static String errMsgNoCSV;
 	public static String errMsgNoExportScript;
+	public static String errMsgNoSchemaSelected;
 	public static String errMsgProxySettingError;
 	public static String errNoColumnSelected;
 	public static String errNoDBObject;
+	public static String errNoSchemaSelected;
 	public static String errNoSQLSelected;
 	public static String errNoSQLTableSelected;
 	public static String errNoValidSQLFile;
@@ -491,11 +494,13 @@ public class Messages extends
 	public static String msgConnectingHDFS;
 	public static String msgConnectSuccess;
 	public static String msgCSVFilesList;
+	public static String msgCubridDump;
 	public static String msgCubridHelpSiteUrl;
 	public static String msgCubridHomePageUrl;
 	public static String msgCubridProjectSiteUrl;
 	public static String msgCUBRIDToolsSiteURL;
 	public static String msgDefault;
+	public static String msgDefaultSchema;
 	public static String msgDestOutputFilesSetting;
 	public static String msgDestOutputFilesSettingDes;
 	public static String msgDestSelectOnlineCUBRIDDB;
@@ -525,6 +530,7 @@ public class Messages extends
 	public static String msgErrEmptyMin;
 	public static String msgErrEmptyPartition;
 	public static String msgErrEmptyRefTable;
+	public static String msgErrEmptySchemaName;
 	public static String msgErrEmptyScriptName;
 	public static String msgErrEmptySeparator;
 	public static String msgErrEmptyStartValue;
@@ -543,6 +549,7 @@ public class Messages extends
 	public static String msgErrInvalidFKName;
 	public static String msgErrInvalidIndexName;
 	public static String msgErrInvalidMigrationHistory;
+	public static String msgErrInvalidSchemaName;
 	public static String msgErrInvalidSerialName;
 	public static String msgErrInvalidTableName;
 	public static String msgErrInvalidViewName;
@@ -562,6 +569,7 @@ public class Messages extends
 	public static String msgExportScriptSuccess;
 	public static String msgFetchingXMLSchema;
 	public static String msgFile;
+	public static String msgGrantSchema;
 	public static String msgImplicitEstimate;
 	public static String msgInformation;
 	public static String msgInputJDBCURL;
@@ -572,10 +580,12 @@ public class Messages extends
 	public static String msgIsUseScriptCatalog;
 	public static String msgLobInformation;
 	public static String msgLowerCaseWarning;
+	public static String msgMainSchema;
 	public static String msgMappingOverride;
 	public static String msgNoIndexColumn;
 	public static String msgNoSQLImported;
 	public static String msgNotAccomplished;
+	public static String msgNote;
 	public static String msgOOMWarning;
 	public static String msgOpenReportNow;
 	public static String msgParsingCSVFiles;
@@ -603,12 +613,15 @@ public class Messages extends
 	public static String msgStartDownloadDrivers;
 	public static String msgStartMigrationFailed;
 	public static String msgStoppingMigration;
+	public static String msgTarType;
 	public static String msgTimeRemaining;
 	public static String msgTitleConfirmAutoChangeColumnSize;
 	public static String msgTitleDeleteSQL;
 	public static String msgTitleImportSQL;
 	public static String msgToggleExitConfirm;
 	public static String msgTTLocateSourceTable;
+	public static String msgTypeSchema;
+	public static String msgUserSchemaDisable;
 	public static String msgWarning;
 	public static String msgWarnTableRecreated;
 	public static String msgWizardStep;
@@ -635,6 +648,7 @@ public class Messages extends
 	public static String objectMapPageTabFolderTables;
 	public static String objectMapPageTabFolderViews;
 	public static String objectMapPageTitle;
+	public static String oldScriptMigration;
 	public static String onlineCUBRIDCommitCount;
 	public static String openConfActionTitle;
 	public static String oracle2CUBRID;
@@ -646,6 +660,8 @@ public class Messages extends
 	public static String refreshButtonLabel;
 	public static String refreshDBConnActionMessage;
 	public static String removeButtonLabel;
+	public static String schemaMappingPageTitle;
+	public static String schemaMappingPageDescription;
 	public static String setOptionPageOKMsg;
 	public static String sourceDBPageErrNoSelectedItem;
 	public static String sourceDBPageErrNoSelectedXMLFile;
@@ -657,6 +673,7 @@ public class Messages extends
 	public static String sourceDBPageTableIP;
 	public static String sourceDBPageTablePort;
 	public static String sourcePKColumns;
+	public static String sourceSchema;
 	public static String sqlServer2CUBRID;
 	public static String startButtonText;
 	public static String tabCharColumns;
@@ -699,6 +716,8 @@ public class Messages extends
 	public static String targetDBPageOfflineErrMsg2;
 	public static String targetDBPageOfflineTargetFileRepositoryErrMsg;
 	public static String targetPKColumns;
+	public static String targetSchema;
+	public static String targetSchemaDes;
 	public static String tblColSourceColumn;
 	public static String tblColSourceTable;
 	public static String tblColTargetColumn;

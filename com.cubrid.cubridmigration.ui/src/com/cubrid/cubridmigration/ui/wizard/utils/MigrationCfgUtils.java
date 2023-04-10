@@ -69,6 +69,7 @@ import com.cubrid.cubridmigration.core.engine.config.SourceIndexConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceSQLTableConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceSequenceConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceTableConfig;
+import com.cubrid.cubridmigration.core.engine.config.SourceViewConfig;
 import com.cubrid.cubridmigration.core.engine.exception.JDBCConnectErrorException;
 import com.cubrid.cubridmigration.core.mapping.model.VerifyInfo;
 import com.cubrid.cubridmigration.core.sql.SQLHelper;
@@ -345,7 +346,7 @@ public class MigrationCfgUtils {
 			throw new MigrationConfigurationCheckingErrorException("Can't find the table ["
 					+ setc.getTarget() + "] in source database schema.");
 		}
-		Table targetTable = config.getTargetTableSchema(setc.getTarget());
+		Table targetTable = config.getTargetTableSchema(setc.getTargetOwner(), setc.getTarget());
 		if (targetTable == null) {
 			throw new MigrationConfigurationCheckingErrorException("Can't find the table ["
 					+ setc.getTarget() + "] in target database schema.");
@@ -483,7 +484,7 @@ public class MigrationCfgUtils {
 			}
 			checkSerialCfg(config, sc);
 			//Check duplicated
-			if (serials.indexOf(sc.getTarget()) >= 0) {
+			if (serials.indexOf(sc.getTargetOwner() + "." + sc.getTarget()) >= 0) {
 				throw new MigrationConfigurationCheckingErrorException(Messages.bind(
 						Messages.errDuplicateSequenceName, sc.getTarget()));
 			}
@@ -709,7 +710,7 @@ public class MigrationCfgUtils {
 	 */
 	protected VerifyResultMessages checkViewCfg(MigrationConfiguration config) {
 		List<String> views = new ArrayList<String>();
-		for (SourceConfig sc : config.getExpViewCfg()) {
+		for (SourceViewConfig sc : config.getExpViewCfg()) {
 			if (!sc.isCreate()) {
 				continue;
 			}
@@ -723,7 +724,7 @@ public class MigrationCfgUtils {
 					break;
 				}
 			}
-			if (flag || views.indexOf(sc.getTarget()) >= 0) {
+			if (flag || views.indexOf(sc.getTargetOwner() + "." + sc.getTarget()) >= 0) {
 				throw new MigrationConfigurationCheckingErrorException(NLS.bind(
 						Messages.objectMapPageErrMsgDuplicatedTable3, sc.getTarget()));
 			}
@@ -1003,22 +1004,22 @@ public class MigrationCfgUtils {
 		return false;
 	}
 
-	public void createDetailMessage(StringBuffer sb, Catalog catalog, String objType) {
+	public void createDetailMessage(StringBuffer sb, Catalog catalog, String objType, int messageType) {
 		List<Schema> schemas = catalog.getSchemas();
 		sb.append("[ " + objType.toUpperCase()  + "(s) ]\n");
 		for (Schema schema : schemas) {
 			if (objType.equals(DBObject.OBJ_TYPE_TABLE)) {
-				createObjectInformation(sb, catalog.getAllTablesCountMap(), schema.getTables());
+				createObjectInformation(sb, catalog.getAllTablesCountMap(), schema.getTables(), messageType);
 			} else if (objType.equals(DBObject.OBJ_TYPE_VIEW)) {
-				createObjectInformation(sb, catalog.getAllViewsCountMap(), schema.getViews());
+				createObjectInformation(sb, catalog.getAllViewsCountMap(), schema.getViews(), messageType);
 			} else if (objType.equals(DBObject.OBJ_TYPE_SEQUENCE)) {
-				createObjectInformation(sb, catalog.getAllSequencesCountMap(), schema.getSequenceList());
+				createObjectInformation(sb, catalog.getAllSequencesCountMap(), schema.getSequenceList(), messageType);
 			}
 		}
 		sb.append("\n");
 	}
-
-	private void createObjectInformation(StringBuffer sb, Map<String, Integer> map, List<?> objectList) {
+	
+	private void createObjectInformation(StringBuffer sb, Map<String, Integer> map, List<?> objectList, int messageType) {
 		for (Object object : objectList) {
 			String objectName = ((DBObject) object).getName();
 			if (isDuplicatedObject(map, objectName)) {
@@ -1028,7 +1029,7 @@ public class MigrationCfgUtils {
 				} else if (object instanceof Sequence) {
 					owner = ((Sequence) object).getOwner();
 				}
-				appendDuplicatedObjectInformation(sb, owner, objectName);
+				appendDuplicatedObjectInformation(sb, owner, objectName, messageType);
 			}
 		}
 	}
@@ -1037,11 +1038,15 @@ public class MigrationCfgUtils {
 		return map.get(objectName) != null && (map.get(objectName) > 1);
 	}
 
-	private void appendDuplicatedObjectInformation(StringBuffer sb, String owner, String objectName) {
-		sb.append("- ").append(owner).append(".").append(objectName)
-		.append(" -> ")
-		.append(owner.toLowerCase()).append("_").append(objectName.toLowerCase())
-		.append("\n");
+	private void appendDuplicatedObjectInformation(StringBuffer sb, String owner, String objectName, int messageType) {
+		sb.append("- ").append(owner).append(".").append(objectName);
+		if (messageType == 1) {
+			sb.append(" -> ")
+			  .append(owner.toLowerCase()).append("_").append(objectName.toLowerCase())
+			  .append("\n");			
+		} else {
+			sb.append("\n");
+		}
 	}
 
 	/**

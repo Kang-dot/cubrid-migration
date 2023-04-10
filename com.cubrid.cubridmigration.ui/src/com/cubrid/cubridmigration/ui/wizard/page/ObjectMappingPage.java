@@ -152,17 +152,21 @@ public class ObjectMappingPage extends
 		try {
 			//Update migration source database schema
 			Catalog sourceCatalog = mw.getSourceCatalog();
+			
 			final MigrationConfiguration cfg = mw.getMigrationConfig();
 			if (cfg.sourceIsOnline() && !cfg.getSourceDBType().equals(DatabaseType.CUBRID)) {
 				MessageDialog.openInformation(getShell(), Messages.msgInformation,
 						Messages.msgLowerCaseWarning);
 			}
-
-			if (isFirstVisible
-					&& util.checkMultipleSchema(sourceCatalog, cfg)
-					&& util.createAllObjectsMap(sourceCatalog)
-					&& util.hasDuplicatedObjects(sourceCatalog)) {
-				showDetailMessageDialog(sourceCatalog);
+			
+			int tarSchemaSize = getMigrationWizard().getTarCatalogSchemaCount();
+			if (isFirstVisible) {
+					if (util.checkMultipleSchema(sourceCatalog, cfg)
+							&& util.createAllObjectsMap(sourceCatalog)
+							&& util.hasDuplicatedObjects(sourceCatalog)
+							&& (tarSchemaSize <= 1 || cfg.isTarSchemaDuplicate())) {
+						showDetailMessageDialog(sourceCatalog);
+					} 
 			}
 
 			showLobInfo(sourceCatalog);
@@ -210,17 +214,26 @@ public class ObjectMappingPage extends
 	}
 
 	private void showDetailMessageDialog(Catalog sourceCatalog) {
-		String detailMessage = getDetailMessage(sourceCatalog);
+		String detailMessage = getDetailMessage(sourceCatalog, 1);
 		DetailMessageDialog.openInfo(getShell(), Messages.titleDuplicateObjects, Messages.msgDuplicateObjects, detailMessage);
 	}
 
-	private String getDetailMessage(Catalog sourceCatalog) {
+	/**
+	 * message type
+	 * 0 -> target cubrid have multiple schema, and have duplicate table
+	 * 1 -> target cubrid didn't have multiple schema, and have duplicate table
+	 * @param sourceCatalog
+	 * @param messageType
+	 * @return
+	 */
+	private String getDetailMessage(Catalog sourceCatalog, int messageType) {
 		StringBuffer sb = new StringBuffer();
-		util.createDetailMessage(sb, sourceCatalog, DBObject.OBJ_TYPE_TABLE);
-		util.createDetailMessage(sb, sourceCatalog, DBObject.OBJ_TYPE_VIEW);
-		util.createDetailMessage(sb, sourceCatalog, DBObject.OBJ_TYPE_SEQUENCE);
+		util.createDetailMessage(sb, sourceCatalog, DBObject.OBJ_TYPE_TABLE, messageType);
+		util.createDetailMessage(sb, sourceCatalog, DBObject.OBJ_TYPE_VIEW, messageType);
+		util.createDetailMessage(sb, sourceCatalog, DBObject.OBJ_TYPE_SEQUENCE, messageType);
 		return sb.toString();
 	}
+
 
 	/**
 	 * setNoPKWarnings
@@ -660,6 +673,7 @@ public class ObjectMappingPage extends
 				}
 			} catch (Exception ex) {
 				LOG.error("", ex);
+				ex.printStackTrace();
 				if (!MessageDialog.openConfirm(getShell(), Messages.lblSaveConfig,
 						Messages.msgCfmErrorSave)) {
 					tvSourceDBObjects.setSelection(currentView.getModel());

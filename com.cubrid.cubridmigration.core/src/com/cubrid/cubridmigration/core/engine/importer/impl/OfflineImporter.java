@@ -63,6 +63,7 @@ import com.cubrid.cubridmigration.core.dbobject.Index;
 import com.cubrid.cubridmigration.core.dbobject.PK;
 import com.cubrid.cubridmigration.core.dbobject.Record;
 import com.cubrid.cubridmigration.core.dbobject.Record.ColumnValue;
+import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.View;
@@ -97,7 +98,7 @@ public abstract class OfflineImporter extends
 	protected static final int FILE_DATA_LOB = 3;
 
 	protected MigrationConfiguration config;
-
+	
 	//LoadDB command can not support multi-thread. LoadDBFile task runs in this pool.
 	protected final IRunnableExecutor cmTaskService;
 
@@ -483,7 +484,14 @@ public abstract class OfflineImporter extends
 	 * @return String header
 	 */
 	protected String getDataFileHeader(SourceTableConfig table) {
-		StringBuffer sb = new StringBuffer("%class [").append(table.getTarget()).append("] (");
+		StringBuffer sb = new StringBuffer("%class ");
+		
+		if (config.getAddUserSchema()) {
+			sb.append("[" + table.getTargetOwner() + "]");
+			sb.append(".");
+		}
+		
+		sb.append("[").append(table.getTarget()).append("] (");
 		String spliter = "";
 		for (SourceColumnConfig col : table.getColumnConfigList()) {
 			sb.append(spliter).append("[").append(col.getTarget()).append("]");
@@ -622,7 +630,7 @@ public abstract class OfflineImporter extends
 		}
 		return successCnt;
 	}
-
+	
 	/**
 	 * Create table
 	 * 
@@ -665,7 +673,7 @@ public abstract class OfflineImporter extends
 	 * @param pk to be created
 	 */
 	public void createPK(PK pk) {
-		String ddl = CUBRIDSQLHelper.getInstance(null).getPKDDL(pk.getTable().getName(),
+		String ddl = CUBRIDSQLHelper.getInstance(null).getPKDDL(pk.getTable().getOwner(), pk.getTable().getName(),
 				pk.getName(), pk.getPkColumns());
 		pk.setDDL(ddl);
 		executeDDL(ddl + ";\n", true, createResultHandler(pk));
@@ -677,7 +685,7 @@ public abstract class OfflineImporter extends
 	 * @param fk to be created
 	 */
 	public void createFK(FK fk) {
-		String ddl = CUBRIDSQLHelper.getInstance(null).getFKDDL(fk.getTable().getName(), fk);
+		String ddl = CUBRIDSQLHelper.getInstance(null).getFKDDL(fk.getTable().getOwner(), fk.getTable().getName(), fk);
 		fk.setDDL(ddl);
 		executeDDL(ddl + ";\n", true, createResultHandler(fk));
 	}
@@ -688,7 +696,7 @@ public abstract class OfflineImporter extends
 	 * @param index to be created
 	 */
 	public void createIndex(Index index) {
-		String ddl = CUBRIDSQLHelper.getInstance(null).getIndexDDL(index.getTable().getName(),
+		String ddl = CUBRIDSQLHelper.getInstance(null).getIndexDDL(index.getTable().getOwner(), index.getTable().getName(),
 				index, "");
 		index.setDDL(ddl);
 		executeDDL(ddl + ";\n", true, createResultHandler(index));
@@ -704,5 +712,11 @@ public abstract class OfflineImporter extends
 		sq.setDDL(ddl);
 		executeDDL(ddl + ";\n", false, createResultHandler(sq));
 	}
-
+	
+	public void createSchema(Schema schema) {
+		System.out.println("123456");
+		
+		// TODO Auto-generated method stub
+		// if migrate target is offline, "create user" query isn't need
+	}
 }

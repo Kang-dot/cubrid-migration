@@ -29,6 +29,9 @@
  */
 package com.cubrid.cubridmigration.core.dbobject;
 
+import java.util.List;
+
+
 /**
  * to store a view information
  * 
@@ -42,6 +45,7 @@ public class View extends
 	private String querySpec;
 	private String createSql;
 	private String alterSql;
+	private List<String> referenceTableNames;
 
 	public View() {
 		super();
@@ -74,6 +78,14 @@ public class View extends
 	
 	public void setAlterDDL(String alterSql) {
 		this.alterSql = alterSql;
+	}
+	
+	public List<String> getReferenceTableNames() {
+		return referenceTableNames;
+	}
+
+	public void setReferenceTableNames(List<String> referenceTableNames) {
+		this.referenceTableNames = referenceTableNames;
 	}
 
 	/**

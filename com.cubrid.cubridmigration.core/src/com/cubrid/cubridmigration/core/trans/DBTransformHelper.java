@@ -78,7 +78,7 @@ public abstract class DBTransformHelper {
 	protected final AbstractDataTypeMappingHelper dataTypeMappingHelper;
 
 	protected final IDataConvertorFacade convertFactory;
-
+	
 	protected DBTransformHelper(AbstractDataTypeMappingHelper dataTypeMapping,
 			ToCUBRIDDataConverterFacade cf) {
 		this.dataTypeMappingHelper = dataTypeMapping;
@@ -383,7 +383,7 @@ public abstract class DBTransformHelper {
 		Table tarTable = new Table();
 		tarTable.setName(stc.getTarget());
 		tarTable.setReuseOID(sourceTable.isReuseOID());
-		tarTable.setOwner(stc.getOwner());
+		tarTable.setOwner(stc.getTargetOwner());
 		
 		List<Column> srcColumns = sourceTable.getColumns();
 		List<Column> newColumns = new ArrayList<Column>();
@@ -432,11 +432,15 @@ public abstract class DBTransformHelper {
 					tfk.addRefColumnName(StringUtils.lowerCase(entry.getKey()),
 							StringUtils.lowerCase(entry.getValue()));
 				}
-
+				
 				String referencedTableName = sfk.getReferencedTableName();
 				Map<String, Integer> allTablesCountMap = config.getSrcCatalog().getAllTablesCountMap();
 				Integer tableCount = allTablesCountMap.get(referencedTableName);
-				if (tableCount != null && tableCount > 1) {
+				
+				int tarSchemaSize = config.getTarSchemaSize();
+				
+				if (tableCount != null && tableCount > 1 && tarSchemaSize <= 1) {
+					//if target is single schema, dot must replace to under bar
 					String owner = sfk.getTable().getOwner();
 					tfk.setReferencedTableName(StringUtils.lowerCase(owner) + "_" + referencedTableName);
 				} else {

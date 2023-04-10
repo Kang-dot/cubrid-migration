@@ -204,7 +204,9 @@ public class CUBRIDExportHelper extends
 	 * @param buf StringBuffer
 	 */
 	protected void addSchemaPrefix(SourceEntryTableConfig setc, StringBuffer buf) {
-		//CUBRID will do nothing here
+		if (setc.getOwner() != null) {
+			buf.append(getQuotedObjName(setc.getOwner())).append(".");
+		}
 	}
 
 	private static final String SERIAL_CURRENT_VALUE_SQL = "select current_val from db_serial where name=?";

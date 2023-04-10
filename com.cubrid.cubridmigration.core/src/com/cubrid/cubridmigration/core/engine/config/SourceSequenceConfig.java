@@ -39,7 +39,11 @@ public class SourceSequenceConfig extends
 		SourceConfig {
 
 	private String owner;
+	
+	private String targetOwner;
+
 	private String comment;
+	
 	private boolean autoSynchronizeStartValue = true;
 
 	public String getOwner() {
@@ -52,6 +56,14 @@ public class SourceSequenceConfig extends
 
 	public void setOwner(String owner) {
 		this.owner = owner;
+	}
+	
+	public String getTargetOwner() {
+		return targetOwner;
+	}
+
+	public void setTargetOwner(String targetOwner) {
+		this.targetOwner = targetOwner;
 	}
 	
 	public void setComment(String comment) {

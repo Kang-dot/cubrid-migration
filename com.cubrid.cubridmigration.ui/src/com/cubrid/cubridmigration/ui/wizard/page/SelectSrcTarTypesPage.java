@@ -57,7 +57,7 @@ public class SelectSrcTarTypesPage extends
 
 	private static final Logger LOG = LogUtil.getLogger(SelectSrcTarTypesPage.class);
 	private SelectSrcTarTypesView comSelection;
-
+	
 	public SelectSrcTarTypesPage(String pageName) {
 		super(pageName);
 		setTitle(Messages.msgSelectMigrationType);
@@ -70,6 +70,12 @@ public class SelectSrcTarTypesPage extends
 	 * @param event PageChangedEvent
 	 */
 	protected void afterShowCurrentPage(PageChangedEvent event) {
+		MigrationConfiguration config = getMigrationWizard().getMigrationConfig();
+		
+		if (config.isOldScript()) {
+			MessageDialog.openWarning(getShell(), Messages.msgWarning, Messages.oldScriptMigration);
+		}
+		
 		try {
 			if (isFirstVisible) {
 				final MigrationWizard wzd = getMigrationWizard();

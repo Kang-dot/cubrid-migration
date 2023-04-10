@@ -42,6 +42,7 @@ public final class TemplateTags {
 	}
 
 	public static final String ATTR_AUTO_INCREMENT = "auto_increment";
+	public static final String ATTR_ADD_SCHEMA = "add_schema";
 	public static final String ATTR_BASE_TYPE = "base_type";
 	public static final String ATTR_CACHE = "cache";
 	public static final String ATTR_CACHE_SIZE = "cache_size";
@@ -52,6 +53,7 @@ public final class TemplateTags {
 	public static final String ATTR_CYCLE = "cycle";
 	public static final String ATTR_DB_TYPE = "db_type";
 	public static final String ATTR_DBA_PASSWORD = "dba_password";
+	public static final String ATTR_DB_VERSION = "db_version";
 	public static final String ATTR_DEFAULT = "default";
 	public static final String ATTR_DRIVER = "driver";
 	public static final String ATTR_EXPORT_THREAD = "export_thread";
@@ -90,10 +92,13 @@ public final class TemplateTags {
 	public static final String ATTR_REF_TABLE = "ref_table";
 	public static final String ATTR_REPLACE = "replace";
 	public static final String ATTR_REVERSE = "reverse";
+	public static final String ATTR_SCHEMA_NAME = "schema_name";
 	public static final String ATTR_SIZE = "size";
 	public static final String ATTR_START = "start";
 	public static final String ATTR_SUB_TYPE = "sub_type";
 	public static final String ATTR_TARGET = "target";
+	public static final String ATTR_TARGET_SCHEMA = "target_schema";
+	public static final String ATTR_TARGET_OWNER = "target_owner";
 	public static final String ATTR_TIMEZONE = "timezone";
 	public static final String ATTR_TYPE = "type";
 	public static final String ATTR_UNIQUE = "unique";
@@ -138,6 +143,7 @@ public final class TemplateTags {
 	public static final String TAG_PROCEDURE = "procedure";
 	public static final String TAG_PROCEDURES = "procedures";
 	public static final String TAG_RANGE = "range";
+	public static final String TAG_SCHEMA_INFO = "schema_info";
 	public static final String TAG_SEQUENCE = "sequence";
 	public static final String TAG_SEQUENCES = "sequences";
 	public static final String TAG_SOURCE = "source";
@@ -202,6 +208,7 @@ public final class TemplateTags {
 	public static final String ATTR_START_TAR_MAX = "start_target_max";
 	public static final String ATTR_OWNER = "owner";
 	public static final String TAG_SCHEMA = "schema";
+	public static final String TAG_SCHEMAS = "schemas";
 	public static final String TAG_SQL_SCHEMA = "sql_schema";
 	public static final String ATTR_UPDATE_STATISTICS = "update_statistics";
 	public static final String ATTR_AUTO_SYNCHRONIZE_START_VALUE = "auto_synchronize_start_value";

@@ -142,6 +142,7 @@ public class SQLTargetDBSelectPage extends
 			final MigrationWizard wzd = getMigrationWizard();
 			wzd.setTargetCatalog(catalog);
 			MigrationConfiguration config = wzd.getMigrationConfig();
+			config.setTarSchemaSize(catalog.getSchemas().size());
 			ConnParameters connParameters = catalog.getConnectionParameters();
 			//connParameters.setTimeZone(onLineTimezoneCombo.getItem(onLineTimezoneCombo.getSelectionIndex()));
 			config.setTargetConParams(connParameters);

@@ -54,6 +54,8 @@ import com.cubrid.cubridmigration.cubrid.meta.CUBRIDSchemaFetcher;
 public class CUBRIDDatabase extends
 		DatabaseType {
 
+	private static int dbVersion;
+	
 	public CUBRIDDatabase() {
 		super(DBConstant.DBTYPE_CUBRID,
 				DBConstant.DB_NAMES[DBConstant.DBTYPE_CUBRID],
@@ -114,6 +116,7 @@ public class CUBRIDDatabase extends
 				if (conn == null) {
 					throw new SQLException("Can not connect database server.");
 				}
+				dbVersion = conn.getMetaData().getDatabaseMajorVersion() * 10 + conn.getMetaData().getDatabaseMinorVersion();
 				conn.setAutoCommit(false);
 				return conn;
 			} catch (SQLException e) {
@@ -142,5 +145,17 @@ public class CUBRIDDatabase extends
 	 */
 	public DBDataTypeHelper getDataTypeHelper(String version) {
 		return CUBRIDDataTypeHelper.getInstance(version);
+	}
+	
+	@Override
+	public boolean isSupportMultiSchema() {
+		boolean bool1;
+		if (dbVersion >= 112) {
+			bool1 = true;
+		} else {
+			bool1 = false;
+		}
+		
+		return bool1;
 	}
 }

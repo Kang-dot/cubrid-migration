@@ -45,6 +45,7 @@ import com.cubrid.cubridmigration.core.dbobject.Index;
 import com.cubrid.cubridmigration.core.dbobject.PK;
 import com.cubrid.cubridmigration.core.dbobject.PartitionInfo;
 import com.cubrid.cubridmigration.core.dbobject.PartitionTable;
+import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.View;
@@ -69,6 +70,7 @@ public class CUBRIDSQLHelper extends
 	private static final String NEWLINE = "\n";
 	private static final String HINT = "/*+ NO_STATS */";
 	private static final String END_LINE_CHAR = ";";
+
 
 	private final static CUBRIDSQLHelper HELPER = new CUBRIDSQLHelper();
 
@@ -186,7 +188,7 @@ public class CUBRIDSQLHelper extends
 	 * @param fk FK
 	 * @return String
 	 */
-	private String getFKDDL(FK fk) {
+	private String getFKDDLConstraint(String tableOwner, String tableName, FK fk) {
 		StringBuffer bf = new StringBuffer();
 
 		bf.append(getQuotedObjName(fk.getName()));
@@ -204,7 +206,13 @@ public class CUBRIDSQLHelper extends
 		bf.append(")");
 
 		String refTable = fk.getReferencedTableName();
-		bf.append(" REFERENCES ").append(getQuotedObjName(refTable));
+		
+		bf.append(" REFERENCES ");
+		
+		if (tableOwner != null) {
+			bf.append(getOwnerNameWithDot(tableOwner));
+		}
+		bf.append(getQuotedObjName(refTable));
 
 		bf.append("(");
 
@@ -231,12 +239,16 @@ public class CUBRIDSQLHelper extends
 	 * @param fk FK
 	 * @return String
 	 */
-	public String getFKDDL(String tableName, FK fk) {
+	public String getFKDDL(String tableOwner, String tableName, FK fk) {
 		StringBuffer bf = new StringBuffer();
 		bf.append("ALTER " + HINT + " TABLE ");
+		
+		if (tableOwner != null) {
+			bf.append(getOwnerNameWithDot(tableOwner));
+		}
 		bf.append(getQuotedObjName(tableName));
 		bf.append(" ADD CONSTRAINT ");
-		bf.append(getFKDDL(fk));
+		bf.append(getFKDDLConstraint(tableOwner, tableName, fk));
 		return bf.toString();
 	}
 
@@ -248,7 +260,7 @@ public class CUBRIDSQLHelper extends
 	 * @param prefix index name prefix
 	 * @return String
 	 */
-	public String getIndexDDL(String tableName, Index index, String prefix) {
+	public String getIndexDDL(String tableOwner, String tableName, Index index, String prefix) {
 		String defaultName = index.getName();
 		StringBuffer bf = new StringBuffer();
 		bf.append("CREATE " + HINT + " ");
@@ -264,7 +276,13 @@ public class CUBRIDSQLHelper extends
 			bf.append(" ").append(getDBQualifier((prefix == null ? "" : prefix) + index.getName()));
 		}
 
-		bf.append(" ON ").append(getQuotedObjName(tableName));
+		bf.append(" ON ");
+		
+		if (tableOwner != null) {
+			bf.append(getOwnerNameWithDot(tableOwner));
+		}
+		
+		bf.append(getQuotedObjName(tableName));
 
 		List<String> list = new ArrayList<String>();
 
@@ -312,10 +330,15 @@ public class CUBRIDSQLHelper extends
 	 * @param pkColumns List<String>
 	 * @return String
 	 */
-	public String getPKDDL(String tableName, String pkName, List<String> pkColumns) {
+	public String getPKDDL(String tableOwner, String tableName, String pkName, List<String> pkColumns) {
 		StringBuffer bf = new StringBuffer();
 
-		bf.append("ALTER " + HINT + " TABLE ").append(getQuotedObjName(tableName)).append(" ADD");
+		bf.append("ALTER " + HINT + " TABLE ");
+		if (tableOwner != null) {
+			bf.append(getOwnerNameWithDot(tableOwner));		
+		}
+		
+		bf.append(getQuotedObjName(tableName)).append(" ADD");
 		if (StringUtils.isNotBlank(pkName)) {
 			bf.append(" CONSTRAINT ").append(getQuotedObjName(pkName));
 		}
@@ -346,7 +369,16 @@ public class CUBRIDSQLHelper extends
 			return "";
 		}
 		StringBuffer buf = new StringBuffer(256);
-		buf.append("CREATE SERIAL ").append(getQuotedObjName(sequence.getName()));
+		buf.append("CREATE SERIAL ");
+		
+		if (sequence.getOwner() == null || sequence.getOwner().isEmpty()) {
+			buf.append(getQuotedObjName(sequence.getName()));			
+		} else {
+			buf.append(getQuotedObjName(sequence.getOwner()));
+			buf.append(".");
+			buf.append(getQuotedObjName(sequence.getName()));
+		}
+		
 
 		buf.append(" START WITH ").append(String.valueOf(sequence.getCurrentValue()));
 
@@ -393,11 +425,17 @@ public class CUBRIDSQLHelper extends
 		StringBuffer bf = new StringBuffer();
 		bf.append("CREATE TABLE ");
 		String tableName = table.getName();
-
+		
 		if (StringUtils.isEmpty(tableName)) {
 			bf.append("<class_name>");
 		} else {
-			bf.append(getQuotedObjName(tableName));
+			if (table.getOwner() == null || table.getOwner().isEmpty()) {
+				bf.append(getQuotedObjName(tableName));
+			} else {
+				bf.append(getQuotedObjName(table.getOwner()));
+				bf.append(".");
+				bf.append(getQuotedObjName(tableName));
+			}
 		}
 
 		// instance attribute
@@ -565,6 +603,7 @@ public class CUBRIDSQLHelper extends
 	 * @param view View
 	 * @return String
 	 */
+	
 	public String getViewDDL(View view) {
 		if (view == null) {
 			return "";
@@ -573,9 +612,15 @@ public class CUBRIDSQLHelper extends
 		sb.append("CREATE VIEW");
 		String viewName = view.getName();
 
-		if (viewName != null) {
+		if (view.getOwner() == null || view.getOwner().isEmpty()) {
+			sb.append(getQuotedObjName(viewName));
+		} else {
+			sb.append(getQuotedObjName(view.getOwner()));
+			sb.append(".");
 			sb.append(getQuotedObjName(viewName));
 		}
+		
+		
 		//Column definitions are not necessarily.
 		//		sb.append("(");
 		//		List<Column> list = view.getColumns();
@@ -645,7 +690,14 @@ public class CUBRIDSQLHelper extends
 		String viewName = view.getName();
 		
 		if (viewName != null) {
-			sb.append(getQuotedObjName(viewName));
+			if (view.getOwner() == null || view.getOwner().isEmpty()) {
+				sb.append(getQuotedObjName(viewName));				
+			} else {
+				sb.append(view.getOwner());
+				sb.append(".");
+				sb.append(getQuotedObjName(viewName));
+			}
+			
 		}
 		
 		sb.append(" ADD").append(" QUERY ").append(view.getQuerySpec());
@@ -697,5 +749,22 @@ public class CUBRIDSQLHelper extends
 			buf.append(" WHERE ROWNUM = 1");
 		}
 		return buf.toString();
+	}
+	
+	public String getSchemaDDL(Schema dummySchema) {
+		StringBuffer bf = new StringBuffer();
+		
+		bf.append("CREATE USER ");
+		bf.append(dummySchema.getName());
+		
+		return bf.toString();
+	}
+	
+	public String getOwnerNameWithDot(String tableOwner) {
+		if (tableOwner == null) {
+			return "";
+		}
+		
+		return "\"" + tableOwner + "\".";
 	}
 }

@@ -52,7 +52,7 @@ public abstract class SQLHelper {
 
 	protected static final String LIMIT_PATTEN_2 = "\\s*(?i)LIMIT\\s*\\d+\\s*(?i)OFFSET\\s*\\d+\\s*(\\D*)";
 	protected static final String LIMIT_PATTEN_1 = "\\s*(?i)LIMIT\\s*(\\d+\\s*,)?\\s*\\d+\\s*+(\\D*)";
-
+	
 	/**
 	 * return query spec start index
 	 * 

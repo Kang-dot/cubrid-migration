@@ -198,6 +198,12 @@ public abstract class AbstractJDBCSchemaFetcher implements
 		final Schema schema = factory.createSchema();
 		schema.setName(schemaName);
 		catalog.addSchema(schema);
+		
+		if (schema.getName().equalsIgnoreCase(catalog.getConnectionParameters().getConUser())) {
+			schema.setGrantorSchema(false);
+		} else {
+			schema.setGrantorSchema(true);
+		}
 
 		// Get Tables
 		try {
@@ -459,7 +465,9 @@ public abstract class AbstractJDBCSchemaFetcher implements
 					if (StringUtils.isEmpty(fkTableName)) {
 						continue;
 					}
-					foreignKey.setReferencedTableName(fkTableName);
+					
+					foreignKey.setReferencedTableName(fkTableName);						
+					
 					//foreignKey.setDeferability(rs.getInt("DEFERRABILITY"));
 
 					switch (rs.getShort("DELETE_RULE")) {

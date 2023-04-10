@@ -83,7 +83,7 @@ public final class MigrationTemplateHandler extends
 	private StringBuffer schemaCache;
 	private Catalog srcCatalog;
 	private Catalog srcSQLCatalog;
-
+	
 	private SourceCSVConfig srcCSV;
 
 	private final CUBRIDDataTypeHelper dtHelper = CUBRIDDataTypeHelper.getInstance(null);
@@ -423,6 +423,8 @@ public final class MigrationTemplateHandler extends
 		seq.setCurrentValue(new BigInteger(attributes.getValue(TemplateTags.ATTR_START)));
 		seq.setCycleFlag(getBoolean(attributes.getValue(TemplateTags.ATTR_CYCLE), false));
 		seq.setNoCache(!getBoolean(attributes.getValue(TemplateTags.ATTR_CACHE), true));
+		seq.setOwner(attributes.getValue(TemplateTags.ATTR_OWNER));
+		seq.setTargetOwner(attributes.getValue(TemplateTags.ATTR_OWNER));
 		if (!seq.isNoCache()) {
 			final String cs = attributes.getValue(TemplateTags.ATTR_CACHE_SIZE);
 			seq.setCacheSize(cs == null ? 2 : Integer.parseInt(cs));
@@ -445,6 +447,13 @@ public final class MigrationTemplateHandler extends
 		targetTable = new Table();
 		targetTable.setName(attributes.getValue(TemplateTags.ATTR_NAME));
 		targetTable.setReuseOID(getBoolean(attributes.getValue(TemplateTags.ATTR_REUSE_OID), false));
+		targetTable.setOwner(attributes.getValue(TemplateTags.ATTR_OWNER));
+		if (targetTable.getOwner() != null) {
+			if (targetTable.getOwner().isEmpty()) {
+				targetTable.setOwner(null);
+			}
+		}
+			
 		config.addTargetTableSchema(targetTable);
 	}
 
@@ -455,8 +464,10 @@ public final class MigrationTemplateHandler extends
 	 */
 	private void parseTargetView(Attributes attributes) {
 		targetView = new View();
-		config.addTargetViewSchema(targetView);
-		targetView.setName(attributes.getValue(TemplateTags.ATTR_NAME));
+		targetView.setOwner(attributes.getValue(TemplateTags.ATTR_OWNER));
+		targetView.setTargetOwner(attributes.getValue(TemplateTags.ATTR_TARGET_OWNER));
+ 		targetView.setName(attributes.getValue(TemplateTags.ATTR_NAME));
+ 		config.addTargetViewSchema(targetView);
 	}
 
 	/**
@@ -496,6 +507,13 @@ public final class MigrationTemplateHandler extends
 	public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
 		if (TemplateTags.TAG_MIGRATION.equals(qName)) {
 			config.setName(attributes.getValue(TemplateTags.ATTR_NAME));
+			String version = attributes.getValue(TemplateTags.ATTR_VERSION);
+			int versionValue = convertVersionToInt(version);
+			
+			if (versionValue < 1110) {
+				config.setOldScript(true);
+			}
+			
 		} else if (TemplateTags.TAG_SOURCE.equals(qName)) {
 			isSourceNode = true;
 			config.setSourceType(attributes.getValue(TemplateTags.ATTR_DB_TYPE));
@@ -570,8 +588,12 @@ public final class MigrationTemplateHandler extends
 			scp.setUserJDBCURL(attributes.getValue(TemplateTags.ATTR_USER_JDBC_URL));
 			scp.setTimeZone(attributes.getValue(TemplateTags.ATTR_TIMEZONE));
 			config.setSourceConParams(scp);
-		} else if (TemplateTags.TAG_SCHEMA.equals(qName)) {
+		} else if (TemplateTags.TAG_SCHEMA.equals(qName)){
 			schemaCache = new StringBuffer();
+		}
+		else if (TemplateTags.TAG_SCHEMA_INFO.equals(qName)) {
+			config.addScriptSchemaMapping(attributes.getValue(TemplateTags.ATTR_SCHEMA_NAME), 
+					attributes.getValue(TemplateTags.ATTR_TARGET_SCHEMA));
 		} else if (TemplateTags.TAG_SQL_SCHEMA.equals(qName)) {
 			schemaCache = new StringBuffer();
 		} else if (TemplateTags.TAG_FILE.equals(qName)) {
@@ -591,6 +613,7 @@ public final class MigrationTemplateHandler extends
 			srcTableCfg.setSqlBefore(attributes.getValue(TemplateTags.ATTR_BEFORE_SQL));
 			srcTableCfg.setSqlAfter(attributes.getValue(TemplateTags.ATTR_AFTER_SQL));
 			srcTableCfg.setOwner(attributes.getValue(TemplateTags.ATTR_OWNER));
+			srcTableCfg.setTargetOwner(attributes.getValue(TemplateTags.ATTR_TARGET_SCHEMA));
 
 			SourceEntryTableConfig setc = ((SourceEntryTableConfig) srcTableCfg);
 			setc.setCreatePartition(getBoolean(attributes.getValue(TemplateTags.ATTR_PARTITION),
@@ -776,12 +799,19 @@ public final class MigrationTemplateHandler extends
 								: value.charAt(0));
 			}
 			config.setTargetLOBRootPath(attr.getValue(TemplateTags.ATTR_LOB_ROOT_DIR));
+			config.setAddUserSchema(Boolean.parseBoolean(attr.getValue(TemplateTags.ATTR_ADD_SCHEMA)));
 		} else if (TemplateTags.TAG_PARTITION_DDL.equals(qName)) {
 			sqlStatement = new StringBuffer();
 		}
 		//		else {
 		//			parseCMServer(qName, attr);
 		//		}
+	}
+	
+	private int convertVersionToInt(String version) {
+		String stringValue = version.replaceAll("\\.", "");
+		
+		return Integer.parseInt(stringValue);
 	}
 
 	//	/**

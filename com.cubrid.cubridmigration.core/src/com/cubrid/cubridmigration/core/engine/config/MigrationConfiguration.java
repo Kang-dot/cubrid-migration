@@ -163,6 +163,7 @@ public class MigrationConfiguration {
 	private String targetFilePrefix;
 	private String targetCharSet = "UTF-8";
 	private String targetLOBRootPath = "";
+	private boolean addUserSchema;
 
 	private final CSVSettings csvSettings = new CSVSettings();
 
@@ -170,6 +171,7 @@ public class MigrationConfiguration {
 
 	private int sourceType = SOURCE_TYPE_CUBRID;
 	private Catalog srcCatalog;
+	private int tarSchemaSize;
 	private Catalog offlineSrcCatalog;
 
 	private final List<Table> srcSQLSchemas = new ArrayList<Table>();
@@ -184,6 +186,9 @@ public class MigrationConfiguration {
 	private int destType;
 	private ConnParameters targetConParams;
 
+	private List<String> newTargetSchema = new ArrayList<String>();
+	private List<Schema> targetSchemaList = new ArrayList<Schema>();
+	
 	private String targetDBVersion;
 	private final List<Table> targetTables = new ArrayList<Table>();
 	private final List<View> targetViews = new ArrayList<View>();
@@ -207,7 +212,15 @@ public class MigrationConfiguration {
 	private String name;
 	//True by default
 	private boolean updateStatistics = true;
-
+	
+	private Boolean addOfflineUserSchema = false;
+	
+	private Map<String, String> scriptSchemaMapping = new HashMap<String, String>();
+	
+	private boolean isOldScript = false;
+	
+	private boolean isTarSchemaDuplicate = false;
+	
 	/**
 	 * Add a CSV file to exporting list.
 	 * 
@@ -425,7 +438,7 @@ public class MigrationConfiguration {
 		if (srcCatalog != null) {
 			throw new RuntimeException("Source database was specified.");
 		}
-		View vw = getTargetViewSchema(view.getName());
+		View vw = getTargetViewSchema(view.getOwner(), view.getName());
 		if (vw == null) {
 			targetViews.add(view);
 		} else {
@@ -443,6 +456,7 @@ public class MigrationConfiguration {
 	public void buildConfigAndTargetSchema(boolean isReset) {
 		//Reset schema information for building configuration.
 		resetSchemaInfo();
+		buildSchemaCfg(isReset);
 		buildTableCfg(isReset);
 		buildViewCfg(isReset);
 		buildSerialCfg(isReset);
@@ -506,6 +520,16 @@ public class MigrationConfiguration {
 		}
 		return cl;
 	}
+	
+	private void buildSchemaCfg(boolean isReset) {
+		for (String schemaName : newTargetSchema) {
+			Schema dummySchema = new Schema();
+			dummySchema.setName(schemaName);
+			dummySchema.setNewTargetSchema(true);
+			
+			targetSchemaList.add(dummySchema);
+		}
+	}
 
 	/**
 	 * copy All Sequences
@@ -525,17 +549,28 @@ public class MigrationConfiguration {
 				if (sc == null) {
 					sc = new SourceSequenceConfig();
 					sc.setOwner(sourceDBSchema.getName());
+					sc.setTargetOwner(sourceDBSchema.getTargetSchemaName());
 					sc.setName(seq.getName());
 					sc.setTarget(getTargetName(allSequencesCountMap, seq.getOwner(), seq.getName()));
 					sc.setCreate(false);
 					sc.setReplace(false);
 					sc.setComment(seq.getComment());
+				} else if (sourceDBSchema.getTargetSchemaName() != null) {
+					if (!sourceDBSchema.getTargetSchemaName().equals(sc.getTargetOwner())) {
+						sc.setTargetOwner(sourceDBSchema.getTargetSchemaName());
+					}
 				}
 				tempList.add(sc);
-				Sequence tseq = getTargetSerialSchema(sc.getTarget());
+				Sequence tseq = null;
+				if (sc.getOwner() == null) {
+					tseq = getTargetSerialSchema(sc.getTarget());
+				} else {
+					tseq = getTargetSerialSchema(sc.getTargetOwner(), sc.getTarget());
+				}
 				if (tseq == null) {
 					tseq = (Sequence) seq.clone();
 					tseq.setName(sc.getTarget());
+					tseq.setOwner(sc.getTargetOwner());
 					tseq.setDDL(cubridddlUtil.getSequenceDDL(tseq));
 					tseq.setComment(seq.getComment());
 				}
@@ -683,7 +718,8 @@ public class MigrationConfiguration {
 		for (Schema sourceDBSchema : schemas) {
 			String prefix = "";
 			if (StringUtils.isNotBlank(sourceDBSchema.getName())) {
-				prefix = sourceDBSchema.getName() + ".";
+//				prefix = sourceDBSchema.getName() + ".";
+				prefix = sourceDBSchema.getTargetSchemaName();
 			}
 			for (Table srcTable : sourceDBSchema.getTables()) {
 				SourceEntryTableConfig setc = getExpEntryTableCfg(sourceDBSchema.getName(),
@@ -693,17 +729,27 @@ public class MigrationConfiguration {
 					setc.setOwner(sourceDBSchema.getName());
 					setc.setName(srcTable.getName());
 					setc.setComment(srcTable.getComment());
+					setc.setTargetOwner(sourceDBSchema.getTargetSchemaName());
 					setc.setTarget(getTargetName(allTablesCountMap, srcTable.getOwner(), srcTable.getName()));
+					
 					setc.setCreateNewTable(false);
 					setc.setCreatePartition(false);
 					setc.setCreatePK(false);
 					setc.setMigrateData(false);
 					setc.setReplace(false);
 					setc.setEnableExpOpt(srcTable.getPk() != null);
+				} else if (sourceDBSchema.getTargetSchemaName() != null) {
+					if (!sourceDBSchema.getTargetSchemaName().equals(setc.getTargetOwner())) {
+						setc.setTargetOwner(sourceDBSchema.getTargetSchemaName());
+					}
 				}
+						
 				tempExpEntryTables.add(setc);
 
-				Table tt = getTargetTableSchema(setc.getTarget());
+				Table tt = null;
+				
+				tt = getTargetTableSchema(setc.getTargetOwner(), setc.getTarget());
+				
 				if (tt == null) {
 					//If there is invalid information in source database, the target table will be NULL
 					try {
@@ -863,6 +909,7 @@ public class MigrationConfiguration {
 			sFKCfgs.add(sfc);
 
 			FK tfk = tarTable.getFKByName(sfc.getTarget());
+				
 			if (tfk == null) {
 				tfk = new FK(tarTable);
 				tfk.setName(sfc.getTarget());
@@ -870,7 +917,8 @@ public class MigrationConfiguration {
 				String referencedTableName = fk.getReferencedTableName();
 				Map<String, Integer> allTablesCountMap = srcCatalog.getAllTablesCountMap();
 				Integer integer = allTablesCountMap.get(referencedTableName);
-				if (integer != null && integer > 1) {
+
+				if (integer != null && integer > 1 && !addUserSchema) {
 					String owner = fk.getTable().getOwner();
 					tfk.setReferencedTableName(owner + "_" + referencedTableName);
 				} else {
@@ -1007,20 +1055,32 @@ public class MigrationConfiguration {
 		for (Schema sourceDBSchema : schemas) {
 			for (View vw : sourceDBSchema.getViews()) {
 				SourceViewConfig sc = getExpViewCfg(sourceDBSchema.getName(), vw.getName());
+				List<String> referenceTableNameList = new ArrayList<String>();
 				if (sc == null) {
+					for (Table table : sourceDBSchema.getTables()) {
+							referenceTableNameList.add(table.getName());
+					}
 					sc = new SourceViewConfig();
+					sc.setReferenceTableNames(referenceTableNameList);
 					sc.setName(vw.getName());
 					sc.setOwner(vw.getOwner());
 					sc.setTarget(getTargetName(allViewsCountMap, vw.getOwner(), vw.getName()));
+					sc.setTargetOwner(sourceDBSchema.getTargetSchemaName());
 					sc.setCreate(false);
 					sc.setReplace(false);
 					sc.setComment(vw.getComment());
+				} else if (sourceDBSchema.getTargetSchemaName() != null) {
+					if (!sourceDBSchema.getTargetSchemaName().equals(sc.getTargetOwner())) {
+						sc.setTargetOwner(sourceDBSchema.getTargetSchemaName());
+					}
 				}
 				tempSCList.add(sc);
-				View tVw = getTargetViewSchema(sc.getTarget());
+				View tVw = getTargetViewSchema(sc.getTargetOwner(), sc.getTarget());
 				if (tVw == null) {
 					tVw = getDBTransformHelper().getCloneView(vw, this);
+					tVw.setReferenceTableNames(referenceTableNameList);
 					tVw.setName(sc.getTarget());
+					tVw.setOwner(sc.getTargetOwner());
 					tVw.setComment(vw.getComment());
 				}
 				tempTarList.add(tVw);
@@ -1033,9 +1093,12 @@ public class MigrationConfiguration {
 	}
 
 	private String getTargetName(Map<String, Integer> map, String owner, String name) {
-		if (isDuplicatedObject(map, name)) {
-			return StringUtils.lowerCase(owner + "_" + name);
+		if (isTarSchemaDuplicate || (!addUserSchema)) {
+			if (isDuplicatedObject(map, name)) {
+				return StringUtils.lowerCase(owner + "_" + name);
+			}
 		}
+		
 		return StringUtils.lowerCase(name);
 	}
 
@@ -2361,7 +2424,32 @@ public class MigrationConfiguration {
 		}
 		return sc.getViewByName(viewName);
 	}
+	
+	public void clearNewTargetShemaList() {
+		newTargetSchema.clear();
+	}
 
+	public List<String> getNewTargetSchema() {
+		return this.newTargetSchema;
+	}
+	
+	public void setNewTargetSchema(String schemaName) {
+		newTargetSchema.add(schemaName);
+	}
+	
+	public void setNewTargetSchema(List<String> schemaNameList) {
+		clearNewTargetShemaList();
+		newTargetSchema = schemaNameList;
+	}
+	
+	public List<Schema> getTargetSchemaList() {
+		return targetSchemaList;
+	}
+
+	public void setTargetSchemaList(List<Schema> targetSchemaList) {
+		this.targetSchemaList = targetSchemaList;
+	}
+	
 	/**
 	 * Retrieves the target charset;UTF-8 will be returned by default.
 	 * 
@@ -2479,6 +2567,10 @@ public class MigrationConfiguration {
 	public String getTargetLOBRootPath() {
 		return targetLOBRootPath;
 	}
+	
+	public boolean getAddUserSchema() {
+		return addUserSchema;
+	}
 
 	/**
 	 * Retrieves the referenced count of target table name
@@ -2528,6 +2620,19 @@ public class MigrationConfiguration {
 		}
 		return null;
 	}
+	
+	public Sequence getTargetSerialSchema(String owner, String target) {
+		if (owner == null) {
+			return getTargetSerialSchema(target);
+		}
+		
+		for (Sequence seq : this.targetSequences) {
+			if (seq.getName().equalsIgnoreCase(target) && seq.getOwner().equalsIgnoreCase(owner)) {
+				return seq;
+			}
+		}
+		return null;
+	}
 
 	/**
 	 * getTargetTables
@@ -2552,6 +2657,21 @@ public class MigrationConfiguration {
 		}
 		return null;
 	}
+	
+	public Table getTargetTableSchema(String owner, String name) {
+		if (owner == null) {
+			return getTargetTableSchema(name);
+		}
+		
+//		Schema targetSchema = verUtil.getSchemaMapping().get(owner);
+		
+		for (Table tt : this.targetTables) {
+			if (tt.getName().equalsIgnoreCase(name) && tt.getOwner().equalsIgnoreCase(owner)) {
+				return tt;
+			}
+		}
+		return null;
+	}
 
 	public List<View> getTargetViewSchema() {
 		return new ArrayList<View>(targetViews);
@@ -2570,6 +2690,32 @@ public class MigrationConfiguration {
 			}
 		}
 		return null;
+	}
+	
+	public View getTargetViewSchema(String owner, String viewName) {
+		if (owner == null) {
+			return getTargetViewSchema(viewName);
+		}
+		
+		for (View view : targetViews) {
+			if (view.getName().equalsIgnoreCase(viewName) && view.getOwner().equalsIgnoreCase(owner)) {
+				return view;
+			}
+		}
+		
+		return null;
+	}
+	
+	public boolean nullCheckEquals(String owner, Schema targetSchema) {
+		if (owner == null || targetSchema == null) {
+			return false;
+		}
+		
+		if (owner.equalsIgnoreCase(targetSchema.getName())) {
+			return true;
+		}
+		
+		return false;
 	}
 
 	/**
@@ -2644,7 +2790,7 @@ public class MigrationConfiguration {
 	public boolean hasOtherParam() {
 		return !otherParams.isEmpty();
 	}
-
+	
 	public boolean isCreateConstrainsBeforeData() {
 		return createConstrainsBeforeData;
 	}
@@ -3108,7 +3254,7 @@ public class MigrationConfiguration {
 			}
 		}
 	}
-
+	
 	/**
 	 * @param commitCount the commitCount to set
 	 */
@@ -3410,6 +3556,10 @@ public class MigrationConfiguration {
 		}
 		this.targetLOBRootPath = this.targetLOBRootPath + "/";
 	}
+	
+	public void setAddUserSchema(boolean addSchema) {
+		this.addUserSchema = addSchema;
+	}
 
 	public void setTargetSchemaFileName(String targetSchemaFileName) {
 		this.targetSchemaFileName = targetSchemaFileName;
@@ -3583,4 +3733,53 @@ public class MigrationConfiguration {
 		}
 		return ".sql";
 	}
+	
+	public void clearScriptMapping() {
+		this.scriptSchemaMapping.clear();
+	}
+
+	public Map<String, String> getScriptSchemaMapping() {
+		return scriptSchemaMapping;
+	}
+
+	public void setScriptSchemaMapping(Map<String, String> scriptSchemaMapping) {
+		this.scriptSchemaMapping = scriptSchemaMapping;
+	}
+	
+	public void addScriptSchemaMapping(String source, String target) {
+		scriptSchemaMapping.put(source, target);
+	}
+
+	public Boolean getOfflineUserSchema() {
+		return addOfflineUserSchema;
+	}
+
+	public void setOfflineUserSchema(boolean addOfflineUserSchema) {
+		this.addOfflineUserSchema = addOfflineUserSchema;
+	}
+	
+	public void setOldScript(boolean isOldSchema) {
+		this.isOldScript = isOldSchema;
+	}
+	
+	public boolean isOldScript() {
+		return this.isOldScript;
+	}
+	
+	public void setTarSchemaSize(int tarSchemaSize) {
+		this.tarSchemaSize = tarSchemaSize;
+	}
+	
+	public int getTarSchemaSize() {
+		return this.tarSchemaSize;
+	}
+
+	public boolean isTarSchemaDuplicate() {
+		return isTarSchemaDuplicate;
+	}
+
+	public void setTarSchemaDuplicate(boolean isTarSchemaDuplicate) {
+		this.isTarSchemaDuplicate = isTarSchemaDuplicate;
+	}
+	
 }

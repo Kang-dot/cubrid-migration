@@ -59,6 +59,9 @@ import com.cubrid.cubridmigration.core.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.connection.ConnParameters;
 import com.cubrid.cubridmigration.core.dbobject.Catalog;
 import com.cubrid.cubridmigration.core.dbobject.Schema;
+import com.cubrid.cubridmigration.core.dbobject.Sequence;
+import com.cubrid.cubridmigration.core.dbobject.Table;
+import com.cubrid.cubridmigration.core.dbobject.View;
 import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
 import com.cubrid.cubridmigration.mysql.MysqlXmlDumpSource;
 import com.cubrid.cubridmigration.ui.common.UIConstant;
@@ -530,8 +533,11 @@ public class SelectSourcePage extends
 			if (catalog == null) {
 				return false;
 			}
-
-			//
+			
+			if (catalog.getDatabaseType().getID() == 1) {
+				removeEmptySchema(catalog);
+			}
+			
 			List<String> errorSchemas = new ArrayList<String>();
 			Map<String, String> old2NewSchemaMapping = new HashMap<String, String>();
 			MigrationConfiguration cfg = wzd.getMigrationConfig();
@@ -576,6 +582,23 @@ public class SelectSourcePage extends
 				}
 			}
 			return true;
+		}
+		
+		private void removeEmptySchema(Catalog catalog) {
+			List<Schema> schemaList = catalog.getSchemas();
+			List<Schema> removeSchema = new ArrayList<Schema>();
+			
+			for (Schema schema : schemaList) {
+				List<Table> tableList = schema.getTables();
+				List<View> viewList = schema.getViews();
+				List<Sequence> sequenceList = schema.getSequenceList();
+				
+				if (tableList.isEmpty() && viewList.isEmpty() && sequenceList.isEmpty()) {
+					removeSchema.add(schema);
+				}
+			}
+			
+			catalog.removeSchema(removeSchema);
 		}
 
 		/**

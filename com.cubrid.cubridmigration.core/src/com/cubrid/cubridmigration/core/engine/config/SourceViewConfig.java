@@ -29,6 +29,8 @@
  */
 package com.cubrid.cubridmigration.core.engine.config;
 
+import java.util.List;
+
 /**
  * SourceSeqenceConfig Description
  * 
@@ -39,6 +41,8 @@ public class SourceViewConfig extends
 		SourceConfig {
 
 	private String owner;
+	private List<String> referenceTableNames;
+	private String targetOwner;
 	private String comment;
 
 	public String getOwner() {
@@ -48,6 +52,23 @@ public class SourceViewConfig extends
 	public void setOwner(String owner) {
 		this.owner = owner;
 	}
+	
+	public List<String> getReferenceTableNames() {
+		return referenceTableNames;
+	}
+
+	public void setReferenceTableNames(List<String> referenceTableNames) {
+		this.referenceTableNames = referenceTableNames;
+	}
+
+	public String getTargetOwner() {
+		return targetOwner;
+	}
+
+	public void setTargetOwner(String targetOwner) {
+		this.targetOwner = targetOwner;
+	}
+
 
 	public String getComment() {
 		return comment;

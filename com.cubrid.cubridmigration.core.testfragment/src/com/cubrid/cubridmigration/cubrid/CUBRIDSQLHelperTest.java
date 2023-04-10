@@ -110,32 +110,32 @@ public class CUBRIDSQLHelperTest {
 		idx = new Index(table);
 		idx.setName("idx2");
 		idx.addColumn("idx2", true);
-		ddl.getIndexDDL(table.getName(), idx, "");
+		ddl.getIndexDDL(null, table.getName(), idx, "");
 
 		idx = new Index(table);
 		idx.setName("idx3");
 		idx.addColumn("idx3", false);
-		ddl.getIndexDDL(table.getName(), idx, "");
+		ddl.getIndexDDL(null, table.getName(), idx, "");
 
 		idx = new Index(table);
 		idx.setName("idx4");
 		idx.addColumn("idx4", true);
-		ddl.getIndexDDL(table.getName(), idx, "");
+		ddl.getIndexDDL(null, table.getName(), idx, "");
 
 		idx = new Index(table);
 		idx.setName("idx5");
 		idx.addColumn("idx5", true);
-		ddl.getIndexDDL(table.getName(), idx, "");
+		ddl.getIndexDDL(null, table.getName(), idx, "");
 
 		idx = new Index(table);
 		idx.setName("idx6");
 		idx.addColumn("idx6", true);
-		ddl.getIndexDDL(table.getName(), idx, "");
+		ddl.getIndexDDL(null, table.getName(), idx, "");
 
 		idx = new Index(table);
 		idx.setName("idx7");
 		idx.addColumn("idx7", true);
-		ddl.getIndexDDL(table.getName(), idx, "");
+		ddl.getIndexDDL(null, table.getName(), idx, "");
 
 		final PartitionInfo pti = PartitionInfoTest.newPartitionInfo();
 		table.setPartitionInfo(pti);

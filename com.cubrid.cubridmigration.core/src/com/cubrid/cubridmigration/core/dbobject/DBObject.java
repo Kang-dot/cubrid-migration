@@ -42,6 +42,7 @@ public abstract class DBObject implements
 		Serializable {
 
 	private static final long serialVersionUID = -4165580169748817694L;
+	public final static String OBJ_TYPE_SCHEMA = "schema";
 	public final static String OBJ_TYPE_TABLE = "table";
 	public final static String OBJ_TYPE_PARTITION = "table partition";
 	public final static String OBJ_TYPE_COLUMN = "column";

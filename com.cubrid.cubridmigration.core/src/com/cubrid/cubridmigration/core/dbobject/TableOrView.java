@@ -54,8 +54,18 @@ public abstract class TableOrView extends
 	 * except Oracle.
 	 */
 	protected String owner;
+	protected String targetOwner;
+
 	protected final List<Column> columns = new ArrayList<Column>();
 
+	public String getTargetOwner() {
+		return targetOwner;
+	}
+
+	public void setTargetOwner(String targetOwner) {
+		this.targetOwner = targetOwner;
+	}
+	
 	public Schema getSchema() {
 		return schema;
 	}
