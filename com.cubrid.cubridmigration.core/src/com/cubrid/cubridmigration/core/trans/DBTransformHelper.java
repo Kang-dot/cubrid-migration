@@ -383,8 +383,6 @@ public abstract class DBTransformHelper {
 		Table tarTable = new Table();
 		tarTable.setName(stc.getTarget());
 		tarTable.setReuseOID(sourceTable.isReuseOID());
-		//TODO: set Owner to target Owner
-//		tarTable.setOwner(stc.getOwner());
 		tarTable.setOwner(stc.getTargetOwner());
 		
 		List<Column> srcColumns = sourceTable.getColumns();
@@ -442,7 +440,7 @@ public abstract class DBTransformHelper {
 				int tarSchemaSize = config.getTarSchemaSize();
 				
 				if (tableCount != null && tableCount > 1 && tarSchemaSize <= 1) {
-					//CMT112 if target is single schema, dot must replace to under bar
+					//if target is single schema, dot must replace to under bar
 					String owner = sfk.getTable().getOwner();
 					tfk.setReferencedTableName(StringUtils.lowerCase(owner) + "_" + referencedTableName);
 				} else {

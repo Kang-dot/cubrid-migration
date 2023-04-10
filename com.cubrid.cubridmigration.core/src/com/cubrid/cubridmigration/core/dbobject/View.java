@@ -44,6 +44,7 @@ public class View extends
 	private static final long serialVersionUID = -553278718163557788L;
 	private String querySpec;
 	private String createSql;
+	private String alterSql;
 	private List<String> referenceTableNames;
 
 	public View() {
@@ -69,6 +70,14 @@ public class View extends
 
 	public void setDDL(String createSql) {
 		this.createSql = createSql;
+	}
+	
+	public String getAlterDDL() {
+		return alterSql;
+	}
+	
+	public void setAlterDDL(String alterSql) {
+		this.alterSql = alterSql;
 	}
 	
 	public List<String> getReferenceTableNames() {

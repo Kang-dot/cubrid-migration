@@ -677,7 +677,6 @@ public class SelectDestinationPage extends
 			btnAddUserSchema.setLayoutData(new GridData(SWT.LEFT, SWT.CENTER, false, false));
 			btnAddUserSchema.setText(Messages.btnAddUserSchema);
 			
-			//CMT112 offline add schema button
 			btnAddUserSchema.setSelection(cfg.getAddUserSchema());
 
 		}

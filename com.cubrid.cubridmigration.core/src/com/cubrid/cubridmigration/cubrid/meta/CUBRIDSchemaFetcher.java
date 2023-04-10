@@ -87,39 +87,16 @@ import com.cubrid.cubridmigration.cubrid.dbobj.CUBRIDTrigger;
  */
 public final class CUBRIDSchemaFetcher extends
 		AbstractJDBCSchemaFetcher {
-	
-	private static final String GET_ALLSERIALINFO_SQL = "select name, owner.name, current_val, "
-			+ "increment_val, max_val,min_val, cyclic, started, class_name, att_name, cached_num, comment "
-			+ "from db_serial where class_name is NULL";
-	
-	private static final String GET_OWNER_SERIAL_SQL = "select name, owner.name, current_val, "
-			+ "increment_val, max_val, min_val, "
-			+ "cyclic, started, class_name, att_name, cached_num, comment " 
-			+ "from db_serial "
-			+ "where class_name is NULL and owner.name = ?";
 
 	private static final Map<String, String> STD_TYPE_MAPPING = new HashMap<String, String>();
 	static {
 		STD_TYPE_MAPPING.put("STRING", "varchar");
 	};
 
-	private static final String ALL_TABLE_COLUMN = "SELECT a.class_name, a.attr_name, a.attr_type, a.from_class_name,"
-			+ " a.data_type, a.prec, a.scale, a.is_nullable,"
-			+ " a.domain_class_name, a.default_value, a.def_order, a.comment as column_comment,"
-			+ " c.is_reuse_oid_class, c.comment as table_comment"
-			+ " FROM db_attribute a , db_class c"
-			+ " WHERE c.class_name = a.class_name AND c.class_type='CLASS' AND c.is_system_class='NO' and from_class_name is NULL"
-			+ " ORDER BY a.class_name, c.class_type, a.def_order";
-	
-	private static final String ALL_TABLE_COLUMN_WITH_USERNAME = "SELECT a.class_name, c.owner_name, a.attr_name, a.attr_type, a.from_class_name,"
-			+ " a.data_type, a.prec, a.scale, a.is_nullable,"
-			+ " a.domain_class_name, a.default_value, a.def_order,c.is_reuse_oid_class, c.comment"
-			+ " FROM db_attribute a , db_class c"
-			+ " WHERE c.class_name = a.class_name AND c.class_type='CLASS' AND c.is_system_class='NO' and from_class_name is NULL"
-			+ " AND c.owner_name = ? "
-			+ " ORDER BY a.class_name, c.class_type, a.def_order";
-
 	private CUBRIDDataTypeHelper cubDTHelper = CUBRIDDataTypeHelper.getInstance(null);
+	
+	private final int COMMENT_SUPPORT_VERSION = 100;
+	private final int USERSCHEMA_VERSION = 112;
 
 	/**
 	 * Retrieves the lower case of type, and some type may be changed into stand
@@ -201,9 +178,11 @@ public final class CUBRIDSchemaFetcher extends
 		Statement stmt = null;
 		try {
 			String sql = "SELECT a.class_name, a.attr_name, a.attr_type,"
-					+ " a.data_type, a.prec, a.scale" + " FROM db_attr_setdomain_elm a, db_class c"
-					+ " WHERE c.class_name = a.class_name AND c.class_type='CLASS' "
-					+ " AND c.is_system_class='NO' " + " ORDER BY a.class_name ";
+					+ " a.data_type, a.prec, a.scale" 
+					+ " FROM db_attr_setdomain_elm a, db_class c"
+					+ " WHERE c.class_name = a.class_name AND c.class_type='CLASS'"
+					+ " AND c.is_system_class='NO'"
+					+ " ORDER BY a.class_name";
 
 			stmt = conn.createStatement();
 			rs = stmt.executeQuery(sql);
@@ -251,10 +230,11 @@ public final class CUBRIDSchemaFetcher extends
 		ResultSet rs = null; //NOPMD
 		Statement stmt = null;
 		try {
-			String sql = "SELECT i.class_name " + "FROM db_index i, db_class c "
-					+ "WHERE i.class_name=c.class_name AND c.is_system_class='NO' "
-					+ "AND c.class_type='CLASS' AND i.is_foreign_key='YES' "
-					+ "GROUP BY i.class_name";
+			String sql = "SELECT i.class_name" 
+					+ " FROM db_index i, db_class c"
+					+ " WHERE i.class_name=c.class_name AND c.is_system_class='NO'"
+					+ " AND c.class_type='CLASS' AND i.is_foreign_key='YES'"
+					+ " GROUP BY i.class_name";
 			
 			stmt = conn.createStatement();
 			rs = stmt.executeQuery(sql);
@@ -292,21 +272,22 @@ public final class CUBRIDSchemaFetcher extends
 			//After CUBRID 9.1.0, function based index supported.
 			DatabaseMetaData metaData = conn.getMetaData();
 			String jdbcMajorVersion = metaData.getDatabaseProductVersion();
-			final String sqlFuncCol;
 			boolean supFuncIdx = jdbcMajorVersion.compareToIgnoreCase("9.1.0") >= 0;
-			if (supFuncIdx) {
-				sqlFuncCol = ", b.func";
-			} else {
-				sqlFuncCol = "";
-			}
-
-			String sql = "SELECT a.class_name, a.index_name, a.is_unique, a.comment, b.key_attr_name, b.asc_desc "
+			final String sqlFuncCol = supFuncIdx ? ", b.func" : "";
+			
+			int dbVersion = getDBVersion(conn);
+			String sqlComment = dbVersion >= COMMENT_SUPPORT_VERSION ? ", a.comment" : "";
+			
+			String sql = "SELECT a.class_name, a.index_name, a.is_unique,"
+					+ " b.key_attr_name, b.asc_desc"
 					+ sqlFuncCol
-					+ " FROM db_index a, db_index_key b, db_class c "
-					+ "WHERE a.class_name=b.class_name AND c.class_type='CLASS' "
-					+ "AND a.index_name=b.index_name AND a.class_name=c.class_name "
-					+ "AND c.is_system_class='NO' AND is_primary_key='NO' AND is_foreign_key='NO' "
-					+ "ORDER BY a.class_name, b.index_name, b.key_order";
+					+ sqlComment
+					+ " FROM db_index a, db_index_key b, db_class c"
+					+ " WHERE a.class_name=b.class_name AND c.class_type='CLASS'"
+					+ " AND a.index_name=b.index_name AND a.class_name=c.class_name"
+					+ " AND c.is_system_class='NO' AND a.is_primary_key='NO' AND a.is_foreign_key='NO'"
+					+ " ORDER BY a.class_name, b.index_name, b.key_order";
+			
 			stmt = conn.createStatement();
 			rs = stmt.executeQuery(sql);
 
@@ -330,7 +311,11 @@ public final class CUBRIDSchemaFetcher extends
 
 				boolean isUnique = isYes(rs.getString("is_unique"));
 
-				String comment = rs.getString("comment");
+				String comment = null;
+				if (dbVersion >= COMMENT_SUPPORT_VERSION) {
+					comment = rs.getString("comment");
+					comment = comment != null ? commentEditor(comment) : null;
+				}
 				
 				String indexFindKey = tableName + "-" + indexName;
 				Index index = indexes.get(indexFindKey);
@@ -375,12 +360,14 @@ public final class CUBRIDSchemaFetcher extends
 		ResultSet rs = null; //NOPMD
 		Statement stmt = null;
 		try {
-			String sql = "SELECT a.class_name, a.index_name, a.is_unique, b.key_attr_name, b.asc_desc "
-					+ "FROM db_index a, db_index_key b, db_class c "
-					+ "WHERE a.class_name=b.class_name AND a.index_name=b.index_name "
-					+ "AND a.class_name=c.class_name AND c.is_system_class='NO' "
-					+ "AND a.is_primary_key='YES' AND c.class_type='CLASS' "
-					+ "ORDER BY a.class_name, b.key_order";
+			String sql = "SELECT a.class_name, a.index_name, a.is_unique,"
+					+ " b.key_attr_name, b.asc_desc"
+					+ " FROM db_index a, db_index_key b, db_class c"
+					+ " WHERE a.class_name=b.class_name AND a.index_name=b.index_name"
+					+ " AND a.class_name=c.class_name AND c.is_system_class='NO'"
+					+ " AND a.is_primary_key='YES' AND c.class_type='CLASS'"
+					+ " ORDER BY a.class_name, b.key_order";
+			
 			stmt = conn.createStatement();
 			rs = stmt.executeQuery(sql);
 
@@ -445,16 +432,41 @@ public final class CUBRIDSchemaFetcher extends
 		ResultSet rs = null;
 		Statement stmt = null;
 		try {
-			stmt = conn.createStatement();
-			rs = stmt.executeQuery(ALL_TABLE_COLUMN);
+			int dbVersion = getDBVersion(conn);
+			String sqlComment = dbVersion >= COMMENT_SUPPORT_VERSION ? ", a.comment as column_comment, c.comment as table_comment" : "";
 			
+			String sql = "SELECT a.class_name, a.attr_name, a.attr_type,"
+					+ " a.from_class_name, a.data_type, a.prec,"
+					+ " a.scale, a.is_nullable, a.domain_class_name,"
+					+ " a.default_value, a.def_order,"
+					+ " c.is_reuse_oid_class"
+					+ sqlComment
+					+ " FROM db_attribute a, db_class c"
+					+ " WHERE c.class_name = a.class_name AND c.class_type='CLASS'"
+					+ " AND c.is_system_class='NO' AND a.from_class_name IS NULL"
+					+ " ORDER BY a.class_name, c.class_type, a.def_order";
+			
+			
+			stmt = conn.createStatement();
+			rs = stmt.executeQuery(sql);
+
 			while (rs.next()) {
 				String tableName = rs.getString("class_name");
-				String tableComment = rs.getString("table_comment");
-				
 				if (tableName == null) {
 					continue;
 				}
+				
+				String tableComment = null;
+				if (dbVersion >= COMMENT_SUPPORT_VERSION) {
+					tableComment = rs.getString("table_comment");
+					tableComment = tableComment != null ? commentEditor(tableComment) : null;
+				}
+				
+				if (tableComment != null) {
+					tableComment = commentEditor(tableComment);
+				}
+				
+				
 				if (filter != null && filter.filter(null, tableName)) {
 					//CUBRID is one DB one schema
 					continue;
@@ -476,7 +488,11 @@ public final class CUBRIDSchemaFetcher extends
 				String domainClassName = rs.getString("domain_class_name");
 				Integer prec = rs.getInt("prec");
 				Integer scale = rs.getInt("scale");
-				String columnComment = rs.getString("column_comment");
+				String columnComment = null;
+				if (dbVersion >= COMMENT_SUPPORT_VERSION) {
+					columnComment = rs.getString("column_comment");
+					columnComment = columnComment != null ? commentEditor(columnComment) : null;
+				}
 
 				Column column = factory.createColumn();
 				column.setName(attrName);
@@ -532,9 +548,12 @@ public final class CUBRIDSchemaFetcher extends
 		Statement stmt = null;
 		// SERIAL
 		try {
-			String sql = "SELECT class_name,name,owner.name,current_val,increment_val,"
-					+ "max_val,min_val,cyclic,started,att_name " + "FROM db_serial "
-					+ "WHERE class_name IS NOT NULL " + "ORDER BY class_name";
+			String sql = "SELECT class_name, name, owner," 
+					+ " current_val, increment_val, max_val,"
+					+ " min_val, cyclic, started, att_name" 
+					+ " FROM db_serial"
+					+ " WHERE class_name IS NOT NULL" 
+					+ " ORDER BY class_name";
 
 			stmt = conn.createStatement();
 			rs = stmt.executeQuery(sql);
@@ -576,8 +595,17 @@ public final class CUBRIDSchemaFetcher extends
 		// get table information
 		ResultSet rs = null;
 		PreparedStatement stmt = null;
+		
+		String sql = "SELECT a.class_name, c.owner_name, a.attr_name, a.attr_type, a.from_class_name,"
+				+ " a.data_type, a.prec, a.scale, a.is_nullable,"
+				+ " a.domain_class_name, a.default_value, a.def_order,c.is_reuse_oid_class, c.comment"
+				+ " FROM db_attribute a , db_class c"
+				+ " WHERE c.class_name = a.class_name AND c.class_type='CLASS' AND c.is_system_class='NO' and from_class_name is NULL"
+				+ " AND c.owner_name = ? "
+				+ " ORDER BY a.class_name, c.class_type, a.def_order";
+		
 		try {
-			stmt = conn.prepareStatement(ALL_TABLE_COLUMN_WITH_USERNAME);
+			stmt = conn.prepareStatement(sql);
 			stmt.setString(1, schema.getName().toUpperCase());
 			rs = stmt.executeQuery();
 			
@@ -1051,10 +1079,13 @@ public final class CUBRIDSchemaFetcher extends
 	 * @throws SQLException e
 	 */
 	private void buildPartitions(final Connection conn, final Catalog catalog, final Schema schema) throws SQLException {
-		String sql = "SELECT * FROM db_partition";
 		ResultSet rs = null; //NOPMD
 		Statement stmt = null; //NOPMD
 		try {
+			String sql = "SELECT class_name, partition_name, partition_class_name,"
+					+ " partition_type, partition_expr, partition_values"
+					+ " FROM db_partition";
+			
 			stmt = conn.createStatement();
 			rs = stmt.executeQuery(sql);
 
@@ -1172,24 +1203,31 @@ public final class CUBRIDSchemaFetcher extends
 	 */
 	protected void buildSequence(final Connection conn, final Catalog catalog, final Schema schema,
 			IBuildSchemaFilter filter) throws SQLException {
-		Statement stmt = null; //NOPMD
+		PreparedStatement pstmt = null; //NOPMD
 		ResultSet rs = null; //NOPMD
 		List<Sequence> sequenceList = new ArrayList<Sequence>();
 
 		try {
-			Integer ver = Integer.parseInt("" + conn.getMetaData().getDatabaseMajorVersion() 
-					+ conn.getMetaData().getDatabaseMinorVersion());
+			int dbVersion = getDBVersion(conn);
+			String sqlComment = dbVersion >= COMMENT_SUPPORT_VERSION ? ", comment" : "";
+			String getUserSchema = dbVersion >= USERSCHEMA_VERSION ? " and owner.name = ?" : "";
+			//owner.name?
+			String sql = "SELECT name, owner.name, current_val,"
+					+ " increment_val, max_val, min_val, cyclic,"
+					+ " started, class_name, att_name, cached_num"
+					+ sqlComment
+					+ " FROM db_serial"
+					+ " WHERE class_name IS NULL"
+					+ getUserSchema;
 			
-			PreparedStatement pstmt = null;
 			
-			if (ver >= 112) {
-				pstmt = conn.prepareStatement(GET_OWNER_SERIAL_SQL);
-				pstmt.setString(1, schema.getName().toUpperCase());
-			} else {
-				pstmt = conn.prepareStatement(GET_ALLSERIALINFO_SQL);
+			pstmt = conn.prepareStatement(sql);
+			
+			if (dbVersion >= USERSCHEMA_VERSION) {
+				pstmt.setString(1, schema.getName());
 			}
-			rs = pstmt.executeQuery();
 			
+			rs = pstmt.executeQuery();
 			while (rs.next()) {
 				String sequenceName = rs.getString("name");
 				if (filter != null && filter.filter(schema.getName(), sequenceName)) {
@@ -1200,11 +1238,16 @@ public final class CUBRIDSchemaFetcher extends
 				String maxVal = rs.getString("max_val");
 				String minVal = rs.getString("min_val");
 				String cyclic = rs.getString("cyclic");
-				String comment = rs.getString("comment");
+				String comment = null;
 				int cachedNum = rs.getInt("cached_num");
+				if (dbVersion >= COMMENT_SUPPORT_VERSION) {
+					comment = rs.getString("comment");
+					comment = comment != null ? commentEditor(comment) : null;
+				}
+				
 				String owner = null;
 				
-				if (ver >= 112) {
+				if (dbVersion >= USERSCHEMA_VERSION) {
 					owner = rs.getString("owner.name");
 				} else {
 					owner = schema.getName();
@@ -1227,7 +1270,7 @@ public final class CUBRIDSchemaFetcher extends
 
 		} finally {
 			Closer.close(rs);
-			Closer.close(stmt);
+			Closer.close(pstmt);
 		}
 
 	}
@@ -1372,11 +1415,16 @@ public final class CUBRIDSchemaFetcher extends
 		PreparedStatement preStmt = null;
 		String tableName = table.getName();
 		try {
-			// get table information
+			int dbVersion = getDBVersion(conn);
+			String sqlComment = dbVersion >= COMMENT_SUPPORT_VERSION ? ", a.comment" : "";
+			
 			String sql = "SELECT a.attr_name, a.attr_type, a.from_class_name,"
-					+ " a.data_type, a.prec, a.scale, a.is_nullable, "
-					+ " a.domain_class_name, a.default_value, a.def_order, a.comment"
-					+ " FROM db_attribute a WHERE a.class_name=? " + " order by a.def_order";
+					+ " a.data_type, a.prec, a.scale, a.is_nullable,"
+					+ " a.domain_class_name, a.default_value, a.def_order"
+					+ sqlComment
+					+ " FROM db_attribute a"
+					+ " WHERE a.class_name=?" 
+					+ " ORDER BY a.def_order";
 
 			preStmt = conn.prepareStatement(sql);
 			preStmt.setString(1, tableName);
@@ -1393,7 +1441,11 @@ public final class CUBRIDSchemaFetcher extends
 
 				String defaultValue = rs.getString("default_value");
 				
-				String comment = rs.getString("comment");
+				String comment = null;
+				if (dbVersion >= COMMENT_SUPPORT_VERSION) {
+					comment = rs.getString("comment");
+					comment = comment != null ? commentEditor(comment) : null;
+				}
 
 				Column column = factory.createColumn();
 				column.setName(attrName);
@@ -1440,8 +1492,10 @@ public final class CUBRIDSchemaFetcher extends
 
 		try {
 			// get set(object) type information from db_attr_setdomain_elm view
-			String sql = "SELECT a.attr_name, a.attr_type," + " a.data_type, a.prec, a.scale"
-					+ " FROM db_attr_setdomain_elm a" + " WHERE a.class_name=? ";
+			String sql = "SELECT a.attr_name, a.attr_type,"
+					+ " a.data_type, a.prec, a.scale"
+					+ " FROM db_attr_setdomain_elm a"
+					+ " WHERE a.class_name=?";
 
 			preStmt = conn.prepareStatement(sql);
 			preStmt.setString(1, tableName);
@@ -1471,8 +1525,12 @@ public final class CUBRIDSchemaFetcher extends
 		}
 
 		try {
-			String sql = "select name,owner.name,current_val,increment_val,max_val,min_val,cyclic,started,class_name,att_name "
-					+ "from db_serial where class_name =?";
+			String sql = "SELECT name, owner, current_val,"
+					+ " increment_val, max_val, min_val,"
+					+ " cyclic, started, class_name, att_name"
+					+ " FROM db_serial"
+					+ " WHERE class_name=?";
+			
 			preStmt = conn.prepareStatement(sql);
 			preStmt.setString(1, tableName);
 			rs = preStmt.executeQuery();
@@ -1636,17 +1694,30 @@ public final class CUBRIDSchemaFetcher extends
 		}
 		
 		//Set view's DDL
-		String sqlStr = "SELECT vclass_def, comment FROM db_vclass WHERE vclass_name=?";
-		PreparedStatement stmt = conn.prepareStatement(sqlStr);
+		ResultSet rs = null; //NOPMD
+		PreparedStatement stmt = null; //NOPMD
 		try {
+			int dbVersion = getDBVersion(conn);
+			String sqlComment = dbVersion >= COMMENT_SUPPORT_VERSION ? ", comment" : "";
+			
+			String sql = "SELECT vclass_def"
+					+ sqlComment
+					+ " FROM db_vclass"
+					+ " WHERE vclass_name=?";
+			
+			stmt = conn.prepareStatement(sql);
+			
 			for (View view : schema.getViews()) {
-				ResultSet rs = null; //NOPMD
 				try {
 					stmt.setString(1, view.getName());
 					rs = stmt.executeQuery();
 					while (rs.next()) {
 						String querySpec = rs.getString("vclass_def");
-						String comment = rs.getString("comment");
+						String comment = null;
+						if (dbVersion >= COMMENT_SUPPORT_VERSION) {
+							comment = rs.getString("comment");
+							comment = comment != null ? commentEditor(comment) : null;
+						}
 						
 						view.setQuerySpec(querySpec);
 						view.setComment(comment);
@@ -1831,13 +1902,16 @@ public final class CUBRIDSchemaFetcher extends
 
 		List<String> tableNames = new ArrayList<String>();
 		try {
-			String sqlStr = "SELECT CLASS_NAME FROM db_class "
-					+ "WHERE is_system_class = 'NO' and class_type = 'CLASS' order by CLASS_NAME";
-			stmt = conn.prepareStatement(sqlStr);
+			String sql = "SELECT class_name"
+					+ " FROM db_class"
+					+ " WHERE is_system_class='NO' AND class_type='CLASS'"
+					+ " ORDER BY class_name";
+			
+			stmt = conn.prepareStatement(sql);
 			rs = stmt.executeQuery();
 
 			while (rs.next()) {
-				tableNames.add(rs.getString("CLASS_NAME"));
+				tableNames.add(rs.getString("class_name"));
 			}
 
 		} finally {
@@ -1846,8 +1920,10 @@ public final class CUBRIDSchemaFetcher extends
 		}
 
 		try {
-			String sqlStr = "SELECT  partition_class_name  FROM db_partition";
-			stmt = conn.prepareStatement(sqlStr);
+			String sql = "SELECT partition_class_name"
+					+ " FROM db_partition";
+			
+			stmt = conn.prepareStatement(sql);
 			rs = stmt.executeQuery();
 
 			while (rs.next()) {
@@ -1871,30 +1947,25 @@ public final class CUBRIDSchemaFetcher extends
 	private List<Trigger> getAllTriggers(Connection conn, Schema schema) throws SQLException {
 		PreparedStatement stmt = null;
 		ResultSet rs = null; //NOPMD
+		
+		int dbVersion = getDBVersion(conn);
+		
+		String trigUniqueName = "";
+		if (dbVersion >= USERSCHEMA_VERSION) {
+			trigUniqueName = ", trig.unique_name";
+		}
+		
 		try {
-			String sqlStr = "SELECT T.TARGET_CLASS_NAME,NAME,STATUS,PRIORITY,EVENT,"
-					+ "TARGET_CLASS,TARGET_ATTRIBUTE,CONDITION_TYPE,CONDITION,CONDITION_TIME,"
-					+ "TRIG.ACTION_TYPE,ACTION_DEFINITION,TRIG.ACTION_TIME,TRIG.UNIQUE_NAME "
-					+ "FROM DB_CLASS C,DB_TRIGGER TRIG,DB_TRIG T "
-					+ "WHERE TRIG.NAME=T.TRIGGER_NAME AND T.TARGET_CLASS_NAME=C.CLASS_NAME(+) "
-					+ "AND C.IS_SYSTEM_CLASS='NO' ORDER BY NAME";
+			String sql = "SELECT t.target_class_name, name, status, priority, event,"
+					+ " target_class, target_attribute, condition_type, condition, condition_time,"
+					+ " trig.action_type, action_definition, trig.action_time"
+					+ trigUniqueName
+					+ " FROM db_class c, db_trigger trig, db_trig t"
+					+ " WHERE trig.name=t.trigger_name AND t.target_class_name=c.class_name(+)"
+					+ " AND c.is_system_class='no'"
+					+ " ORDER BY name";
 			
-			String prevSqlStr =  "SELECT T.TARGET_CLASS_NAME,NAME,STATUS,PRIORITY,EVENT,"
-					+ "TARGET_CLASS,TARGET_ATTRIBUTE,CONDITION_TYPE,CONDITION,CONDITION_TIME,"
-					+ "TRIG.ACTION_TYPE,ACTION_DEFINITION,TRIG.ACTION_TIME "
-					+ "FROM DB_CLASS C,DB_TRIGGER TRIG,DB_TRIG T "
-					+ "WHERE TRIG.NAME=T.TRIGGER_NAME AND T.TARGET_CLASS_NAME=C.CLASS_NAME(+) "
-					+ "AND C.IS_SYSTEM_CLASS='NO' ORDER BY NAME";
-			
-			Integer ver = Integer.parseInt("" + conn.getMetaData().getDatabaseMajorVersion() 
-					+ conn.getMetaData().getDatabaseMinorVersion());
-			
-			if (ver >= 112) {
-				stmt = conn.prepareStatement(sqlStr);				
-			} else {
-				stmt = conn.prepareStatement(prevSqlStr);
-			}
-			
+			stmt = conn.prepareStatement(sql);
 			rs = stmt.executeQuery();
 			List<Trigger> triggers = new ArrayList<Trigger>();
 
@@ -1937,6 +2008,12 @@ public final class CUBRIDSchemaFetcher extends
 	protected DBExportHelper getExportHelper() {
 		return DatabaseType.CUBRID.getExportHelper();
 	}
+	
+	private int getDBVersion(Connection conn) throws SQLException {
+		int majorVersion = conn.getMetaData().getDatabaseMajorVersion() * 10;
+		int minorVersion = conn.getMetaData().getDatabaseMinorVersion();
+		return majorVersion + minorVersion;
+	}
 
 	/**
 	 * get All Rountines
@@ -1950,14 +2027,17 @@ public final class CUBRIDSchemaFetcher extends
 		PreparedStatement stmt = null;
 		ResultSet rs = null; //NOPMD
 		try {
-			String sqlStr = "SELECT SP.SP_NAME,SP.SP_TYPE,SP.RETURN_TYPE,"
-					+ "SP.ARG_COUNT,SP.LANG,SP.TARGET,SP.OWNER,SPARGS.INDEX_OF,"
-					+ "SPARGS.ARG_NAME,SPARGS.DATA_TYPE,SPARGS.MODE "
-					+ "FROM DB_STORED_PROCEDURE SP "
-					+ "LEFT OUTER JOIN DB_STORED_PROCEDURE_ARGS SPARGS "
-					+ "ON SP.SP_NAME=SPARGS.SP_NAME WHERE SP.SP_TYPE=? "
-					+ "ORDER BY SP.SP_NAME ASC,SPARGS.INDEX_OF ASC";
-			stmt = conn.prepareStatement(sqlStr);
+			String sql = "SELECT sp.sp_name, sp.sp_type, sp.return_type,"
+					+ " sp.arg_count, sp.lang, sp.target,"
+					+ " sp.owner, spargs.index_of, spargs.arg_name,"
+					+ " spargs.data_type, spargs.mode"
+					+ " FROM db_stored_procedure sp"
+					+ " LEFT OUTER JOIN db_stored_procedure_args spargs"
+					+ " ON sp.sp_name=spargs.sp_name"
+					+ " WHERE sp.sp_type=?"
+					+ " ORDER BY sp.sp_name asc, spargs.index_of ASC";
+			
+			stmt = conn.prepareStatement(sql);
 			stmt.setString(1, spType);
 			rs = stmt.executeQuery();
 
@@ -1969,17 +2049,17 @@ public final class CUBRIDSchemaFetcher extends
 			while (rs.next()) {
 				String str = "";
 
-				if (rs.getString("ARG_NAME") != null) {
-					str = "\"" + rs.getString("ARG_NAME") + "\" ";
+				if (rs.getString("arg_name") != null) {
+					str = "\"" + rs.getString("arg_name") + "\" ";
 
-					if (!rs.getString("MODE").equalsIgnoreCase("IN")) { // IN,OUT,IN OUT,INOUT
-						str += rs.getString("MODE") + " ";
+					if (!rs.getString("mode").equalsIgnoreCase("IN")) { // IN,OUT,IN OUT,INOUT
+						str += rs.getString("mode") + " ";
 					}
 
-					str += rs.getString("DATA_TYPE");
+					str += rs.getString("data_type");
 				}
 
-				if (spName.equals(rs.getString("SP_NAME"))) {
+				if (spName.equals(rs.getString("sp_name"))) {
 					String tmp = (String) map.get("PARAMS");
 
 					if (str != null) {
@@ -1993,16 +2073,16 @@ public final class CUBRIDSchemaFetcher extends
 					}
 
 					map = new HashMap<String, Object>();
-					spName = rs.getString("SP_NAME");
-					map.put("SP_NAME", rs.getString("SP_NAME"));
-					map.put("SP_TYPE", rs.getString("SP_TYPE"));
-					map.put("RETURN_TYPE", rs.getString("RETURN_TYPE"));
-					map.put("ARG_COUNT", rs.getInt("ARG_COUNT"));
-					map.put("LANG", rs.getString("LANG"));
-					map.put("TARGET", rs.getString("TARGET"));
-					map.put("OWNER", rs.getString("OWNER"));
-					map.put("INDEX_OF", rs.getInt("INDEX_OF"));
-					map.put("DATA_TYPE", rs.getString("DATA_TYPE"));
+					spName = rs.getString("sp_name");
+					map.put("SP_NAME", rs.getString("sp_name"));
+					map.put("SP_TYPE", rs.getString("sp_type"));
+					map.put("RETURN_TYPE", rs.getString("return_type"));
+					map.put("ARG_COUNT", rs.getInt("arg_count"));
+					map.put("LANG", rs.getString("lang"));
+					map.put("TARGET", rs.getString("target"));
+					map.put("OWNER", rs.getString("owner"));
+					map.put("INDEX_OF", rs.getInt("index_of"));
+					map.put("DATA_TYPE", rs.getString("data_type"));
 					map.put("PARAMS", str);
 
 				}

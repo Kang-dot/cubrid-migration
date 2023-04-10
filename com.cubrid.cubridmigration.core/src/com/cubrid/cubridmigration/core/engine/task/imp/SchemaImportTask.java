@@ -13,7 +13,6 @@ public class SchemaImportTask extends ImportTask {
 
 	@Override
 	protected void executeImport() {
-		// TODO Auto-generated method stub
 		importer.createSchema(dummySchema);
 	}
 }

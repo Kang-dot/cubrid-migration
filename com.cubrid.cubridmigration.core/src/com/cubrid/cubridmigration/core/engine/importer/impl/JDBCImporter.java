@@ -141,6 +141,22 @@ public class JDBCImporter extends
 			createObjectFailed(view, e);
 		}
 	}
+	
+	/**
+	 * Create View Alter
+	 * 
+	 * @param view View
+	 */
+	public void alterView(View view) {
+		String viewAlterDDL = CUBRIDSQLHelper.getInstance(null).getViewAlterDDL(view);
+		view.setAlterDDL(viewAlterDDL);
+		try {
+			executeDDL(viewAlterDDL);
+			createObjectSuccess(view);
+		} catch (RuntimeException e) {
+			createObjectFailed(view, e);
+		}
+	}
 
 	/**
 	 * Create primary key
@@ -401,7 +417,6 @@ public class JDBCImporter extends
 		return trec;
 	}
 
-	//CMT112 JDBC Importer create Schema
 	public void createSchema(Schema dummySchema) {
 		String ddl = CUBRIDSQLHelper.getInstance(null).getSchemaDDL(dummySchema);
 		try {

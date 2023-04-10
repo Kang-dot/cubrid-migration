@@ -13,6 +13,7 @@ Bundle-ClassPath: lib/cglib-nodep-2.1_3.jar,
  lib/jmock-legacy-2.5.1.jar,
  lib/objenesis-1.0.jar,
  . 
-Require-Bundle: org.junit4
+Require-Bundle: org.junit4,
+ org.junit
 Bundle-RequiredExecutionEnvironment: J2SE-1.5,
  JavaSE-1.6

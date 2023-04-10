@@ -432,7 +432,6 @@ public class CUBRIDSQLHelper extends
 			if (table.getOwner() == null || table.getOwner().isEmpty()) {
 				bf.append(getQuotedObjName(tableName));
 			} else {
-//				bf.append(verUtil.getSchemaMapping().get(table.getOwner()));
 				bf.append(getQuotedObjName(table.getOwner()));
 				bf.append(".");
 				bf.append(getQuotedObjName(tableName));
@@ -598,8 +597,8 @@ public class CUBRIDSQLHelper extends
 		return "";
 	}
 
-	/***
-	 * getDDL
+	/**
+	 * return Create DDL of a View
 	 * 
 	 * @param view View
 	 * @return String
@@ -610,7 +609,7 @@ public class CUBRIDSQLHelper extends
 			return "";
 		}
 		StringBuffer sb = new StringBuffer();
-		sb.append("CREATE OR REPLACE VIEW ");
+		sb.append("CREATE VIEW");
 		String viewName = view.getName();
 
 		if (view.getOwner() == null || view.getOwner().isEmpty()) {
@@ -654,55 +653,57 @@ public class CUBRIDSQLHelper extends
 		
 		List<Column> columnList = view.getColumns();
 		
-		for (Column col : columnList) {
-			if (col.getComment() != null) {
-				sb.append("(");
-				sb.append(setViewColumnComment(view));
-				sb.append(")");
-				break;
-			}
-		}
+		sb.append("(").append(NEWLINE);
+		for (int i = 0; i < columnList.size(); i++) {
+			Column col = columnList.get(i);
 			
-		sb.append(" AS ");
-		
-		List<String> queryListData = new ArrayList<String>();
-		
-		queryListData.add(view.getQuerySpec());
-
-		for (int i = 0; i < queryListData.size(); i++) {
-			String map = queryListData.get(i);
-			sb.append(NEWLINE).append(map);
-
-			if (i != queryListData.size() - 1) {
-				sb.append(NEWLINE).append(" UNION ALL ");
+			if (i > 0) {
+				sb.append(",").append(NEWLINE);
+			}
+			
+			sb.append(getQuotedObjName(col.getName()));
+			sb.append(" ").append(col.getShownDataType());
+			
+			if (col.getComment() != null) {
+				sb.append(" COMMENT ").append(col.getComment());
 			}
 		}
-
-		if (view.getComment() != null) {
-			sb.append(" COMMENT = \'" + view.getComment() + "\'");
-		}
+		sb.append(NEWLINE).append(")");
 		
-		sb.append(END_LINE_CHAR);
+		if (view.getComment() != null) {
+			sb.append(" ").append("COMMENT \'" + view.getComment() + "\'");
+		}
+		sb.append(NEWLINE).append(END_LINE_CHAR);
+		
 		return sb.toString();
 	}
-	
-	private String setViewColumnComment(View view) {
+
+	/**
+	 * return Alter DDL of a View
+	 * 
+	 * @param view View
+	 * @return String
+	 */
+	public String getViewAlterDDL(View view) {
 		StringBuffer sb = new StringBuffer();
+		sb.append("ALTER VIEW ");
+		String viewName = view.getName();
 		
-		List<Column> columnList = view.getColumns();
-		
-		for (Column col : columnList) {
-			if (col.getComment() != null) {
-				sb.append(col.getName());
-				sb.append(" COMMENT ");
-				sb.append(col.getComment());
-				sb.append(", ");
+		if (viewName != null) {
+			if (view.getOwner() == null || view.getOwner().isEmpty()) {
+				sb.append(getQuotedObjName(viewName));				
+			} else {
+				sb.append(view.getOwner());
+				sb.append(".");
+				sb.append(getQuotedObjName(viewName));
 			}
+			
 		}
 		
-		String viewColumnComment = sb.toString().replaceAll(",\\s$", "");
+		sb.append(" ADD").append(" QUERY ").append(view.getQuerySpec());
+		sb.append(END_LINE_CHAR);
 		
-		return viewColumnComment;
+		return sb.toString();
 	}
 
 	/**
@@ -712,7 +713,7 @@ public class CUBRIDSQLHelper extends
 	 * @return String
 	 */
 	public String getQuotedObjName(String objectName) {
-		return new StringBuffer("\"").append(objectName).append("\"").toString();
+		return new StringBuffer("[").append(objectName).append("]").toString();
 	}
 
 	/**

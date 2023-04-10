@@ -631,13 +631,6 @@ public abstract class OfflineImporter extends
 		return successCnt;
 	}
 	
-	
-	//CMT112 file importer schema;
-	//maybe this method didn't need?
-	public void createSchema(Schema dummySchema){
-		
-	}
-
 	/**
 	 * Create table
 	 * 
@@ -661,6 +654,17 @@ public abstract class OfflineImporter extends
 		String viewDDL = CUBRIDSQLHelper.getInstance(null).getViewDDL(view);
 		view.setDDL(viewDDL);
 		executeDDL(viewDDL + "\n", false, createResultHandler(view));
+	}
+	
+	/**
+	 * Create view alter
+	 * 
+	 * @param view to be created
+	 */
+	public void alterView(View view) {
+		String viewAlterDDL = CUBRIDSQLHelper.getInstance(null).getViewAlterDDL(view);
+		view.setAlterDDL(viewAlterDDL);
+		executeDDL(viewAlterDDL + "\n", false, createResultHandler(view));
 	}
 
 	/**
@@ -708,5 +712,11 @@ public abstract class OfflineImporter extends
 		sq.setDDL(ddl);
 		executeDDL(ddl + ";\n", false, createResultHandler(sq));
 	}
-
+	
+	public void createSchema(Schema schema) {
+		System.out.println("123456");
+		
+		// TODO Auto-generated method stub
+		// if migrate target is offline, "create user" query isn't need
+	}
 }

@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2009 Search Solution Corporation. All rights reserved by Search Solution. 
+ * Copyright (C) 2008 Search Solution Corporation.
+ * Copyright (c) 2016 CUBRID Corporation.
  *
  * Redistribution and use in source and binary forms, with or without modification, 
  * are permitted provided that the following conditions are met: 
@@ -101,11 +102,13 @@ public class MigrationWizard extends
 	 * @return Set<Integer> of database type ids
 	 */
 	public static Set<Integer> getSupportedSrcDBTypes() {
-		Set<Integer> supportedDBs = new HashSet<Integer>(4);
+		Set<Integer> supportedDBs = new HashSet<Integer>(6);
 		supportedDBs.add(DatabaseType.MYSQL.getID());
 		supportedDBs.add(DatabaseType.ORACLE.getID());
 		supportedDBs.add(DatabaseType.CUBRID.getID());
 		supportedDBs.add(DatabaseType.MSSQL.getID());
+		supportedDBs.add(DatabaseType.MARIADB.getID());
+		supportedDBs.add(DatabaseType.INFORMIX.getID());
 		return supportedDBs;
 	}
 

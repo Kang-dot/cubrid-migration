@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2009 Search Solution Corporation. All rights reserved by Search
- * Solution.
+ * Copyright (C) 2008 Search Solution Corporation.
+ * Copyright (c) 2016 CUBRID Corporation.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met: -
@@ -146,6 +146,10 @@ public class Messages extends
 	public static String btnSrcOnlineMySQLDBDes;
 	public static String btnSrcOnlineOracleDB;
 	public static String btnSrcOnlineOracleDBDes;
+	public static String btnSrcOnlineMariaDBDBDes;
+	public static String btnSrcOnlineMariaDBDB;
+	public static String btnSrcOnlineInformixDB;
+	public static String btnSrcOnlineInformixDBDes;
 	public static String btnSrcSQLFiles;
 	public static String btnSrcSQLFilesDes;
 	public static String btnSSHProxySettings;
@@ -328,18 +332,22 @@ public class Messages extends
 	public static String grpPerformanceSettings;
 	public static String importScriptFileNotFound;
 	public static String infoGrpUnparsedChar;
+	public static String infoMariaDBGrpUnparsedChar;
 	public static String infoGrpUnparsedChar0;
 	public static String infoGrpUnparsedCharOther;
 	public static String infoGrpUnparsedCharSpace;
 	public static String infoGrpUnparsedDate;
+	public static String infoMariaDBGrpUnparsedDate;
 	public static String infoGrpUnparsedDate0;
 	public static String infoGrpUnparsedDateNull;
 	public static String infoGrpUnparsedDateOther;
 	public static String infoGrpUnparsedTime;
+	public static String infoMariaDBGrpUnparsedTime;
 	public static String infoGrpUnparsedTime0;
 	public static String infoGrpUnparsedTimeNull;
 	public static String infoGrpUnparsedTimeOther;
 	public static String infoGrpUnparsedTimestamp;
+	public static String infoMariaDBGrpUnparsedTimestamp;
 	public static String infoGrpUnparsedTimestamp0;
 	public static String infoGrpUnparsedTimestampNull;
 	public static String infoGrpUnparsedTimestampOther;
@@ -618,6 +626,7 @@ public class Messages extends
 	public static String msgWarnTableRecreated;
 	public static String msgWizardStep;
 	public static String mysqlToCubrid;
+	public static String mariadbToCubrid;
 	public static String newButtonLabel;
 	public static String newDBConnDialogMessage;
 	public static String newDBConnDialogTitle;
@@ -643,6 +652,7 @@ public class Messages extends
 	public static String onlineCUBRIDCommitCount;
 	public static String openConfActionTitle;
 	public static String oracle2CUBRID;
+	public static String informix2CUBRID;
 	public static String otherSettings;
 	public static String prefTitleGeneral;
 	public static String productName;

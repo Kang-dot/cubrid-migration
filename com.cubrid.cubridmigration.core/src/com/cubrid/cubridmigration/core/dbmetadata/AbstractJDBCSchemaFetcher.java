@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2009 Search Solution Corporation. All rights reserved by Search Solution. 
+ * Copyright (C) 2008 Search Solution Corporation.
+ * Copyright (c) 2016 CUBRID Corporation. 
  *
  * Redistribution and use in source and binary forms, with or without modification, 
  * are permitted provided that the following conditions are met: 
@@ -1044,7 +1045,14 @@ public abstract class AbstractJDBCSchemaFetcher implements
 			// Retrieve type info from the result set
 			while (rs.next()) {
 				String typeName = rs.getString("TYPE_NAME");
-				Integer dataType = rs.getInt("DATA_TYPE");
+				Integer dataType;
+				try{
+					dataType = rs.getInt("DATA_TYPE");
+				}catch(SQLException e){
+					/* MariaDB has problem with getInt with DATA_TYPE, so use getString then convert it to Integer */
+					dataType = Integer.parseInt(rs.getString("DATA_TYPE"));
+				}
+				
 				Long precision = rs.getLong("PRECISION");
 				String prefix = rs.getString("LITERAL_PREFIX");
 				String suffix = rs.getString("LITERAL_SUFFIX");
@@ -1185,4 +1193,13 @@ public abstract class AbstractJDBCSchemaFetcher implements
 	public static final boolean isYes(String value) {
 		return "YES".equalsIgnoreCase(value);
 	}
+	
+	protected String commentEditor(String comment) {
+		String editedComment;
+		
+		editedComment = comment.replaceAll("[\\']", "\\'\\'");
+		
+		return editedComment;
+	}
+	
 }

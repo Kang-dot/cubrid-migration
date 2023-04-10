@@ -91,6 +91,7 @@ public class CreateObjectEvent extends
 	 * @return String
 	 */
 	public String toString() {
+		boolean isAlterSQL = false;
 		StringBuffer sb = new StringBuffer();
 		if (dbObject instanceof Schema) {
 			sb.append("Schema[").append(dbObject.getName()).append("]");
@@ -115,14 +116,17 @@ public class CreateObjectEvent extends
 		} else if (dbObject instanceof Trigger) {
 			sb.append("trigger[").append(dbObject.getName()).append("]");
 		} else if (dbObject instanceof View) {
+			isAlterSQL = ((View)dbObject).getAlterDDL() != null ? true : false;
 			sb.append("view[").append(dbObject.getName()).append("]");
 		} else if (dbObject instanceof Sequence) {
 			sb.append("sequence[").append(dbObject.getName()).append("]");
 		}
 		if (error != null) {
-			return "Create " + sb.toString() + " unsuccessfully." + " Detail:" + error.getMessage();
+			sb.append(" unsuccessfully." + " Detail:" + error.getMessage());
+			return isAlterSQL ? "Alter" + sb.toString() : "Create " + sb.toString();
 		}
-		return "Create " + sb.toString() + " successfully.";
+		sb.append(" successfully.");
+		return isAlterSQL ? "Alter " + sb.toString(): "Create " + sb.toString();
 	}
 
 	/**

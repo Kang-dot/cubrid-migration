@@ -138,7 +138,7 @@ public class ApplicationWorkbenchWindowAdvisor extends
 				try {
 					//Remove useless menu: install new software.
 					WorkbenchWindow window = (WorkbenchWindow) PlatformUI.getWorkbench().getActiveWorkbenchWindow();
-					MenuManager manager2 = window.getMenuBarManager();
+					MenuManager manager2 = (MenuManager) window.getMenuBarManager();
 					IContributionItem help = manager2.find("help");
 					if (help instanceof MenuManager) {
 						manager2 = (MenuManager) help;

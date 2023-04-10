@@ -710,7 +710,6 @@ public class MigrationCfgUtils {
 	 */
 	protected VerifyResultMessages checkViewCfg(MigrationConfiguration config) {
 		List<String> views = new ArrayList<String>();
-		//CMT112 change SourceConfig -> SourceViewConfig
 		for (SourceViewConfig sc : config.getExpViewCfg()) {
 			if (!sc.isCreate()) {
 				continue;

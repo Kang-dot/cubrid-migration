@@ -101,6 +101,11 @@ public interface IMigrationImporter {
 	 */
 	public void createSequence(Sequence sq);
 	
+	/**
+	 * Create Schema
+	 * 
+	 * @param Schema schema
+	 */
 	public void createSchema(Schema schema);
 
 	/**
@@ -124,6 +129,13 @@ public interface IMigrationImporter {
 	 * @param view View
 	 */
 	public void createView(View view);
+	
+	/**
+	 * Create view alter
+	 * 
+	 * @param view View
+	 */
+	public void alterView(View view);
 
 	/**
 	 * Import records

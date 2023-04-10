@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2009 Search Solution Corporation. All rights reserved by Search Solution. 
+ * Copyright (C) 2008 Search Solution Corporation.
+ * Copyright (c) 2016 CUBRID Corporation.
  *
  * Redistribution and use in source and binary forms, with or without modification, 
  * are permitted provided that the following conditions are met: 
@@ -48,6 +49,7 @@ import com.cubrid.cubridmigration.core.engine.MigrationProcessManagerTest;
 import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
 import com.cubrid.cubridmigration.core.engine.config.SourceCSVConfig;
 import com.cubrid.cubridmigration.cubrid.meta.CUBRIDSchemaFetcher;
+import com.cubrid.cubridmigration.mariadb.meta.MariaDBSchemaFetcher;
 import com.cubrid.cubridmigration.mssql.meta.MSSQLSchemaFetcher;
 import com.cubrid.cubridmigration.mysql.meta.MySQLSchemaFetcher;
 import com.cubrid.cubridmigration.oracle.meta.OracleSchemaFetcher;
@@ -264,6 +266,27 @@ public class TemplateParserTest {
 		config.setDestType(MigrationConfiguration.DEST_ONLINE);
 
 		Catalog cl = getMySQLCatalog(config);
+		config.setSrcCatalog(cl, false);
+		config.getSourceDBType().getExportHelper().fillTablesRowCount(config);
+		return config;
+	}
+	
+	
+	public static Catalog getMariaDBCatalog(MigrationConfiguration config) throws SQLException {
+		MariaDBSchemaFetcher builder = new MariaDBSchemaFetcher();
+		Catalog cl = builder.buildCatalog(
+				config.getSourceConParams().createConnection(),
+				config.getSourceConParams(), null);
+		return cl;
+	}
+
+	public static MigrationConfiguration getMariaDBConfig() throws Exception {
+		InputStream is = TemplateParserTest.class.getResourceAsStream("/com/cubrid/cubridmigration/scripts/cmt_template_mariadb_2_cubrid.xml");
+		MigrationConfiguration config = MigrationTemplateParser.parse(is);
+		config.setSourceType(MigrationConfiguration.SOURCE_TYPE_MARIADB);
+		config.setDestType(MigrationConfiguration.DEST_ONLINE);
+
+		Catalog cl = getMariaDBCatalog(config);
 		config.setSrcCatalog(cl, false);
 		config.getSourceDBType().getExportHelper().fillTablesRowCount(config);
 		return config;

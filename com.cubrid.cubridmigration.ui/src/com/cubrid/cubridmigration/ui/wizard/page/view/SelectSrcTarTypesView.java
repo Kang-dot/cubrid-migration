@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2009 Search Solution Corporation. All rights reserved by Search Solution. 
+ * Copyright (C) 2008 Search Solution Corporation.
+ * Copyright (c) 2016 CUBRID Corporation.
  *
  * Redistribution and use in source and binary forms, with or without modification, 
  * are permitted provided that the following conditions are met: 
@@ -75,6 +76,8 @@ public class SelectSrcTarTypesView {
 	private Button btnOnlineOracleSrc;
 	private Button btnOnlineMYSQLSrc;
 	private Button btnOnlineMSSQLSrc;
+	private Button btnOnlineMariaDBSrc;
+	private Button btnOnlineInformixSrc;
 
 	private Button btnDumpSrc;
 	private Button btnSQLSrc;
@@ -113,6 +116,18 @@ public class SelectSrcTarTypesView {
 				Messages.btnSrcOnlineMSSQLDBDes);
 		btnOnlineMSSQLSrc.setData(MigrationConfiguration.SOURCE_TYPE_MSSQL);
 		srcButtons.add(btnOnlineMSSQLSrc);
+
+		/*add new button for mariadb*/
+		btnOnlineMariaDBSrc = createSrcTarTypeBtn(grpSrc, Messages.btnSrcOnlineMariaDBDB,
+				Messages.btnSrcOnlineMariaDBDBDes);
+		btnOnlineMariaDBSrc.setData(MigrationConfiguration.SOURCE_TYPE_MARIADB);
+		srcButtons.add(btnOnlineMariaDBSrc);
+		/*add new button for informix*/
+		btnOnlineInformixSrc = createSrcTarTypeBtn(grpSrc, Messages.btnSrcOnlineInformixDB,
+				Messages.btnSrcOnlineInformixDBDes);
+		btnOnlineInformixSrc.setData(MigrationConfiguration.SOURCE_TYPE_INFORMIX);
+		srcButtons.add(btnOnlineInformixSrc);
+		
 		Label comSep = new Label(grpSrc, SWT.SEPARATOR | SWT.HORIZONTAL);
 		{
 			GridData gd = new GridData(SWT.FILL, SWT.NONE, true, false);
