@@ -718,8 +718,7 @@ public class MigrationConfiguration {
 		for (Schema sourceDBSchema : schemas) {
 			String prefix = "";
 			if (StringUtils.isNotBlank(sourceDBSchema.getName())) {
-//				prefix = sourceDBSchema.getName() + ".";
-				prefix = sourceDBSchema.getTargetSchemaName();
+				prefix = sourceDBSchema.getTargetSchemaName() + ".";
 			}
 			for (Table srcTable : sourceDBSchema.getTables()) {
 				SourceEntryTableConfig setc = getExpEntryTableCfg(sourceDBSchema.getName(),
