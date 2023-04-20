@@ -714,9 +714,6 @@ public abstract class OfflineImporter extends
 	}
 	
 	public void createSchema(Schema schema) {
-		System.out.println("123456");
-		
-		// TODO Auto-generated method stub
-		// if migrate target is offline, "create user" query isn't need
+
 	}
 }
