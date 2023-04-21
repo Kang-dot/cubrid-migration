@@ -270,7 +270,7 @@ public class MigrationReport implements
 		for (DBObjMigrationResult or : dbObjectsResult) {
 			if (or.getObjName().equals(getDBObjName(obj))
 					&& or.getObjType().equals(obj.getObjType())
-					&& dbObjectNullCheck(or, obj)) {
+					&& !(hasSameNameObj(or, obj))) {
 				return or;
 			}
 		}
@@ -283,11 +283,18 @@ public class MigrationReport implements
 		return result;
 	}
 	
-	boolean dbObjectNullCheck(DBObjMigrationResult or, DBObject obj) {
+	/**
+	 * If the dbobject has the same name in another schema, it returns the result separately through the owner.
+	 * 
+	 * @param or DBObjMigrationResult
+	 * @param obj DBObject
+	 * @return has same name object in dbObjectResult
+	 */
+	private boolean hasSameNameObj(DBObjMigrationResult or, DBObject obj) {
 		if (or.getObjOwner() == null) {
-			return true;
+			return false;
 		}
-		return or.getObjOwner().equalsIgnoreCase(getObjectOwner(obj));
+		return !(or.getObjOwner().equalsIgnoreCase(getObjectOwner(obj)));
 	}
 	
 	private String getObjectOwner(DBObject obj) {
