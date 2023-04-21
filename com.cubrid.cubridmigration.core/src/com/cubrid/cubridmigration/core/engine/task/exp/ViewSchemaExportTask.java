@@ -54,7 +54,7 @@ public class ViewSchemaExportTask extends
 	}
 
 	/**
-	 * Execute export operation
+	 * get target view which will export
 	 * 
 	 */
 	protected void executeExportTask() {

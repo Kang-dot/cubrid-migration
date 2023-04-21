@@ -589,6 +589,16 @@ public final class CUBRIDSchemaFetcher extends
 		}
 	}
 	
+	/**
+	 * Build all tables with user schema
+	 * 
+	 * @param conn Connection
+	 * @param catalog Catalog
+	 * @param schema Schema
+	 * @param filter IBuildSchemaFilter
+	 * @return Map<String, Table> tables
+	 * @throws SQLException
+	 */
 	private Map<String, Table> buildCUBRIDTablesWithUserSchema(Connection conn, Catalog catalog, Schema schema,
 			IBuildSchemaFilter filter) throws SQLException {
 		Map<String, Table> tables = new HashMap<String, Table>();
@@ -815,6 +825,15 @@ public final class CUBRIDSchemaFetcher extends
 		}
 	}
 	
+	/**
+	 * Build all tables' foreign key with user schema
+	 * 
+	 * @param conn Connection
+	 * @param catalog Catalog
+	 * @param schema Schema
+	 * @param table Table
+	 * @throws SQLException
+	 */
 	protected void buildTableFKsWithUserSchema (final Connection conn, final Catalog catalog, final Schema schema,
 			final Table table) throws SQLException {
 
@@ -1731,6 +1750,15 @@ public final class CUBRIDSchemaFetcher extends
 		}
 	}
 
+	/**
+	 * build CUBRID View
+	 * 
+	 * @param conn Connection
+	 * @param catalog Catalog
+	 * @param schema Schema
+	 * @param filter IBuildSchemaFilter
+	 * @throws SQLException
+	 */
 	protected void buildCUBRIDViews(final Connection conn, final Catalog catalog, final Schema schema,
 			IBuildSchemaFilter filter) throws SQLException {
 
@@ -1762,6 +1790,15 @@ public final class CUBRIDSchemaFetcher extends
 		}
 	}
 	
+	/**
+	 * Get all CUBRID View names
+	 * 
+	 * @param conn Connection
+	 * @param catalog Catalog
+	 * @param schema Schema
+	 * @return List<String> viewNameList
+	 * @throws SQLException
+	 */
 	protected List<String> getCUBRIDAllViewNames(final Connection conn, final Catalog catalog, final Schema schema)
 			throws SQLException {
 		ResultSet rs = null; //NOPMD
@@ -2167,6 +2204,14 @@ public final class CUBRIDSchemaFetcher extends
 		return schemaNames;
 	}
 	
+	/**
+	 * Get connection's user name
+	 * 
+	 * @param conn Connection
+	 * @param cp ConnParameters
+	 * @return
+	 * @throws SQLException
+	 */
 	protected List<String> getUserSchemaNames(final Connection conn, ConnParameters cp) throws SQLException {
 		List<String> result = new ArrayList<String>();
 		//		if (StringUtils.isNotBlank(cp.getSchema())) {
@@ -2178,6 +2223,13 @@ public final class CUBRIDSchemaFetcher extends
 		return result;
 	}
 	
+	/**
+	 * return true if connect user has dba privilege or dba group
+	 * 
+	 * @param conn Connection
+	 * @param conParams ConnParameter
+	 * @return boolean is connect user has dba privilege or dba group
+	 */
 	private boolean getPrivilege(Connection conn, ConnParameters conParams) {
 		PreparedStatement stmt = null;
 		ResultSet rs = null;
@@ -2212,6 +2264,13 @@ public final class CUBRIDSchemaFetcher extends
 		return false;
 	}
 	
+	/**
+	 * return true if connect user has dba privilege or dba group
+	 * 
+	 * @param conn Connection
+	 * @param catalog Catalog
+	 * @return boolean is connect user has dba privilege or dba group
+	 */
 	private boolean getPrivilege(Connection conn, Catalog catalog) {
 		PreparedStatement stmt = null;
 		ResultSet rs = null;

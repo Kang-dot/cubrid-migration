@@ -584,6 +584,11 @@ public class SelectSourcePage extends
 			return true;
 		}
 		
+		/**
+		 * Remove empty Schema
+		 * 
+		 * @param catalog Catalog
+		 */
 		private void removeEmptySchema(Catalog catalog) {
 			List<Schema> schemaList = catalog.getSchemas();
 			List<Schema> removeSchema = new ArrayList<Schema>();

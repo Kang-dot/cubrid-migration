@@ -286,6 +286,13 @@ public final class MigrationTemplateParser {
 		createTargetViewNodes(config, document, target);
 	}
 	
+	/**
+	 * Create Target Schema Nodes
+	 * 
+	 * @param config MigrationConfiguration
+	 * @param document Document
+	 * @param target Element
+	 */
 	private static void createTargetSchemaNodes(MigrationConfiguration config, Document document, Element target) {
 		Element schemas = createElement(document, target, TemplateTags.TAG_SCHEMAS);
 		List<Schema> schemaList = config.getTargetSchemaList();

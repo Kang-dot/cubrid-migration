@@ -147,6 +147,12 @@ public class CUBRIDDatabase extends
 		return CUBRIDDataTypeHelper.getInstance(version);
 	}
 	
+	/**
+	 * Return true if dbVersion is over 112
+	 * 
+	 * @return bool is over 112
+	 */
+	
 	@Override
 	public boolean isSupportMultiSchema() {
 		boolean bool1;

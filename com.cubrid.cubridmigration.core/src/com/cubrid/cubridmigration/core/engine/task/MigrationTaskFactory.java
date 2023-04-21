@@ -283,6 +283,13 @@ public class MigrationTaskFactory {
 		task.setMigrationEventHandler(context.getEventsHandler());
 	}
 	
+	/**
+	 * createImportSchemaTask
+	 * 
+	 * @param dummySchema
+	 * @return SchemaImportTask
+	 */
+	
 	public ImportTask createImportSchemaTask(Schema dummySchema) {
 		SchemaImportTask task = new SchemaImportTask(dummySchema);
 		initImportTask(task);

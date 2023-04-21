@@ -370,6 +370,11 @@ public class BaseConfirmationPage extends MigrationWizardPage {
 		txtDDL.append(sbConstrains.toString());
 	}
 	
+	/**
+	 * Set "create user" query
+	 * 
+	 * @param cfg
+	 */
 	public void appendSchemaDDL(MigrationConfiguration cfg) {
 		MigrationConfiguration config = getMigrationWizard().getMigrationConfig();
 		

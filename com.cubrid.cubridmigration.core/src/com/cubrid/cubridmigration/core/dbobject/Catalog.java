@@ -388,7 +388,11 @@ public class Catalog implements
 			//Do nothing
 		}
 	}
-	
+	/**
+	 * return if CUBRID DBMS Version is over 11.2
+	 * 
+	 * @return boolean hasUserSchema
+	 */
 	public boolean isDbHasUserSchema() {
 		int dbType = getDatabaseType().getID();
 		

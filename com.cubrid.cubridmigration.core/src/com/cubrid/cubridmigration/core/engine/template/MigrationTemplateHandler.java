@@ -807,7 +807,12 @@ public final class MigrationTemplateHandler extends
 		//			parseCMServer(qName, attr);
 		//		}
 	}
-	
+	/**
+	 * convert String vertion to int
+	 * 
+	 * @param version
+	 * @return int version
+	 */
 	private int convertVersionToInt(String version) {
 		String stringValue = version.replaceAll("\\.", "");
 		

@@ -521,6 +521,11 @@ public class MigrationConfiguration {
 		return cl;
 	}
 	
+	/**
+	 * Build schema to migrate 
+	 * 
+	 * @param isReset
+	 */
 	private void buildSchemaCfg(boolean isReset) {
 		for (String schemaName : newTargetSchema) {
 			Schema dummySchema = new Schema();
@@ -2620,6 +2625,12 @@ public class MigrationConfiguration {
 		return null;
 	}
 	
+	/**
+	 * get target sequence by sequence name and sequence owner
+	 * 
+	 * @param String owner, String target
+	 * @return target sequence
+	 */
 	public Sequence getTargetSerialSchema(String owner, String target) {
 		if (owner == null) {
 			return getTargetSerialSchema(target);
@@ -2657,6 +2668,12 @@ public class MigrationConfiguration {
 		return null;
 	}
 	
+	/**
+	 * get target table by table name and table owner
+	 * 
+	 * @param String owner, String target
+	 * @return target table
+	 */
 	public Table getTargetTableSchema(String owner, String name) {
 		if (owner == null) {
 			return getTargetTableSchema(name);
@@ -2691,6 +2708,12 @@ public class MigrationConfiguration {
 		return null;
 	}
 	
+	/**
+	 * get target view by view name and view owner
+	 * 
+	 * @param String owner, String target
+	 * @return target view
+	 */
 	public View getTargetViewSchema(String owner, String viewName) {
 		if (owner == null) {
 			return getTargetViewSchema(viewName);

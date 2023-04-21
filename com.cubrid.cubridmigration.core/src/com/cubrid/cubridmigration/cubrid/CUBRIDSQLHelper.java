@@ -751,6 +751,12 @@ public class CUBRIDSQLHelper extends
 		return buf.toString();
 	}
 	
+	/**
+	 * create query "create user" for target DB
+	 * 
+	 * @param dummySchema
+	 * @return String create user query
+	 */
 	public String getSchemaDDL(Schema dummySchema) {
 		StringBuffer bf = new StringBuffer();
 		
