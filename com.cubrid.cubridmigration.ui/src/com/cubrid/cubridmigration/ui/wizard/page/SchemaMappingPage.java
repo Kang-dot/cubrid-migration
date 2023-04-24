@@ -622,7 +622,8 @@ public class SchemaMappingPage extends MigrationWizardPage {
 	private boolean saveOfflineData(boolean addUserSchema) {
 		for (SrcTable srcTable : srcTableList) {
 			if (addUserSchema) {
-				if (srcTable.getTarSchema().isEmpty() || srcTable.getTarSchema() == null) {
+				if (srcTable.getTarSchema().isEmpty() || srcTable.getTarSchema() == null 
+						|| srcTable.getTarSchema().equals(Messages.msgTypeSchema)) {
 					MessageDialog.openError(getShell(), Messages.msgError, Messages.msgErrEmptySchemaName);
 					
 					return false;
