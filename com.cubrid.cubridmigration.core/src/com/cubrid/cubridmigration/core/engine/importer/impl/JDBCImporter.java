@@ -419,6 +419,7 @@ public class JDBCImporter extends
 
 	public void createSchema(Schema dummySchema) {
 		String ddl = CUBRIDSQLHelper.getInstance(null).getSchemaDDL(dummySchema);
+		dummySchema.setDDL(ddl);
 		try {
 			executeDDL(ddl);
 			createObjectSuccess(dummySchema);

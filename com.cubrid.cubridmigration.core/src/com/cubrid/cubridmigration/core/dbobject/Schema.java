@@ -132,6 +132,10 @@ public class Schema extends DBObject implements
 		this.createDDL = createDDL;
 	}
 
+	public void setDDL(String createDDL) {
+		this.createDDL = createDDL;
+	}
+
 	/**
 	 * Set views of schema
 	 * 

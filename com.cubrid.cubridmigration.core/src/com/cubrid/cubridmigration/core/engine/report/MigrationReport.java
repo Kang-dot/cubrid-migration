@@ -72,7 +72,7 @@ public class MigrationReport implements
 
 	private static final long serialVersionUID = -6045872698227171614L;
 
-	private final static String[] OVERVIEW_TYPES = new String[] {DBObject.OBJ_TYPE_TABLE,
+	private final static String[] OVERVIEW_TYPES = new String[] {DBObject.OBJ_TYPE_SCHEMA, DBObject.OBJ_TYPE_TABLE,
 			DBObject.OBJ_TYPE_VIEW, DBObject.OBJ_TYPE_PK, DBObject.OBJ_TYPE_FK,
 			DBObject.OBJ_TYPE_INDEX, DBObject.OBJ_TYPE_SEQUENCE, DBObject.OBJ_TYPE_TRIGGER,
 			DBObject.OBJ_TYPE_FUNCTION, DBObject.OBJ_TYPE_PROCEDURE, DBObject.OBJ_TYPE_RECORD};
