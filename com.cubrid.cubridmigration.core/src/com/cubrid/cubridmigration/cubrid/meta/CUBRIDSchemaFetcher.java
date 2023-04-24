@@ -606,12 +606,12 @@ public final class CUBRIDSchemaFetcher extends
 		ResultSet rs = null;
 		PreparedStatement stmt = null;
 		
-		String sql = "SELECT a.class_name, c.owner_name, a.attr_name, a.attr_type, a.from_class_name,"
+		String sql = "SELECT a.class_name, a.owner_name, a.attr_name, a.attr_type, a.from_class_name,"
 				+ " a.data_type, a.prec, a.scale, a.is_nullable,"
 				+ " a.domain_class_name, a.default_value, a.def_order,c.is_reuse_oid_class, c.comment"
 				+ " FROM db_attribute a , db_class c"
-				+ " WHERE c.class_name = a.class_name AND c.class_type='CLASS' AND c.is_system_class='NO' and from_class_name is NULL"
-				+ " AND c.owner_name = ? "
+				+ " WHERE c.class_name = a.class_name AND c.class_type='CLASS' AND c.is_system_class='NO' AND from_class_name is NULL"
+				+ " AND c.owner_name = a.owner_name AND c.owner_name = ? "
 				+ " ORDER BY a.class_name, c.class_type, a.def_order";
 		
 		try {
@@ -1082,7 +1082,9 @@ public final class CUBRIDSchemaFetcher extends
 				cubridColumn.setPrecision(precision);
 				cubridColumn.setScale(scale);
 				cubridColumn.setShownDataType(cubDTHelper.getShownDataType(cubridColumn));
-			}
+			} 
+		} catch (Exception e) {
+			e.printStackTrace();
 		} finally {
 			Closer.close(rs);
 			Closer.close(stmt);

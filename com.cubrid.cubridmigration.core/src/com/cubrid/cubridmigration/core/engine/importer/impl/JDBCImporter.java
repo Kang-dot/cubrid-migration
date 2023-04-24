@@ -317,7 +317,7 @@ public class JDBCImporter extends
 		int result = 0;
 		try {
 			//get target table
-			final Table tt = config.getTargetTableSchema(stc.getTarget());
+			final Table tt = config.getTargetTableSchema(stc.getTargetOwner(), stc.getTarget());
 			if (tt == null) {
 				return 0;
 			}

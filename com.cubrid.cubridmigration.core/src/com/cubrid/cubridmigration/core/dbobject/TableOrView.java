@@ -145,6 +145,28 @@ public abstract class TableOrView extends
 		}
 		return null;
 	}
+	
+	/**
+	 * get Column By column Name, table name and owner
+	 * 
+	 * @param name String
+	 * @return Column
+	 */
+	public Column getColumnByName(String tableOwnerName, String tableName, String name) {
+		if (tableOwnerName == null || tableName == null) {
+			return getColumnByName(name);
+		}
+		
+		for (Column column : columns) {
+			if (column.getName().equalsIgnoreCase(name) 
+					&& column.getTableOrView().getOwner().equals(tableOwnerName)
+					&& column.getTableOrView().getName().equals(tableName)) {
+				return column;
+			}
+		}
+		return null;
+	}
+	
 
 	/**
 	 * get Column By column Name

@@ -820,7 +820,9 @@ public class MigrationConfiguration {
 		targetTables.clear();
 		targetTables.addAll(tempTarTables.values());
 
-		repareN21MigrationSetting();
+		if (isTarSchemaDuplicate) {
+			repareN21MigrationSetting();			
+		}
 	}
 
 	/**
@@ -861,7 +863,7 @@ public class MigrationConfiguration {
 			sccs.add(scc);
 			targetNames.add(scc.getTarget());
 
-			Column tcol = tarTable.getColumnByName(scc.getTarget());
+			Column tcol = tarTable.getColumnByName(scc.getParent().getTargetOwner(), scc.getParent().getName(), scc.getTarget());
 			if (tcol == null) {
 				tcol = getDBTransformHelper().getCUBRIDColumn(scol, this);
 				tcol.setName(scc.getTarget());
@@ -3060,11 +3062,11 @@ public class MigrationConfiguration {
 					continue;
 				}
 				for (SourceColumnConfig scc : stc.getColumnConfigList()) {
-					Column tcol = tt.getColumnByName(scc.getTarget());
+					Column tcol = tt.getColumnByName(scc.getParent().getTargetOwner(), scc.getParent().getName(), scc.getTarget());
 					if (tcol != null) {
 						continue;
 					}
-					final Column scol = srcTable.getColumnByName(scc.getName());
+					final Column scol = srcTable.getColumnByName(scc.getParent().getOwner(), scc.getParent().getName(), scc.getName());
 					if (scol == null) {
 						continue;
 					}
