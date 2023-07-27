@@ -39,6 +39,7 @@ import org.apache.log4j.Logger;
 import com.cubrid.cubridmigration.core.common.CUBRIDIOUtils;
 import com.cubrid.cubridmigration.core.common.PathUtils;
 import com.cubrid.cubridmigration.core.common.log.LogUtil;
+import com.cubrid.cubridmigration.core.dbobject.DBObject;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.engine.MigrationContext;
 import com.cubrid.cubridmigration.core.engine.MigrationDirAndFilesManager;
@@ -67,13 +68,18 @@ public class LoadFileImporter extends
 	private static class CurrentDataFileInfo {
 		String fileHeader;
 		String fileFullName;
+		String fileTableFullName;
 		int currentFileNO = 1;
 		String fileExt;
 
-		public CurrentDataFileInfo(String header, String ext) {
+		public CurrentDataFileInfo(String fileFullName, String header, String prefix, String owner, String name, String ext) {
 			this.fileHeader = header;
 			this.fileExt = ext;
-			this.fileFullName = header + ext;
+			this.fileTableFullName = header + File.separator 
+					+ owner + File.separator
+					+ prefix + "_" + owner + "_" + name
+					+ ext;
+			this.fileFullName = fileFullName;
 		}
 
 		/**
@@ -84,15 +90,24 @@ public class LoadFileImporter extends
 			final StringBuffer sb = new StringBuffer(fileHeader);
 			currentFileNO++;
 			sb.append("_").append(currentFileNO);
-			fileFullName = sb.append(fileExt).toString();
+			fileTableFullName = sb.append(fileExt).toString();
 			//If has old file ,remove it firstly
-			PathUtils.deleteFile(new File(fileFullName));
+			PathUtils.deleteFile(new File(fileTableFullName));
 		}
 	}
 
 	protected final static Logger LOGGER = LogUtil.getLogger(LoadFileImporter.class);
 
 	private final Map<String, CurrentDataFileInfo> tableFiles = new HashMap<String, CurrentDataFileInfo>();
+	private final Map<String, String> schemaFiles = new HashMap<String, String>();
+	private final Map<String, String> tableSchemaFiles = new HashMap<String, String>();
+	private final Map<String, String> viewFiles = new HashMap<String, String>();
+	private final Map<String, String> pkFiles = new HashMap<String, String>();
+	private final Map<String, String> fkFiles = new HashMap<String, String>();
+	private final Map<String, String> indexFiles = new HashMap<String, String>();
+	private final Map<String, String> sequenceFiles = new HashMap<String, String>();
+	private final Map<String, String> synonymFiles = new HashMap<String, String>();
+	private final Map<String, String> grantFiles = new HashMap<String, String>();
 
 	private final Object lockObj = new Object();
 
@@ -131,23 +146,23 @@ public class LoadFileImporter extends
 			final int expCount) {
 		synchronized (lockObj) {
 			MigrationDirAndFilesManager mdfm = mrManager.getDirAndFilesMgr();
-			CurrentDataFileInfo es = tableFiles.get(stc.getName());
-			if (es == null) {
-				final StringBuffer sb = new StringBuffer(
-						mrManager.getDirAndFilesMgr().getMergeFilesDir()).append(
-						config.getFullTargetFilePrefix()).append(stc.getTarget());
-				es = new CurrentDataFileInfo(sb.toString(), config.getDataFileExt());
-				PathUtils.deleteFile(new File(es.fileFullName));
-				tableFiles.put(stc.getName(), es);
+			
+			if (!tableFiles.containsKey(stc.getTargetOwner() + stc.getName())) {
+				tableFiles.put(stc.getTargetOwner() + stc.getName(), new CurrentDataFileInfo(config.getTargetDataFileName(stc.getTargetOwner()), 
+						mdfm.getMergeFilesDir(),config.getTargetFilePrefix(), stc.getTargetOwner(), stc.getName(), config.getDataFileExt()));
 			}
+			
+			CurrentDataFileInfo es = tableFiles.get(stc.getTargetOwner() + stc.getName());
+			
 			//If the target file is full. 
-			if (mdfm.isDataFileFull(es.fileFullName)) {
+			if (mdfm.isDataFileFull(es.fileTableFullName)) {
 				//Full name will be changed.
 				es.nextFile();
 			}
+			final String fileTableFullName = es.fileTableFullName;
 			final String fileFullName = es.fileFullName;
-			mdfm.addDataFile(fileFullName, impCount);
-			executeTask(fileName, fileFullName, new RunnableResultHandler() {
+			mdfm.addDataFile(fileTableFullName, impCount);
+			executeTask(fileName, fileTableFullName, new RunnableResultHandler() {
 
 				public void success() {
 					eventHandler.handleEvent(new ImportRecordsEvent(stc, impCount));
@@ -169,7 +184,7 @@ public class LoadFileImporter extends
 					final boolean expEnd = sm.getExpFlag(stc.getOwner(), stc.getName());
 					//If it is the last merging,Merge data files to one data file
 					if (expEnd && totalEc == totalIc) {
-						executeTask(fileFullName, config.getTargetDataFileName(), null, true, false);
+						executeTask(fileTableFullName, fileFullName, null, true, false);
 					}
 				}
 
@@ -181,7 +196,112 @@ public class LoadFileImporter extends
 			}, config.isDeleteTempFile(), false);
 		}
 	}
-
+	
+	/**
+	 * Send Schema file to server loadDB command.
+	 * 
+	 * @param owner
+	 * @return schema file full path
+	 */
+	protected String handleSchemaFile(String owner) {
+		if (!schemaFiles.containsKey(owner)) {
+			schemaFiles.put(owner, config.getTargetSchemaFileName(owner));
+		}
+		return schemaFiles.get(owner);
+	}
+	
+	/**
+	 * Send Table file to server loadDB command.
+	 * 
+	 * @param owner
+	 * @return table file full path
+	 */
+	protected String handleTableSchemaFile(String owner) {
+		if (!tableSchemaFiles.containsKey(owner)) {
+			tableSchemaFiles.put(owner, config.getTargetTableFileName(owner));
+		}
+		return tableSchemaFiles.get(owner);
+	}
+	
+	/**
+	 * Send View file to server loadDB command.
+	 * 
+	 * @param owner
+	 * @return view file pull path
+	 */
+	protected String handleViewFile(String owner) {
+		if (!viewFiles.containsKey(owner)) {
+			viewFiles.put(owner, config.getTargetViewFileName(owner));
+		}
+		return viewFiles.get(owner);
+	}
+	
+	protected String handlePkFile(String owner) {
+		if (!pkFiles.containsKey(owner)) {
+			pkFiles.put(owner, config.getTargetPkFileName(owner));
+		}
+		return pkFiles.get(owner);
+	}
+	
+	protected String handleFkFile(String owner) {
+		if (!fkFiles.containsKey(owner)) {
+			fkFiles.put(owner, config.getTargetFkFileName(owner));
+		}
+		return fkFiles.get(owner);
+	}
+	
+	/**
+	 * Send Index file to server loadDB command.
+	 * 
+	 * @param owner
+	 * @return index file full path
+	 */
+	protected String handleIndexFile(String owner) {
+		if (!indexFiles.containsKey(owner)) {
+			indexFiles.put(owner, config.getTargetIndexFileName(owner));
+		}
+		return indexFiles.get(owner);
+	}
+	
+	/**
+	 * Send Sequence file to server loadDB command.
+	 * 
+	 * @param owner
+	 * @return sequence file full path
+	 */
+	protected String handleSequenceFile(String owner) {
+		if (!sequenceFiles.containsKey(owner)) {
+			sequenceFiles.put(owner, config.getTargetSerialFileName(owner));
+		}
+		return sequenceFiles.get(owner);
+	}
+	
+	/**
+	 * Send Synonym file to server loadDB command.
+	 * 
+	 * @param owner
+	 * @return synonym file full path
+	 */
+	protected String handleSynonymFile(String owner) {
+		if (!synonymFiles.containsKey(owner)) {
+			synonymFiles.put(owner, config.getTargetSynonymFileName(owner));
+		}
+		return synonymFiles.get(owner);
+	}
+	
+	/**
+	 * Send Grant file to server loadDB command.
+	 * 
+	 * @param owner
+	 * @return grant file full path
+	 */
+	protected String handleGrantFile(String owner) {
+		if (!grantFiles.containsKey(owner)) {
+			grantFiles.put(owner, config.getTargetGrantFileName(owner));
+		}
+		return grantFiles.get(owner);
+	}
+	
 	/**
 	 * Send schema file and data file to server for loadDB command.
 	 * 
@@ -207,10 +327,42 @@ public class LoadFileImporter extends
 	 * @param listener a call interface.
 	 * @param isIndex true if the DDL is about index
 	 */
-	protected void sendSchemaFile(String fileName, RunnableResultHandler listener, boolean isIndex) {
-		executeTask(fileName,
-				isIndex ? config.getTargetIndexFileName() : config.getTargetSchemaFileName(),
-				listener, config.isDeleteTempFile(), true);
+	protected void sendSchemaFile(String fileName, RunnableResultHandler listener, String objectType, String owner) {
+		executeTask(fileName, getFilePath(objectType, owner), listener, config.isDeleteTempFile(), true);
+	}
+	
+	private String getFilePath(String objectType, String owner) {
+		if (config.isSplitSchema()) {
+			if (objectType.equals(DBObject.OBJ_TYPE_TABLE)) {
+				return handleTableSchemaFile(owner);
+			} else if (objectType.equals(DBObject.OBJ_TYPE_VIEW)) {
+				return handleViewFile(owner);
+			} else if (objectType.equals(DBObject.OBJ_TYPE_PK)) {
+				return handlePkFile(owner);
+			} else if (objectType.equals(DBObject.OBJ_TYPE_FK)) {
+				return handleFkFile(owner);
+			} else if (objectType.equals(DBObject.OBJ_TYPE_INDEX)) {
+				return handleIndexFile(owner);
+			} else if (objectType.equals(DBObject.OBJ_TYPE_SEQUENCE)) {
+				return handleSequenceFile(owner);
+			} else if (objectType.equals(DBObject.OBJ_TYPE_SYNONYM)) {
+				return handleSynonymFile(owner);
+			} else if (objectType.equals(DBObject.OBJ_TYPE_GRANT)) {
+				return handleGrantFile(owner);
+			}
+		} else {
+			if (objectType.equals(DBObject.OBJ_TYPE_TABLE)
+					|| objectType.equals(DBObject.OBJ_TYPE_VIEW)
+					|| objectType.equals(DBObject.OBJ_TYPE_PK)
+					|| objectType.equals(DBObject.OBJ_TYPE_FK)
+					|| objectType.equals(DBObject.OBJ_TYPE_SEQUENCE)) {
+				return handleSchemaFile(owner);
+			} else if (objectType.equals(DBObject.OBJ_TYPE_INDEX)) {
+				return handleIndexFile(owner);
+			}
+		}
+		
+		return handleSchemaFile(owner);
 	}
 
 	/**

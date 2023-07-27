@@ -62,18 +62,21 @@ import com.cubrid.cubridmigration.core.dbobject.Column;
 import com.cubrid.cubridmigration.core.dbobject.DBObjectFactory;
 import com.cubrid.cubridmigration.core.dbobject.FK;
 import com.cubrid.cubridmigration.core.dbobject.Function;
+import com.cubrid.cubridmigration.core.dbobject.Grant;
 import com.cubrid.cubridmigration.core.dbobject.Index;
 import com.cubrid.cubridmigration.core.dbobject.PartitionInfo;
 import com.cubrid.cubridmigration.core.dbobject.PartitionTable;
 import com.cubrid.cubridmigration.core.dbobject.Procedure;
 import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
+import com.cubrid.cubridmigration.core.dbobject.Synonym;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.Trigger;
 import com.cubrid.cubridmigration.core.dbobject.Version;
 import com.cubrid.cubridmigration.core.dbobject.View;
 import com.cubrid.cubridmigration.core.dbtype.DatabaseType;
 import com.cubrid.cubridmigration.core.export.DBExportHelper;
+import com.cubrid.cubridmigration.cubrid.CUBRIDSQLHelper;
 import com.cubrid.cubridmigration.oracle.OracleDataTypeHelper;
 
 /**
@@ -144,6 +147,8 @@ public final class OracleSchemaFetcher extends
 
 	private static final String SQL_SHOW_SEQUENCES = "SELECT S.* FROM ALL_SEQUENCES S "
 			+ "WHERE S.SEQUENCE_OWNER=? AND NOT S.SEQUENCE_NAME LIKE 'BIN$%' ";
+	
+	private static final String SQL_SHOW_SYNONYM = "SELECT SYNONYM_NAME, TABLE_OWNER, TABLE_NAME, DB_LINK FROM USER_SYNONYMS";
 
 	private static final String SQL_SHOW_VIEW_QUERYTEXT = "SELECT TEXT from ALL_VIEWS WHERE OWNER=? AND VIEW_NAME=?";
 	
@@ -158,6 +163,18 @@ public final class OracleSchemaFetcher extends
 	
 	private static final String SQL_GET_COLUMN_COMMENT = "SELECT COMMENTS FROM ALL_COL_COMMENTS WHERE OWNER=? AND "
 			+ "TABLE_NAME=? AND COLUMN_NAME=?";
+	
+	private static final String SQL_SHOW_GRANT_TABLE = "SELECT P.GRANTEE, P.OWNER, P.TABLE_NAME, P.GRANTOR, P.PRIVILEGE, P.GRANTABLE" 
+			+ " FROM USER_TAB_PRIVS P, ALL_TABLES T"
+			+ " WHERE P.TABLE_NAME=T.TABLE_NAME"
+			+ " AND P.OWNER=T.OWNER"
+			+ " AND P.GRANTEE=?";
+	
+	private static final String SQL_SHOW_GRANT_VIEW = "SELECT P.GRANTEE, P.OWNER, P.TABLE_NAME, P.GRANTOR, P.PRIVILEGE, P.GRANTABLE"
+			+ " FROM USER_TAB_PRIVS P, ALL_VIEWS V"
+			+ " WHERE P.TABLE_NAME=V.VIEW_NAME"
+			+ " AND P.OWNER=V.OWNER"
+			+ " AND P.GRANTEE=?";
 
 	//private static final String SHOW_SEQUENCE_MAXVAL = "SELECT ?.CURRVAL  FROM DUAL";
 
@@ -380,6 +397,44 @@ public final class OracleSchemaFetcher extends
 				seq.setDDL(getObjectDDL(conn, schema.getName(), sequenceName, OBJECT_TYPE_SEQUENCE));
 				seq.setOwner(schema.getName());
 				schema.addSequence(seq);
+			}
+		} finally {
+			Closer.close(rs);
+			Closer.close(stmt);
+		}
+	}
+	
+	protected void buildSynonym(Connection conn, Catalog catlog, Schema schema, 
+			IBuildSchemaFilter filter) throws SQLException {
+		if (LOG.isDebugEnabled()) {
+			LOG.debug("[IN]buildSynonym()");
+		}
+		PreparedStatement stmt = null; // NOPMD
+		ResultSet rs = null; // NOPMD
+		
+		try {
+			stmt = conn.prepareStatement(SQL_SHOW_SYNONYM);
+			if (LOG.isDebugEnabled()) {
+				LOG.debug("[SQL]" + SQL_SHOW_SYNONYM + ", " + "1=" + schema.getName() + ", "
+						+ "2=" + schema.getName());
+			}
+
+			rs = stmt.executeQuery();
+			while (rs.next()) {
+				String synonymName = rs.getString("SYNONYM_NAME");
+				if (filter != null && filter.filter(schema.getName(), synonymName)) {
+					continue;
+				}
+				String targetOwnerName = rs.getString("TABLE_OWNER");
+				String targetName = rs.getString("TABLE_NAME");
+				Synonym synonym = factory.createSynonym();
+				synonym.setName(synonymName);
+				synonym.setOwner(schema.getName());
+				synonym.setPublic(false);
+				synonym.setObjectName(targetName);
+				synonym.setObjectOwner(targetOwnerName);
+				synonym.setDDL(CUBRIDSQLHelper.getInstance(null).getSynonymDDL(synonym, true));
+				schema.addSynonym(synonym);
 			}
 		} finally {
 			Closer.close(rs);
@@ -754,6 +809,75 @@ public final class OracleSchemaFetcher extends
 			}
 			column.setShownDataType(shownDataType);
 			column.setComment(getViewColumnComment(conn, schema.getName(), view.getName(), column));
+		}
+	}
+	
+	/**
+	 * Build Grant
+	 * 
+	 * @param conn Connection
+	 * @param catalog Catalog
+	 * @param schema Schema
+	 * @param filter IBuildSchemaFilter
+	 * @throws SQLException e
+	 */
+	protected void buildGrant(Connection conn, Catalog catalog, Schema schema,
+			IBuildSchemaFilter filter) throws SQLException {
+		if (LOG.isDebugEnabled()) {
+			LOG.debug("[IN]buildGrant()");
+		}
+		PreparedStatement stmt = null; // NOPMD
+		ResultSet rs = null; // NOPMD
+		
+		try {
+			stmt = conn.prepareStatement(SQL_SHOW_GRANT_TABLE);
+			if (LOG.isDebugEnabled()) {
+				LOG.debug("[SQL]" + SQL_SHOW_GRANT_TABLE + ", " + "1=" + schema.getName() + ", "
+						+ "2=" + schema.getName());
+			}
+
+			stmt.setString(1, schema.getName().toUpperCase());	
+			rs = stmt.executeQuery();
+			while (rs.next()) {
+				if (!isSupportPrivilege(rs.getString("PRIVILEGE"))) {
+					continue;
+				}
+				
+				Grant grant = factory.createGrant();
+				grant.setGranteeName(rs.getString("GRANTEE"));
+				grant.setOwner(schema.getName());
+				grant.setClassOwner(rs.getString("OWNER"));
+				grant.setClassName(rs.getString("TABLE_NAME"));
+				grant.setGrantorName(rs.getString("GRANTOR"));
+				grant.setAuthType(convertPrivilegeOracle2Cubrid(rs.getString("PRIVILEGE")));
+				grant.setGrantable(rs.getString("GRANTABLE").equals("YES") ? true : false);
+				grant.setDDL(CUBRIDSQLHelper.getInstance(null).getGrantDDL(grant, true));
+				schema.addGrant(grant);
+			}
+			
+			stmt = conn.prepareStatement(SQL_SHOW_GRANT_VIEW);
+			if (LOG.isDebugEnabled()) {
+				LOG.debug("[SQL]" + SQL_SHOW_GRANT_VIEW + ", " + "1=" + schema.getName() + ", "
+						+ "2=" + schema.getName());
+			}
+
+			stmt.setString(1, schema.getName().toUpperCase());
+			rs = stmt.executeQuery();
+			while (rs.next()) {
+				Grant grant = factory.createGrant();
+				grant.setGranteeName(rs.getString("GRANTEE"));
+				grant.setOwner(schema.getName());
+				grant.setClassOwner(rs.getString("OWNER"));
+				grant.setClassName(rs.getString("TABLE_NAME"));
+				grant.setGrantorName(rs.getString("GRANTOR"));
+				grant.setAuthType(rs.getString("PRIVILEGE"));
+				grant.setGrantable(rs.getString("GRANTABLE").equals("YES") ? true : false);
+				grant.setDDL(CUBRIDSQLHelper.getInstance(null).getGrantDDL(grant, true));
+				schema.addGrant(grant);
+			}
+		} finally {
+			Closer.close(rs);
+			Closer.close(stmt);
 		}
 	}
 
@@ -1530,6 +1654,42 @@ public final class OracleSchemaFetcher extends
 			Closer.close(rs);
 			Closer.close(stmt);
 		}
+	}
+	
+	/**
+	 * Check privilege supported by Cubrid.
+	 * 
+	 * @param privilege
+	 * @return boolean
+	 */
+	private boolean isSupportPrivilege(String privilege) {
+		if (privilege.equals("SELECT") 
+				|| privilege.equals("INSERT")
+				|| privilege.equals("UPDATE")
+				|| privilege.equals("DELETE")
+				|| privilege.equals("ALTER")
+				|| privilege.equals("INDEX")
+				|| privilege.equals("EXECUTE")
+				|| privilege.equals("ALL")) {
+			return true;
+		}
+		return false;
+	}
+	
+	/**
+	 * Change to privilege used by Cubrid.
+	 * 
+	 * @param privilege
+	 * @return String cubridPrivilege
+	 */
+	private String convertPrivilegeOracle2Cubrid(String privilege) {
+		String cubridPrivilege = privilege;
+		
+		if (privilege.equals("ALL")) {
+			cubridPrivilege = "ALL PRIVILEGES";
+		}
+		
+		return cubridPrivilege;
 	}
 
 	/**

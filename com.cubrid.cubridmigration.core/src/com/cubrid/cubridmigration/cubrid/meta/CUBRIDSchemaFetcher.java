@@ -61,6 +61,7 @@ import com.cubrid.cubridmigration.core.dbobject.Column;
 import com.cubrid.cubridmigration.core.dbobject.DBObjectFactory;
 import com.cubrid.cubridmigration.core.dbobject.FK;
 import com.cubrid.cubridmigration.core.dbobject.Function;
+import com.cubrid.cubridmigration.core.dbobject.Grant;
 import com.cubrid.cubridmigration.core.dbobject.Index;
 import com.cubrid.cubridmigration.core.dbobject.PK;
 import com.cubrid.cubridmigration.core.dbobject.PartitionInfo;
@@ -68,6 +69,7 @@ import com.cubrid.cubridmigration.core.dbobject.PartitionTable;
 import com.cubrid.cubridmigration.core.dbobject.Procedure;
 import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
+import com.cubrid.cubridmigration.core.dbobject.Synonym;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.TableOrView;
 import com.cubrid.cubridmigration.core.dbobject.Trigger;
@@ -146,13 +148,13 @@ public final class CUBRIDSchemaFetcher extends
 			List<Table> tableList = schema.getTables();
 
 			for (Table table : tableList) {
-				table.setDDL(ddlUtil.getTableDDL(table));
+				table.setDDL(ddlUtil.getTableDDL(table, false));
 			}
 
 			List<View> viewList = schema.getViews();
 
 			for (View view : viewList) {
-				view.setDDL(ddlUtil.getViewDDL(view));
+				view.setDDL(ddlUtil.getViewDDL(view, false));
 			}
 		}
 
@@ -1280,7 +1282,7 @@ public final class CUBRIDSchemaFetcher extends
 						new BigInteger(maxVal), new BigInteger(incrementVal), new BigInteger(
 								currentVal), isCycle, cachedNum);
 				sequence.setComment(comment);
-				String ddl = CUBRIDSQLHelper.getInstance(null).getSequenceDDL(sequence);
+				String ddl = CUBRIDSQLHelper.getInstance(null).getSequenceDDL(sequence, false);
 				sequence.setDDL(ddl);
 				sequence.setOwner(owner);
 
@@ -1792,6 +1794,22 @@ public final class CUBRIDSchemaFetcher extends
 		}
 	}
 	
+	protected void buildSynonym(Connection conn, Catalog catalog, Schema schema, 
+			IBuildSchemaFilter filter) throws SQLException {
+		if (getDBVersion(conn) < USERSCHEMA_VERSION) {
+			schema.setSynonymList(new ArrayList<Synonym>());
+			return;
+		}
+		List<Synonym> synonymList = getAllSynonym(conn, schema);
+		schema.setSynonymList(synonymList);
+	}
+	
+	protected void buildGrant(Connection conn, Catalog catalog, Schema schema,
+			IBuildSchemaFilter filter) throws SQLException {
+		List<Grant> grantList = getAllGrant(conn, catalog, schema);
+		schema.setGrantList(grantList);
+	}
+	
 	/**
 	 * Get all CUBRID View names
 	 * 
@@ -2001,7 +2019,7 @@ public final class CUBRIDSchemaFetcher extends
 					+ trigUniqueName
 					+ " FROM db_class c, db_trigger trig, db_trig t"
 					+ " WHERE trig.name=t.trigger_name AND t.target_class_name=c.class_name(+)"
-					+ " AND c.is_system_class='no'"
+					+ " AND c.is_system_class='NO'"
 					+ " ORDER BY name";
 			
 			stmt = conn.prepareStatement(sql);
@@ -2029,6 +2047,103 @@ public final class CUBRIDSchemaFetcher extends
 			}
 
 			return triggers;
+		} finally {
+			Closer.close(rs);
+			Closer.close(stmt);
+		}
+	}
+	
+	/**
+	 * get All Synonyms
+	 * 
+	 * @param conn
+	 * @param schema
+	 * @return
+	 * @throws SQLException
+	 */
+	private List<Synonym> getAllSynonym(Connection conn, Schema schema) throws SQLException {
+		PreparedStatement stmt = null;
+		ResultSet rs = null; //NOPMD
+		
+		int dbVersion = getDBVersion(conn);
+		if (dbVersion < USERSCHEMA_VERSION) {
+			return null;
+		}
+		
+		try {
+			String sql = "SELECT synonym_name, synonym_owner_name, is_public_synonym,"
+					 + " target_name, target_owner_name, comment" 
+					 + " FROM db_synonym"
+					 + " WHERE synonym_owner_name=?";
+			
+			stmt = conn.prepareStatement(sql);
+			stmt.setString(1, schema.getName());
+			rs = stmt.executeQuery();
+			List<Synonym> synonyms = new ArrayList<Synonym>();
+
+			while (rs.next()) {
+				Synonym synonym = factory.createSynonym();
+				synonym.setName(rs.getString("synonym_name"));
+				synonym.setOwner(rs.getString("synonym_owner_name"));
+				synonym.setPublic(isYes(rs.getString("is_public_synonym")));
+				synonym.setObjectName(rs.getString("target_name"));
+				synonym.setObjectOwner(rs.getString("target_owner_name"));
+				synonym.setComment(rs.getString("comment"));
+				synonym.setDDL(CUBRIDSQLHelper.getInstance(null).getSynonymDDL(synonym, true));
+				synonyms.add(synonym);
+			}
+
+			return synonyms;
+		} finally {
+			Closer.close(rs);
+			Closer.close(stmt);
+		}
+	}
+	
+	/**
+	 * get All Grants
+	 * 
+	 * @param conn
+	 * @param catalog
+	 * @param schema
+	 * @return
+	 * @throws SQLException
+	 */
+	private List<Grant> getAllGrant(Connection conn, Catalog catalog, Schema schema) throws SQLException {
+		PreparedStatement stmt = null;
+		ResultSet rs = null; //NOPMD
+		
+		boolean isUserSchema = getDBVersion(conn) >= USERSCHEMA_VERSION;
+		
+		StringBuffer sql = new StringBuffer();
+		sql.append("SELECT a.grantor_name, a.grantee_name, a.class_name, a.auth_type, a.is_grantable")
+			.append(isUserSchema ? ", a.owner_name" : "")
+			.append(" FROM db_auth a, db_class c")
+			.append(" WHERE a.class_name=c.class_name")
+			.append(isUserSchema ? " AND a.owner_name=c.owner_name" : "")
+			.append(" AND c.is_system_class='NO'")
+			.append(" AND a.grantee_name=?");
+		
+		try {
+			stmt = conn.prepareStatement(sql.toString());			
+			stmt.setString(1, schema.getName().toUpperCase());
+			rs = stmt.executeQuery();
+			List<Grant> grants = new ArrayList<Grant>();
+			
+			while (rs.next()) {
+				Grant grant = factory.createGrant();
+				grant.setOwner(schema.getName());
+				grant.setGrantorName(rs.getString("grantor_name"));
+				grant.setGranteeName(rs.getString("grantee_name"));
+				grant.setClassName(rs.getString("class_name"));
+				grant.setAuthType(rs.getString("auth_type"));
+				grant.setGrantable(rs.getString("is_grantable").equals("NO") ? false : true);
+				grant.setClassOwner(isUserSchema ? rs.getString("owner_name") : null);
+				grant.setDDL(CUBRIDSQLHelper.getInstance(null).getGrantDDL(grant, isUserSchema));
+				grants.add(grant);
+			}
+			
+			return grants;
 		} finally {
 			Closer.close(rs);
 			Closer.close(stmt);

@@ -32,11 +32,13 @@ package com.cubrid.cubridmigration.core.engine.event;
 import com.cubrid.cubridmigration.core.dbobject.DBObject;
 import com.cubrid.cubridmigration.core.dbobject.FK;
 import com.cubrid.cubridmigration.core.dbobject.Function;
+import com.cubrid.cubridmigration.core.dbobject.Grant;
 import com.cubrid.cubridmigration.core.dbobject.Index;
 import com.cubrid.cubridmigration.core.dbobject.PK;
 import com.cubrid.cubridmigration.core.dbobject.Procedure;
 import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
+import com.cubrid.cubridmigration.core.dbobject.Synonym;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.Trigger;
 import com.cubrid.cubridmigration.core.dbobject.View;
@@ -120,6 +122,11 @@ public class CreateObjectEvent extends
 			sb.append("view[").append(dbObject.getName()).append("]");
 		} else if (dbObject instanceof Sequence) {
 			sb.append("sequence[").append(dbObject.getName()).append("]");
+		} else if (dbObject instanceof Synonym) {
+			sb.append("synonym[").append(((Synonym) dbObject).getOwner())
+				.append(".").append(dbObject.getName()).append("]");
+		} else if (dbObject instanceof Grant) {
+			sb.append("grant[").append(dbObject.getName()).append("]");
 		}
 		if (error != null) {
 			sb.append(" unsuccessfully." + " Detail:" + error.getMessage());

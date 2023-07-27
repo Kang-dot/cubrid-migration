@@ -239,6 +239,37 @@ public abstract class AbstractJDBCSchemaFetcher implements
 		} catch (Exception e) {
 			LOG.error("buildSequence", e);
 		}
+		
+		try {
+			buildSynonym(conn, catalog, schema, filter);
+		} catch (Exception e){
+			LOG.error("buildSynonym", e);
+		}
+		
+		try {
+			buildGrant(conn, catalog, schema, filter);
+		} catch (Exception e) {
+			LOG.error("buildGrant", e);
+		}
+	}
+	
+	protected void buildGrant(Connection conn, Catalog catalog, Schema schema,
+			IBuildSchemaFilter filter) throws SQLException {
+		//do nothing
+	}
+	
+	/**
+	 * Fetch all synonyms of the given schemata.
+	 * 
+	 * @param conn
+	 * @param catalog
+	 * @param schema
+	 * @param filter
+	 * @throws SQLException
+	 */
+	protected void buildSynonym(Connection conn, Catalog catalog, Schema schema,
+			IBuildSchemaFilter filter) throws SQLException {
+		//do nothing
 	}
 
 	/**

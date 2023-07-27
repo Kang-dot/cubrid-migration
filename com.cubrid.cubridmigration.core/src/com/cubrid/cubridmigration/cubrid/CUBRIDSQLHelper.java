@@ -41,12 +41,14 @@ import com.cubrid.cubridmigration.core.common.DBUtils;
 import com.cubrid.cubridmigration.core.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.dbobject.Column;
 import com.cubrid.cubridmigration.core.dbobject.FK;
+import com.cubrid.cubridmigration.core.dbobject.Grant;
 import com.cubrid.cubridmigration.core.dbobject.Index;
 import com.cubrid.cubridmigration.core.dbobject.PK;
 import com.cubrid.cubridmigration.core.dbobject.PartitionInfo;
 import com.cubrid.cubridmigration.core.dbobject.PartitionTable;
 import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
+import com.cubrid.cubridmigration.core.dbobject.Synonym;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.View;
 import com.cubrid.cubridmigration.core.sql.SQLHelper;
@@ -188,7 +190,7 @@ public class CUBRIDSQLHelper extends
 	 * @param fk FK
 	 * @return String
 	 */
-	private String getFKDDLConstraint(String tableOwner, String tableName, FK fk) {
+	private String getFKDDLConstraint(String tableOwner, String tableName, FK fk, boolean addUserSchema) {
 		StringBuffer bf = new StringBuffer();
 
 		bf.append(getQuotedObjName(fk.getName()));
@@ -210,7 +212,7 @@ public class CUBRIDSQLHelper extends
 		bf.append(" REFERENCES ");
 		
 		if (tableOwner != null) {
-			bf.append(getOwnerNameWithDot(tableOwner));
+			bf.append(getOwnerNameWithDot(tableOwner, addUserSchema));
 		}
 		bf.append(getQuotedObjName(refTable));
 
@@ -239,16 +241,16 @@ public class CUBRIDSQLHelper extends
 	 * @param fk FK
 	 * @return String
 	 */
-	public String getFKDDL(String tableOwner, String tableName, FK fk) {
+	public String getFKDDL(String tableOwner, String tableName, FK fk, boolean addUserSchema) {
 		StringBuffer bf = new StringBuffer();
 		bf.append("ALTER " + HINT + " TABLE ");
 		
 		if (tableOwner != null) {
-			bf.append(getOwnerNameWithDot(tableOwner));
+			bf.append(getOwnerNameWithDot(tableOwner, addUserSchema));
 		}
 		bf.append(getQuotedObjName(tableName));
 		bf.append(" ADD CONSTRAINT ");
-		bf.append(getFKDDLConstraint(tableOwner, tableName, fk));
+		bf.append(getFKDDLConstraint(tableOwner, tableName, fk, addUserSchema));
 		return bf.toString();
 	}
 
@@ -260,7 +262,7 @@ public class CUBRIDSQLHelper extends
 	 * @param prefix index name prefix
 	 * @return String
 	 */
-	public String getIndexDDL(String tableOwner, String tableName, Index index, String prefix) {
+	public String getIndexDDL(String tableOwner, String tableName, Index index, String prefix, boolean addUserSchema) {
 		String defaultName = index.getName();
 		StringBuffer bf = new StringBuffer();
 		bf.append("CREATE " + HINT + " ");
@@ -279,7 +281,7 @@ public class CUBRIDSQLHelper extends
 		bf.append(" ON ");
 		
 		if (tableOwner != null) {
-			bf.append(getOwnerNameWithDot(tableOwner));
+			bf.append(getOwnerNameWithDot(tableOwner, addUserSchema));
 		}
 		
 		bf.append(getQuotedObjName(tableName));
@@ -330,12 +332,12 @@ public class CUBRIDSQLHelper extends
 	 * @param pkColumns List<String>
 	 * @return String
 	 */
-	public String getPKDDL(String tableOwner, String tableName, String pkName, List<String> pkColumns) {
+	public String getPKDDL(String tableOwner, String tableName, String pkName, List<String> pkColumns, boolean addUserSchema) {
 		StringBuffer bf = new StringBuffer();
 
 		bf.append("ALTER " + HINT + " TABLE ");
 		if (tableOwner != null) {
-			bf.append(getOwnerNameWithDot(tableOwner));		
+			bf.append(getOwnerNameWithDot(tableOwner, addUserSchema));		
 		}
 		
 		bf.append(getQuotedObjName(tableName)).append(" ADD");
@@ -364,21 +366,15 @@ public class CUBRIDSQLHelper extends
 	 * @return String boolean isNoCache; boolean isNoMinValue; boolean
 	 *         isNoMaxValue;
 	 */
-	public String getSequenceDDL(Sequence sequence) {
+	public String getSequenceDDL(Sequence sequence, boolean addUserSchema) {
 		if (sequence == null) {
 			return "";
 		}
 		StringBuffer buf = new StringBuffer(256);
 		buf.append("CREATE SERIAL ");
 		
-		if (sequence.getOwner() == null || sequence.getOwner().isEmpty()) {
-			buf.append(getQuotedObjName(sequence.getName()));			
-		} else {
-			buf.append(getQuotedObjName(sequence.getOwner()));
-			buf.append(".");
-			buf.append(getQuotedObjName(sequence.getName()));
-		}
-		
+		buf.append(getOwnerNameWithDot(sequence.getOwner(), addUserSchema));
+		buf.append(getQuotedObjName(sequence.getName()));
 
 		buf.append(" START WITH ").append(String.valueOf(sequence.getCurrentValue()));
 
@@ -421,7 +417,7 @@ public class CUBRIDSQLHelper extends
 	 * @param table Table
 	 * @return String
 	 */
-	public String getTableDDL(Table table) {
+	public String getTableDDL(Table table, boolean addUserSchema) {
 		StringBuffer bf = new StringBuffer();
 		bf.append("CREATE TABLE ");
 		String tableName = table.getName();
@@ -429,13 +425,8 @@ public class CUBRIDSQLHelper extends
 		if (StringUtils.isEmpty(tableName)) {
 			bf.append("<class_name>");
 		} else {
-			if (table.getOwner() == null || table.getOwner().isEmpty()) {
-				bf.append(getQuotedObjName(tableName));
-			} else {
-				bf.append(getQuotedObjName(table.getOwner()));
-				bf.append(".");
-				bf.append(getQuotedObjName(tableName));
-			}
+			bf.append(getOwnerNameWithDot(table.getOwner(), addUserSchema));
+			bf.append(getQuotedObjName(tableName));
 		}
 
 		// instance attribute
@@ -604,22 +595,16 @@ public class CUBRIDSQLHelper extends
 	 * @return String
 	 */
 	
-	public String getViewDDL(View view) {
+	public String getViewDDL(View view, boolean addUserSchema) {
 		if (view == null) {
 			return "";
 		}
 		StringBuffer sb = new StringBuffer();
-		sb.append("CREATE VIEW");
+		sb.append("CREATE VIEW ");
 		String viewName = view.getName();
-
-		if (view.getOwner() == null || view.getOwner().isEmpty()) {
-			sb.append(getQuotedObjName(viewName));
-		} else {
-			sb.append(getQuotedObjName(view.getOwner()));
-			sb.append(".");
-			sb.append(getQuotedObjName(viewName));
-		}
 		
+		sb.append(getOwnerNameWithDot(view.getOwner(), addUserSchema));
+		sb.append(getQuotedObjName(viewName));
 		
 		//Column definitions are not necessarily.
 		//		sb.append("(");
@@ -684,25 +669,72 @@ public class CUBRIDSQLHelper extends
 	 * @param view View
 	 * @return String
 	 */
-	public String getViewAlterDDL(View view) {
+	public String getViewAlterDDL(View view, boolean addUserSchema) {
 		StringBuffer sb = new StringBuffer();
 		sb.append("ALTER VIEW ");
 		String viewName = view.getName();
 		
 		if (viewName != null) {
-			if (view.getOwner() == null || view.getOwner().isEmpty()) {
-				sb.append(getQuotedObjName(viewName));				
-			} else {
-				sb.append(view.getOwner());
-				sb.append(".");
-				sb.append(getQuotedObjName(viewName));
-			}
-			
+			sb.append(getOwnerNameWithDot(view.getOwner(), addUserSchema));
+			sb.append(getQuotedObjName(viewName));	
 		}
 		
 		sb.append(" ADD").append(" QUERY ").append(view.getQuerySpec());
 		sb.append(END_LINE_CHAR);
 		
+		return sb.toString();
+	}
+	
+	public String getSynonymDDL(Synonym synonym, boolean addUserSchema) {
+		StringBuffer sb = new StringBuffer();
+		sb.append("CREATE");
+		
+		if (synonym.isPublic()) {
+			sb.append(" PUBLIC ");
+		} else {
+			sb.append(" PRIVATE ");
+		}
+		
+		sb.append("SYNONYM ");
+		
+		String synonymName = synonym.getName();
+		if (synonymName != null) {
+			sb.append(getOwnerNameWithDot(synonym.getOwner(), addUserSchema));
+			sb.append(getQuotedObjName(synonymName));
+		}
+		
+		sb.append(" FOR ");
+		
+		String synonymTargetName = synonym.getObjectName();
+		if (synonymTargetName != null) {
+			sb.append(getOwnerNameWithDot(synonym.getObjectOwner(), addUserSchema));
+			sb.append(getQuotedObjName(synonymTargetName));
+		}
+		
+		String comment = synonym.getComment();
+		if (comment != null) {
+			sb.append(" COMMENT ");
+			sb.append("\'" + comment + "\'");
+		}
+		
+		return sb.toString();
+	}
+	
+	/**
+	 * return create DDL of Grant
+	 * 
+	 * @param grant
+	 * @param addUserSchema
+	 * @return String
+	 */
+	public String getGrantDDL(Grant grant, boolean addUserSchema) {
+		StringBuffer sb = new StringBuffer();
+		sb.append("GRANT ").append(grant.getAuthType()).append(" ON ");
+		sb.append(getOwnerNameWithDot(grant.getClassOwner(), addUserSchema));
+		sb.append(getQuotedObjName(grant.getClassName()));
+		sb.append(" TO ");
+		sb.append(getQuotedObjName(grant.getGranteeName()));
+		sb.append(grant.isGrantable() ? " WITH GRANT OPTION" : "");
 		return sb.toString();
 	}
 
@@ -766,11 +798,11 @@ public class CUBRIDSQLHelper extends
 		return bf.toString();
 	}
 	
-	public String getOwnerNameWithDot(String tableOwner) {
-		if (tableOwner == null) {
-			return "";
+	public String getOwnerNameWithDot(String tableOwner, boolean addUserSchema) {
+		if (addUserSchema) {
+			return "[" + tableOwner + "].";
 		}
 		
-		return "\"" + tableOwner + "\".";
+		return "";
 	}
 }

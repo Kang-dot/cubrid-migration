@@ -69,11 +69,15 @@ import com.cubrid.cubridmigration.core.dbtype.DatabaseType;
 import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
 import com.cubrid.cubridmigration.ui.common.UICommonTool;
 import com.cubrid.cubridmigration.ui.common.dialog.DetailMessageDialog;
+import com.cubrid.cubridmigration.ui.common.navigator.event.CubridNodeManager;
 import com.cubrid.cubridmigration.ui.common.navigator.node.ColumnNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.ColumnsNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.DatabaseNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.FKNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.FKsNode;
+import com.cubrid.cubridmigration.ui.common.navigator.node.GrantAuthNode;
+import com.cubrid.cubridmigration.ui.common.navigator.node.GrantGrantorNode;
+import com.cubrid.cubridmigration.ui.common.navigator.node.GrantsNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.IndexNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.IndexesNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.PKNode;
@@ -84,6 +88,8 @@ import com.cubrid.cubridmigration.ui.common.navigator.node.SQLTablesNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.SchemaNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.SequenceNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.SequencesNode;
+import com.cubrid.cubridmigration.ui.common.navigator.node.SynonymNode;
+import com.cubrid.cubridmigration.ui.common.navigator.node.SynonymsNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.TableNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.TablesNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.ViewNode;
@@ -101,6 +107,7 @@ import com.cubrid.cubridmigration.ui.wizard.page.view.IndexMappingView;
 import com.cubrid.cubridmigration.ui.wizard.page.view.SQLTableMappingView;
 import com.cubrid.cubridmigration.ui.wizard.page.view.SequenceMappingView;
 import com.cubrid.cubridmigration.ui.wizard.page.view.SourceDBExploreView;
+import com.cubrid.cubridmigration.ui.wizard.page.view.SynonymMappingView;
 import com.cubrid.cubridmigration.ui.wizard.page.view.TableMappingView;
 import com.cubrid.cubridmigration.ui.wizard.page.view.ViewMappingView;
 import com.cubrid.cubridmigration.ui.wizard.utils.MigrationCfgUtils;
@@ -168,6 +175,11 @@ public class ObjectMappingPage extends
 						showDetailMessageDialog(sourceCatalog);
 					} 
 			}
+			
+			if (cfg.targetIsOnline() && !cfg.isTargetDBAGroup()) {
+				MessageDialog.openWarning(getShell(), Messages.msgWarning, 
+						Messages.msgWarningImpossibleMigrationGrant);
+			}
 
 			showLobInfo(sourceCatalog);
 			cfg.setSrcCatalog(sourceCatalog, !mw.isLoadMigrationScript());
@@ -182,11 +194,13 @@ public class ObjectMappingPage extends
 			refreshTreeView();
 			this.getShell().setMaximized(true);
 			isFirstVisible = false;
+			
 			// select all if there have no selected tables to migrate
-			if (!cfg.hasObjects2Export()) {
+			if (isFirstVisible || !cfg.hasObjects2Export()) {
 				cfg.setAll(true);
 				refreshCurrentView();
 			}
+			
 			String msg = util.getNoPKSourceTablesCheckingResult();
 			if (StringUtils.isNotBlank(msg)) {
 				super.setMessage(msg);
@@ -231,6 +245,8 @@ public class ObjectMappingPage extends
 		util.createDetailMessage(sb, sourceCatalog, DBObject.OBJ_TYPE_TABLE, messageType);
 		util.createDetailMessage(sb, sourceCatalog, DBObject.OBJ_TYPE_VIEW, messageType);
 		util.createDetailMessage(sb, sourceCatalog, DBObject.OBJ_TYPE_SEQUENCE, messageType);
+		util.createDetailMessage(sb, sourceCatalog, DBObject.OBJ_TYPE_SYNONYM, messageType);
+		util.createDetailMessage(sb, sourceCatalog, DBObject.OBJ_TYPE_GRANT, messageType);
 		return sb.toString();
 	}
 
@@ -337,6 +353,20 @@ public class ObjectMappingPage extends
 							break;
 						}
 					}
+				} else if (AbstractMappingView.CT_SYNONYM.equals(ct)) {
+					for (ICUBRIDNode chn : cn.getChildren()) {
+						if (chn instanceof SynonymsNode) {
+							selectionParent = chn;
+							break;
+						}
+					}
+				} else if (AbstractMappingView.CT_GRANT.equals(ct)) {
+					for (ICUBRIDNode chn : cn.getChildren()) {
+						if (chn instanceof GrantsNode) {
+							selectionParent = chn;
+							break;
+						}
+					}
 				}
 				for (ICUBRIDNode col : selectionParent.getChildren()) {
 					if (col.getName().equals((String) obj[1])) {
@@ -408,6 +438,7 @@ public class ObjectMappingPage extends
 		FKMappingView fkMappingView = new FKMappingView(detailContainer);
 		SequenceMappingView sequenceMappingView = new SequenceMappingView(detailContainer);
 		ViewMappingView viewMappingView = new ViewMappingView(detailContainer);
+		SynonymMappingView synonymMappingView = new SynonymMappingView(detailContainer);
 
 		generalObjMappingView.addSQLChangedListener(tvSourceDBObjects);
 		//Building Tree node to Mapping view mapping
@@ -419,6 +450,11 @@ public class ObjectMappingPage extends
 		node2ViewMapping.put(TableNode.class.getName(), tableMappingView);
 		node2ViewMapping.put(ViewNode.class.getName(), viewMappingView);
 		node2ViewMapping.put(SequenceNode.class.getName(), sequenceMappingView);
+		node2ViewMapping.put(SynonymsNode.class.getName(), generalObjMappingView);
+		node2ViewMapping.put(SynonymNode.class.getName(), synonymMappingView);
+		node2ViewMapping.put(GrantsNode.class.getName(), generalObjMappingView);
+		node2ViewMapping.put(GrantGrantorNode.class.getName(), generalObjMappingView);
+		node2ViewMapping.put(GrantAuthNode.class.getName(), generalObjMappingView);
 		node2ViewMapping.put(PKNode.class.getName(), tableMappingView);
 		//node2ViewMapping.put(ColumnsNode.class.getName(), tableMappingView);
 		node2ViewMapping.put(FKsNode.class.getName(), tableMappingView);
@@ -618,6 +654,11 @@ public class ObjectMappingPage extends
 	private void refreshTreeView() {
 		final MigrationWizard mw = getMigrationWizard();
 		final MigrationConfiguration cfg = mw.getMigrationConfig();
+		
+		if (cfg.targetIsOnline() && !cfg.isTargetDBAGroup()) {
+			CubridNodeManager.getInstance().changeGrantsNodeLabel();
+		}
+		
 		//Fill Tree View
 		tvSourceDBObjects.setInput(mw.getSelectSourceDB(), cfg);
 		//If Source DB is changed, clear the last view UI.
@@ -625,6 +666,7 @@ public class ObjectMappingPage extends
 			currentView.hide();
 			currentView = null;
 		}
+		
 		//Database node will not be selected.
 		ICUBRIDNode node = mw.getSelectSourceDB();
 		List<ICUBRIDNode> schemaNodes = node.getChildren();

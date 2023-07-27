@@ -61,11 +61,13 @@ import com.cubrid.cubridmigration.core.dbobject.PK;
 import com.cubrid.cubridmigration.core.dbobject.PartitionInfo;
 import com.cubrid.cubridmigration.core.dbobject.PartitionTable;
 import com.cubrid.cubridmigration.core.dbobject.Schema;
+import com.cubrid.cubridmigration.core.dbobject.Synonym;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.View;
 import com.cubrid.cubridmigration.core.dbtype.DatabaseType;
 import com.cubrid.cubridmigration.core.export.DBExportHelper;
 import com.cubrid.cubridmigration.core.sql.SQLHelper;
+import com.cubrid.cubridmigration.cubrid.CUBRIDSQLHelper;
 import com.cubrid.cubridmigration.mssql.MSSQLDataTypeHelper;
 import com.cubrid.cubridmigration.mssql.MSSQLSQLHelper;
 import com.cubrid.cubridmigration.mssql.dbobj.MSSQLPartitionSchemas;
@@ -103,6 +105,9 @@ public final class MSSQLSchemaFetcher extends
 	private static final String SHOW_SCHEMA_ID = "SELECT [schema_id],[name] FROM [catalogName].[sys].[schemas] WHERE [name] in ("
 			+ "SELECT distinct [TABLE_SCHEMA] FROM [catalogName].[INFORMATION_SCHEMA].[TABLES])";
 
+	private static final String SHOW_SYNONYM = "SELECT [name], [base_object_name] FROM [sys].[synonyms] " 
+			+ "WHERE [schema_id] = (SELECT [schema_id] FROM [sys].[schemas] WHERE [name]=?)";
+	
 	private static final String USER_DEF_DATA_TYPE = "select t.name as username,t2.name as realname"
 			+ " from sys.systypes t,sys.systypes t2 where t.xtype<>t.xusertype and t.xtype=t2.xusertype";
 
@@ -460,6 +465,20 @@ public final class MSSQLSchemaFetcher extends
 			column.setShownDataType(shownDataType);
 		}
 	}
+	
+	/**
+	 * build Synonym
+	 * 
+	 * @param conn
+	 * @param catalog
+	 * @param schema
+	 * @throws SQLException
+	 */
+	protected void buildSynonym(Connection conn, Catalog catalog,
+			Schema schema, IBuildSchemaFilter filter) throws SQLException {
+		List<Synonym> synonymList = getAllSynonym(conn, schema);
+		schema.setSynonymList(synonymList);
+	}
 
 	/**
 	 * return a list of table name. sysdiagrams was removed from list.
@@ -689,6 +708,52 @@ public final class MSSQLSchemaFetcher extends
 		addHierarchyIDTypeToSupportedTypes(supportedSqlTypes);
 		transforUserDefinedDataTypeToSysDataType(conn, supportedSqlTypes);
 		return supportedSqlTypes;
+	}
+	
+	/**
+	 * Get all synonym
+	 * 
+	 * @param conn
+	 * @param schema
+	 * @return
+	 * @throws SQLException
+	 */
+	private List<Synonym> getAllSynonym(Connection conn, Schema schema) throws SQLException {
+		PreparedStatement stmt = null;
+		ResultSet rs = null; //NOPMD
+		
+		try {
+			stmt = conn.prepareStatement(SHOW_SYNONYM);
+			stmt.setString(1, schema.getName());
+			rs = stmt.executeQuery();
+			List<Synonym> synonyms = new ArrayList<Synonym>();
+
+			while (rs.next()) {
+				Synonym synonym = factory.createSynonym();
+				synonym.setName(rs.getString("name"));
+				synonym.setOwner(schema.getName());
+				
+				synonym.setPublic(false);
+				
+				String baseObjectName = rs.getString("base_object_name");
+				if (baseObjectName.contains(".")) {
+					String[] baseObjectNameArray = baseObjectName.split("\\.");
+					synonym.setObjectOwner(MSSQLSQLHelper.getInstance(null)
+							.getUnquotedObjName(baseObjectNameArray[0]));
+					synonym.setObjectName(MSSQLSQLHelper.getInstance(null)
+							.getUnquotedObjName(baseObjectNameArray[1]));
+				} else {
+					synonym.setObjectName(baseObjectName);
+				}
+				synonym.setDDL(CUBRIDSQLHelper.getInstance(null).getSynonymDDL(synonym, true));
+				synonyms.add(synonym);
+			}
+
+			return synonyms;
+		} finally {
+			Closer.close(rs);
+			Closer.close(stmt);
+		}
 	}
 
 	/**

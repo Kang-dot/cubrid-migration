@@ -44,9 +44,11 @@ import com.cubrid.cubridmigration.core.common.CUBRIDIOUtils;
 import com.cubrid.cubridmigration.core.common.Closer;
 import com.cubrid.cubridmigration.core.dbobject.DBObject;
 import com.cubrid.cubridmigration.core.dbobject.FK;
+import com.cubrid.cubridmigration.core.dbobject.Grant;
 import com.cubrid.cubridmigration.core.dbobject.Index;
 import com.cubrid.cubridmigration.core.dbobject.PK;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
+import com.cubrid.cubridmigration.core.dbobject.Synonym;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.View;
 import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
@@ -74,8 +76,9 @@ public class MigrationReport implements
 
 	private final static String[] OVERVIEW_TYPES = new String[] {DBObject.OBJ_TYPE_SCHEMA, DBObject.OBJ_TYPE_TABLE,
 			DBObject.OBJ_TYPE_VIEW, DBObject.OBJ_TYPE_PK, DBObject.OBJ_TYPE_FK,
-			DBObject.OBJ_TYPE_INDEX, DBObject.OBJ_TYPE_SEQUENCE, DBObject.OBJ_TYPE_TRIGGER,
-			DBObject.OBJ_TYPE_FUNCTION, DBObject.OBJ_TYPE_PROCEDURE, DBObject.OBJ_TYPE_RECORD};
+			DBObject.OBJ_TYPE_INDEX, DBObject.OBJ_TYPE_SEQUENCE, DBObject.OBJ_TYPE_SYNONYM, 
+			DBObject.OBJ_TYPE_TRIGGER, DBObject.OBJ_TYPE_FUNCTION, DBObject.OBJ_TYPE_PROCEDURE, 
+			DBObject.OBJ_TYPE_GRANT, DBObject.OBJ_TYPE_RECORD};
 
 	/**
 	 * get DBObj Name
@@ -96,6 +99,12 @@ public class MigrationReport implements
 			} else {
 				return tempTable.getName();
 			}
+		} else if (obj instanceof Synonym) {
+			Synonym synonym = (Synonym) obj;
+			return synonym.getOwner() + "." + synonym.getName();
+		} else if (obj instanceof Grant) {
+			Grant grant = (Grant) obj;
+			return grant.getName();
 		}
 		
 		return obj.getName();

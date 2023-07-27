@@ -33,11 +33,13 @@ import java.util.List;
 
 import com.cubrid.cubridmigration.core.dbobject.FK;
 import com.cubrid.cubridmigration.core.dbobject.Function;
+import com.cubrid.cubridmigration.core.dbobject.Grant;
 import com.cubrid.cubridmigration.core.dbobject.PK;
 import com.cubrid.cubridmigration.core.dbobject.Procedure;
 import com.cubrid.cubridmigration.core.dbobject.Record;
 import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
+import com.cubrid.cubridmigration.core.dbobject.Synonym;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.Trigger;
 import com.cubrid.cubridmigration.core.dbobject.View;
@@ -46,7 +48,9 @@ import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
 import com.cubrid.cubridmigration.core.engine.config.SourceCSVConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceEntryTableConfig;
+import com.cubrid.cubridmigration.core.engine.config.SourceGrantConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceSequenceConfig;
+import com.cubrid.cubridmigration.core.engine.config.SourceSynonymConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceTableConfig;
 import com.cubrid.cubridmigration.core.engine.exporter.IMigrationExporter;
 import com.cubrid.cubridmigration.core.engine.importer.IMigrationImporter;
@@ -54,11 +58,14 @@ import com.cubrid.cubridmigration.core.engine.task.exp.CSVExportTask;
 import com.cubrid.cubridmigration.core.engine.task.exp.CSVTableSchemaExportTask;
 import com.cubrid.cubridmigration.core.engine.task.exp.FKExportTask;
 import com.cubrid.cubridmigration.core.engine.task.exp.FunctionExportTask;
+import com.cubrid.cubridmigration.core.engine.task.exp.GrantExportTask;
 import com.cubrid.cubridmigration.core.engine.task.exp.IndexExportTask;
 import com.cubrid.cubridmigration.core.engine.task.exp.PKExportTask;
 import com.cubrid.cubridmigration.core.engine.task.exp.ProcedureExportTask;
 import com.cubrid.cubridmigration.core.engine.task.exp.SQLExportTask;
 import com.cubrid.cubridmigration.core.engine.task.exp.SequenceExportTask;
+import com.cubrid.cubridmigration.core.engine.task.exp.SynonymExportTask;
+import com.cubrid.cubridmigration.core.engine.task.exp.SynonymNoSupportExportTask;
 import com.cubrid.cubridmigration.core.engine.task.exp.TableRecordExportTask;
 import com.cubrid.cubridmigration.core.engine.task.exp.TableSchemaExportTask;
 import com.cubrid.cubridmigration.core.engine.task.exp.TriggerExportTask;
@@ -70,13 +77,16 @@ import com.cubrid.cubridmigration.core.engine.task.imp.CleanDBTask;
 import com.cubrid.cubridmigration.core.engine.task.imp.ExecuteSQLTask;
 import com.cubrid.cubridmigration.core.engine.task.imp.FKImportTask;
 import com.cubrid.cubridmigration.core.engine.task.imp.FunctionImportTask;
+import com.cubrid.cubridmigration.core.engine.task.imp.GrantImportTask;
 import com.cubrid.cubridmigration.core.engine.task.imp.IndexImportTask;
 import com.cubrid.cubridmigration.core.engine.task.imp.PKImportTask;
 import com.cubrid.cubridmigration.core.engine.task.imp.ProcedureImportTask;
 import com.cubrid.cubridmigration.core.engine.task.imp.RecordImportTask;
 import com.cubrid.cubridmigration.core.engine.task.imp.SQLImportTask;
+import com.cubrid.cubridmigration.core.engine.task.imp.SchemaFileListTask;
 import com.cubrid.cubridmigration.core.engine.task.imp.SchemaImportTask;
 import com.cubrid.cubridmigration.core.engine.task.imp.SequenceImportTask;
+import com.cubrid.cubridmigration.core.engine.task.imp.SynonymImportTask;
 import com.cubrid.cubridmigration.core.engine.task.imp.TableSchemaImportTask;
 import com.cubrid.cubridmigration.core.engine.task.imp.TriggerImportTask;
 import com.cubrid.cubridmigration.core.engine.task.imp.UpdateAutoIncColCurrentValueTask;
@@ -209,6 +219,43 @@ public class MigrationTaskFactory {
 	 */
 	public SequenceExportTask createExportSequenceTask(SourceSequenceConfig sq) {
 		SequenceExportTask task = new SequenceExportTask(context.getConfig(), sq);
+		initExportTask(task, false);
+		return task;
+	}
+	
+	/**
+	 * createExportSynonymTask
+	 * 
+	 * @param sn Synonym
+	 * @return SynonymExportTask
+	 */
+	public SynonymExportTask createExportSynonymTask(SourceSynonymConfig sn) {
+		SynonymExportTask task = new SynonymExportTask(context.getConfig(), sn);
+		initExportTask(task, false);
+		return task;
+	}
+	
+	/**
+	 * createNoSupportExportSynonymTask
+	 * 
+	 * @param sn Synonym
+	 * @return SynonymNoSupportExportTask
+	 */
+	public SynonymNoSupportExportTask createExportNoSupportSynonymTask(SourceSynonymConfig sn) {
+		SynonymNoSupportExportTask task = new SynonymNoSupportExportTask(context.getConfig(), sn);
+		initExportTask(task, false);
+		return task;
+	}
+
+	/**
+	 * 
+	 * createExportGrantTask
+	 * 
+	 * @param gr Grant
+	 * @return GrantExportTask
+	 */
+	public GrantExportTask createExportGrantTask(SourceGrantConfig gr) {
+		GrantExportTask task = new GrantExportTask(context.getConfig(), gr);
 		initExportTask(task, false);
 		return task;
 	}
@@ -394,6 +441,30 @@ public class MigrationTaskFactory {
 		initImportTask(task);
 		return task;
 	}
+	
+	/**
+	 * createImportSynonymTask
+	 * 
+	 * @param sn Synonym
+	 * @return SynonymImportTask
+	 */
+	public ImportTask createImportSynonymTask(Synonym sn) {
+		SynonymImportTask task = new SynonymImportTask(sn);
+		initImportTask(task);
+		return task;
+	}
+	
+	/**
+	 * createImportGrantTask
+	 * 
+	 * @param gr Grant
+	 * @return GrantImportTask
+	 */
+	public ImportTask createImportGrantTask(Grant gr) {
+		GrantImportTask task = new GrantImportTask(gr);
+		initImportTask(task);
+		return task;
+	}
 
 	/**
 	 * createImportFunctionTask
@@ -443,12 +514,23 @@ public class MigrationTaskFactory {
 	}
 
 	/**
-	 * Create CleanDBTask
+	 * Create UpdateStatisticsTask
 	 * 
-	 * @return CleanDBTask
+	 * @return UpdateStatisticsTask
 	 */
 	public UpdateStatisticsTask createUpdateStatisticsTask() {
 		final UpdateStatisticsTask task = new UpdateStatisticsTask(context.getConfig());
+		initImportTask(task);
+		return task;
+	}
+	
+	/**
+	 * Create SchemaFileListTask
+	 * 
+	 * @return SchemaFileListTask
+	 */
+	public SchemaFileListTask createSchemaFileListTask() {
+		final SchemaFileListTask task = new SchemaFileListTask(context.getConfig());
 		initImportTask(task);
 		return task;
 	}

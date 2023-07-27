@@ -81,6 +81,7 @@ public class Catalog implements
 	private Map<String, Integer> allTablesCountMap = new HashMap<String, Integer>();
 	private Map<String, Integer> allViewsCountMap = new HashMap<String, Integer>();
 	private Map<String, Integer> allSequencesCountMap = new HashMap<String, Integer>();
+	private Map<String, Integer> allGrantsCountMap = new HashMap<String, Integer>();
 	
 	private boolean isDBAGroup;
 	
@@ -214,6 +215,15 @@ public class Catalog implements
 		schema.setCatalog(this);
 		schemas.add(schema);
 	}
+	
+	/**
+	 * remove one schema
+	 * 
+	 * @return
+	 */
+	public void removeOneSchema(Schema schema) {
+		schemas.remove(schema);
+	}
 
 	public String getCreateSql() {
 		return createSql;
@@ -268,6 +278,10 @@ public class Catalog implements
 	
 	public Map<String, Integer> getAllSequencesCountMap() {
 		return allSequencesCountMap;
+	}
+	
+	public Map<String, Integer> getAllGrantCountMap() {
+		return allGrantsCountMap;
 	}
 
 	public boolean isDBAGroup() {
@@ -388,6 +402,7 @@ public class Catalog implements
 			//Do nothing
 		}
 	}
+	
 	/**
 	 * return if CUBRID DBMS Version is over 11.2
 	 * 
@@ -407,5 +422,22 @@ public class Catalog implements
 		} else {
 			return false;
 		}
+	}
+	
+	public Catalog createCatalog() {
+		Catalog tempCatalog = new Catalog();
+		tempCatalog.setName(this.name);
+		tempCatalog.setSchemas(new ArrayList<Schema>(this.schemas));
+		tempCatalog.setVersion(this.version);
+		tempCatalog.setHost(this.host);
+		tempCatalog.setDatabaseType(getDatabaseType());
+		tempCatalog.setCreateSql(this.createSql);
+		tempCatalog.setAdditionalInfo(new HashMap<String, String>(this.additionalInfo));
+		tempCatalog.setSupportedDataType(new HashMap<String, List<DataType>>(this.supportedDataType));
+		tempCatalog.setConnectionParameters(this.connectionParameters);
+		tempCatalog.setCreateSql(this.createSql);
+		tempCatalog.setDBAGroup(this.isDBAGroup);
+		
+		return tempCatalog;
 	}
 }

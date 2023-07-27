@@ -33,12 +33,14 @@ import java.util.List;
 
 import com.cubrid.cubridmigration.core.dbobject.FK;
 import com.cubrid.cubridmigration.core.dbobject.Function;
+import com.cubrid.cubridmigration.core.dbobject.Grant;
 import com.cubrid.cubridmigration.core.dbobject.Index;
 import com.cubrid.cubridmigration.core.dbobject.PK;
 import com.cubrid.cubridmigration.core.dbobject.Procedure;
 import com.cubrid.cubridmigration.core.dbobject.Record;
 import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
+import com.cubrid.cubridmigration.core.dbobject.Synonym;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.Trigger;
 import com.cubrid.cubridmigration.core.dbobject.View;
@@ -100,6 +102,20 @@ public interface IMigrationImporter {
 	 * @param sq Sequence
 	 */
 	public void createSequence(Sequence sq);
+	
+	/**
+	 * Create synonym
+	 * 
+	 * @param sn Synonym
+	 */
+	public void createSynonym(Synonym sn);
+	
+	/**
+	 * Create grant
+	 * 
+	 * @param gr Grant
+	 */
+	public void createGrant(Grant gr);
 	
 	/**
 	 * Create Schema

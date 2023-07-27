@@ -29,19 +29,26 @@
  */
 package com.cubrid.cubridmigration.ui.common.navigator.event;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import com.cubrid.common.ui.navigator.DefaultCUBRIDNode;
+import com.cubrid.common.ui.navigator.ICUBRIDNode;
 import com.cubrid.cubridmigration.core.dbobject.Catalog;
 import com.cubrid.cubridmigration.core.dbobject.Column;
 import com.cubrid.cubridmigration.core.dbobject.FK;
 import com.cubrid.cubridmigration.core.dbobject.Function;
+import com.cubrid.cubridmigration.core.dbobject.Grant;
 import com.cubrid.cubridmigration.core.dbobject.Index;
 import com.cubrid.cubridmigration.core.dbobject.PK;
 import com.cubrid.cubridmigration.core.dbobject.PartitionInfo;
 import com.cubrid.cubridmigration.core.dbobject.Procedure;
 import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
+import com.cubrid.cubridmigration.core.dbobject.Synonym;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.Trigger;
 import com.cubrid.cubridmigration.core.dbobject.View;
@@ -52,6 +59,9 @@ import com.cubrid.cubridmigration.ui.common.navigator.node.FKNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.FKsNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.FunctionNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.FunctionsNode;
+import com.cubrid.cubridmigration.ui.common.navigator.node.GrantAuthNode;
+import com.cubrid.cubridmigration.ui.common.navigator.node.GrantGrantorNode;
+import com.cubrid.cubridmigration.ui.common.navigator.node.GrantsNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.IndexNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.IndexesNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.PKNode;
@@ -62,6 +72,8 @@ import com.cubrid.cubridmigration.ui.common.navigator.node.SchemaNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.SequenceNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.SequencesNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.StoredProceduresNode;
+import com.cubrid.cubridmigration.ui.common.navigator.node.SynonymNode;
+import com.cubrid.cubridmigration.ui.common.navigator.node.SynonymsNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.TableNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.TablesNode;
 import com.cubrid.cubridmigration.ui.common.navigator.node.TriggerNode;
@@ -86,10 +98,14 @@ public final class CubridNodeManager {
 	private static final String PATH_STORED_PROCEDURE = "/StoredProcedure";
 	private static final String PATH_VIEWS = "/views";
 	private static final String PATH_TABLES = "/tables";
+	private static final String PATH_SYNONYMS = "/synonyms";
+	private static final String PATH_GRANTS = "/grants";
 	private static final String XML_HOST_NODE_ID = "MySQL dump file";
 
 	private static volatile CubridNodeManager instance = null;
 	private final static Object LOCKOBJ = new Object();
+	
+	private DatabaseNode databaseNode = null;
 
 	/**
 	 * Return the only CUBRID Node manager
@@ -108,6 +124,61 @@ public final class CubridNodeManager {
 
 	private CubridNodeManager() {
 		//do nothing.
+	}
+	
+	/**
+	 * add grant nodes
+	 * 
+	 * @param parentNode parentNode
+	 * @param schema Schema
+	 */
+	private void addGrantNodes(DefaultCUBRIDNode parentNode, Schema schema) {
+		String parentID = parentNode.getId();
+		
+		List<Grant> grantList = schema.getGrantList();
+		String grantsID = parentID + PATH_GRANTS;
+		String grantsLabels = Messages.labelTreeObjGrant + "(" + grantList.size() + ")";
+		GrantsNode grantsNode = new GrantsNode(grantsID, grantsLabels);
+		parentNode.addChild(grantsNode);
+		if (grantList.isEmpty()) {
+			grantsNode.setContainer(false);
+		}
+		
+		Map<String, List<String>> grantorMap = new HashMap<String, List<String>>();
+		for (Grant grant : grantList) {
+			String grantor = grant.getGrantorName();
+			
+			if (!grantorMap.containsKey(grantor)) {
+				List<String> grantAuthList = new ArrayList<String>();
+				grantAuthList.add(grant.getAuthType());
+				grantorMap.put(grantor, grantAuthList);
+			} else {
+				List<String> grantAuthList = grantorMap.get(grantor);
+				String grantAuth = grant.getAuthType();
+				
+				if (!grantAuthList.contains(grantAuth)) {
+					grantAuthList.add(grantAuth);
+				}
+			}
+		}
+		
+		Set<String> grantGrantorKey = grantorMap.keySet();
+		for (String grantorKey : grantGrantorKey) {
+			String grantGrantorID = grantsID + "/" + grantorKey;
+			String grantGrantorLabel = grantorKey;
+			GrantGrantorNode grantGrantorNode = new GrantGrantorNode(grantGrantorID, grantGrantorLabel);
+			grantGrantorNode.setGrantor(grantorKey);
+			grantsNode.addChild(grantGrantorNode);
+			
+			List<String> grantAuthList = grantorMap.get(grantorKey);
+			for (String grantAuth : grantAuthList) {
+				String grantAuthID = grantGrantorID + "/" + grantAuth;
+				GrantAuthNode grantAuthNode = new GrantAuthNode(grantAuthID, grantAuth);
+				grantAuthNode.setGrantor(grantorKey);
+				grantAuthNode.setAuthType(grantAuth);
+				grantGrantorNode.addChild(grantAuthNode);
+			}
+		}
 	}
 
 	/**
@@ -134,6 +205,33 @@ public final class CubridNodeManager {
 			SequenceNode sequenceNode = new SequenceNode(sequenceID, sequenceLabel);
 			sequenceNode.setSequence(sequence);
 			sequencesNode.addChild(sequenceNode);
+		}
+	}
+	
+	/**
+	 * add synonym nodes
+	 * 
+	 * @param parentNode
+	 * @param schema
+	 */
+	private void addSynonymNodes(DefaultCUBRIDNode parentNode, Schema schema) {
+		String parentID = parentNode.getId();
+		
+		List<Synonym> synonymList = schema.getSynonymList();
+		String synonymsID = parentID + PATH_SYNONYMS;
+		String synonymsLabels = Messages.labelTreeObjSynonym + "(" + synonymList.size() + ")";
+		SynonymsNode synonymsNode = new SynonymsNode(synonymsID, synonymsLabels);
+		parentNode.addChild(synonymsNode);
+		if (synonymList.isEmpty()) {
+			synonymsNode.setContainer(false);
+		}
+		for (Synonym synonym : synonymList) {
+			// add a synonym
+			String synonymID = synonymsID + "/" + synonym.getName();
+			String synonymLabel = synonym.getName();
+			SynonymNode synonymNode = new SynonymNode(synonymID, synonymLabel);
+			synonymNode.setSynonym(synonym);
+			synonymsNode.addChild(synonymNode);
 		}
 	}
 
@@ -357,7 +455,7 @@ public final class CubridNodeManager {
 			dbNodeID = getDatabaseNodeID(hostNodeID, dbName,
 					catalog.getConnectionParameters().getConUser());
 		}
-		DatabaseNode databaseNode = new DatabaseNode(dbNodeID, dbName);
+		databaseNode = new DatabaseNode(dbNodeID, dbName);
 
 		if (XML_HOST_NODE_ID.endsWith(hostNodeID)) {
 			databaseNode.setXMLDatabase(true);
@@ -385,9 +483,27 @@ public final class CubridNodeManager {
 			addTriggerNodes(parentNode, schema);
 
 			addSerialNodes(parentNode, schema);
+			
+			addSynonymNodes(parentNode, schema);
+			
+			addGrantNodes(parentNode, schema);
 		}
 
 		return databaseNode;
+	}
+	
+	/**
+	 * change the number of grant nodes
+	 */
+	public void changeGrantsNodeLabel() {
+		for (ICUBRIDNode schemaNodes : databaseNode.getChildren()) {
+			for (ICUBRIDNode objectNodes : schemaNodes.getChildren()) {
+				if (objectNodes instanceof GrantsNode) {
+					objectNodes.setLabel(Messages.labelTreeObjGrant + "(0)");
+					objectNodes.removeAllChild();
+				}
+			}
+		}
 	}
 
 	/**

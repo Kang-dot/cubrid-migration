@@ -51,7 +51,8 @@ public class Schema extends DBObject implements
 	
 	private boolean isNewTargetSchema = false;
 	private boolean isGrantorSchema = false;
-	
+	private boolean isMigration = false;
+
 	private String createDDL;
 
 	private List<Table> tables = new ArrayList<Table>();
@@ -60,6 +61,8 @@ public class Schema extends DBObject implements
 	private List<Function> functions = new ArrayList<Function>();
 	private List<Trigger> triggers = new ArrayList<Trigger>();
 	private List<Sequence> sequenceList = new ArrayList<Sequence>();
+	private List<Synonym> synonymList = new ArrayList<Synonym>();
+	private List<Grant> grantList = new ArrayList<Grant>();
 
 	public Schema() {
 		//do nothing
@@ -82,6 +85,14 @@ public class Schema extends DBObject implements
 		this.isNewTargetSchema = isNewTargetSchema;
 	}
 	
+	public boolean isMigration() {
+		return isMigration;
+	}
+
+
+	public void setMigration(boolean isMigration) {
+		this.isMigration = isMigration;
+	}
 
 	public Schema(Catalog catalog) {
 		this.catalog = catalog;
@@ -221,6 +232,38 @@ public class Schema extends DBObject implements
 		}
 		return null;
 	}
+	
+	/**
+	 * getSynonymByName
+	 * 
+	 * @param synonymName String
+	 * @return Synonym
+	 */
+	public Synonym getSynonymByName(String synonymName) {
+		for (Synonym synonym : synonymList) {
+			if (synonymName.equals(synonym.getName())) {
+				return synonym;
+			}
+
+		}
+		return null;
+	}
+	
+	/**
+	 * getGrantByName
+	 * 
+	 * @param grantName String
+	 * @return Grant
+	 */
+	public Grant getGrantByName(String grantName) {
+		for (Grant grant : grantList) {
+			if (grantName.equals(grant.getName())) {
+				return grant;
+			}
+
+		}
+		return null;
+	}
 
 	public List<Procedure> getProcedures() {
 		return procedures;
@@ -249,6 +292,36 @@ public class Schema extends DBObject implements
 	public List<Sequence> getSequenceList() {
 		return sequenceList;
 	}
+	
+	public List<Synonym> getSynonymList() {
+		return synonymList;
+	}
+	
+	public List<Grant> getGrantList() {
+		return grantList;
+	}
+	
+	public void setGrantList(List<Grant> grantList) {
+		this.grantList = grantList;
+	}
+	
+	/**
+	 * Add grant into schema object.
+	 * 
+	 * @param gr
+	 */
+	public void addGrant(Grant gr) {
+		if (gr == null) {
+			return;
+		}
+		if (grantList == null) {
+			grantList = new ArrayList<Grant>();
+		}
+		if (!grantList.contains(gr)) {
+			grantList.add(gr);
+			gr.setOwner(getName());
+		}
+	}
 
 	/**
 	 * Add sequence into schema object.
@@ -270,6 +343,28 @@ public class Schema extends DBObject implements
 
 	public void setSequenceList(List<Sequence> sequenceList) {
 		this.sequenceList = sequenceList;
+	}
+	
+	/**
+	 * Add synonym into schema object.
+	 * 
+	 * @param sn Synonym
+	 */
+	public void addSynonym(Synonym sn) {
+		if (sn == null) {
+			return;
+		}
+		if (synonymList == null) {
+			synonymList = new ArrayList<Synonym>();
+		}
+		if (!synonymList.contains(sn)) {
+			synonymList.add(sn);
+			sn.setOwner(getName());
+		}
+	}
+
+	public void setSynonymList(List<Synonym> synonymList) {
+		this.synonymList = synonymList;
 	}
 
 	/**
@@ -324,6 +419,22 @@ public class Schema extends DBObject implements
 		}
 
 		return true;
+	}
+	
+	/**
+	 * Retrieves the synonym by name
+	 * 
+	 * @param name synonym name
+	 * @return Synonym definition
+	 */
+	public Synonym getSynonym(String owner, String name) {
+		for (Synonym syn : synonymList) {
+			if (syn.getOwner().equalsIgnoreCase(owner) 
+					&& syn.getName().equalsIgnoreCase(name)) {
+				return syn;
+			}
+		}
+		return null;
 	}
 
 	/**
@@ -380,7 +491,6 @@ public class Schema extends DBObject implements
 
 	@Override
 	public String getDDL() {
-		// TODO Auto-generated method stub
 		return createDDL;
 	}
 }

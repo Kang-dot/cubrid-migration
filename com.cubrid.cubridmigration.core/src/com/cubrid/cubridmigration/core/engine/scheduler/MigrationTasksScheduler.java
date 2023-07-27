@@ -31,6 +31,7 @@ package com.cubrid.cubridmigration.core.engine.scheduler;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 
@@ -45,8 +46,10 @@ import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
 import com.cubrid.cubridmigration.core.engine.config.SourceCSVConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceColumnConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceEntryTableConfig;
+import com.cubrid.cubridmigration.core.engine.config.SourceGrantConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceSQLTableConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceSequenceConfig;
+import com.cubrid.cubridmigration.core.engine.config.SourceSynonymConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceTableConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceViewConfig;
 import com.cubrid.cubridmigration.core.engine.exception.BreakMigrationException;
@@ -61,6 +64,8 @@ import com.cubrid.cubridmigration.core.engine.task.MigrationTaskFactory;
  */
 public class MigrationTasksScheduler {
 
+	private final int USERSCHEMA_VERSION = 112;
+	
 	protected MigrationTaskFactory taskFactory;
 	protected MigrationContext context;
 
@@ -91,6 +96,12 @@ public class MigrationTasksScheduler {
 		createSchema();
 		createTables();
 		createViews();
+		if (config.targetIsOnline() 
+				&& Integer.parseInt(config.getTargetDBVersion()) < USERSCHEMA_VERSION) {
+			createNoSupportSynonyms();
+		} else {
+			createSynonyms();
+		}
 		alterViews();
 		createSerials();
 
@@ -116,7 +127,12 @@ public class MigrationTasksScheduler {
 			createProcedures();
 			createTriggers();
 		}
+		createGrants();
 		updateIndexStatistics();
+		
+		if (!config.targetIsOnline() && config.isSplitSchema()) {
+			createSchemaFileList();
+		}
 	}
 
 	/**
@@ -202,9 +218,34 @@ public class MigrationTasksScheduler {
 	private void clearTargetDB() {
 		MigrationConfiguration config = context.getConfig();
 		if (config.targetIsFile()) {
-			PathUtils.deleteFile(new File(config.getTargetSchemaFileName()));
-			PathUtils.deleteFile(new File(config.getTargetDataFileName()));
-			PathUtils.deleteFile(new File(config.getTargetIndexFileName()));
+			List<Schema> schemaList = null;
+			if (config.getTargetSchemaList().size() > 0) {
+				schemaList = config.getTargetSchemaList();
+			} else {
+				Collection<Schema> schemas = config.getScriptSchemaMapping().values();
+				schemaList = new ArrayList<Schema>(schemas);
+			}
+			
+			for (Schema schema : schemaList) {
+				String schemaName = schema.getTargetSchemaName();
+				if (config.isSplitSchema()) {
+					PathUtils.deleteFile(new File(config.getTargetTableFileName(schemaName)));
+					PathUtils.deleteFile(new File(config.getTargetViewFileName(schemaName)));
+					PathUtils.deleteFile(new File(config.getTargetPkFileName(schemaName)));
+					PathUtils.deleteFile(new File(config.getTargetFkFileName(schemaName)));
+					PathUtils.deleteFile(new File(config.getTargetSerialFileName(schemaName)));
+					PathUtils.deleteFile(new File(config.getTargetSchemaFileListName(schemaName)));
+					PathUtils.deleteFile(new File(config.getTargetSynonymFileName(schemaName)));
+					PathUtils.deleteFile(new File(config.getTargetGrantFileName(schemaName)));
+				} else {
+					PathUtils.deleteFile(new File(config.getTargetSchemaFileName(schemaName)));
+				}
+				PathUtils.deleteFile(new File(config.getTargetUpdateStatisticFileName(schemaName)));
+				PathUtils.deleteFile(new File(config.getTargetIndexFileName(schemaName)));
+				PathUtils.deleteFile(new File(config.getTargetDataFileName(schemaName)));
+				PathUtils.deleteFile(new File(config.getFileRepositroyPath() + schemaName));
+			}
+			
 		}
 		executeTask(taskFactory.createCleanDBTask());
 	}
@@ -442,6 +483,28 @@ public class MigrationTasksScheduler {
 		}
 		await();
 	}
+	
+	/**
+	 * Schedule export synonym tasks.
+	 * 
+	 */
+	protected void createSynonyms() {
+		MigrationConfiguration config = context.getConfig();
+		List<SourceSynonymConfig> synonyms = config.getExpSynonymCfg();
+		for (SourceSynonymConfig sn : synonyms) {
+			executeTask(taskFactory.createExportSynonymTask(sn));
+		}
+		await();
+	}
+	
+	protected void createNoSupportSynonyms() {
+		MigrationConfiguration config = context.getConfig();
+		List<SourceSynonymConfig> synonyms = config.getExpSynonymCfg();
+		for (SourceSynonymConfig sn : synonyms) {
+			executeTask(taskFactory.createExportNoSupportSynonymTask(sn));
+		}
+		await();
+	}
 
 	/**
 	 * Schedule export function tasks.
@@ -481,12 +544,32 @@ public class MigrationTasksScheduler {
 		}
 		await();
 	}
+	
+	/**
+	 * Schedule export grant tasks.
+	 * 
+	 */
+	protected void createGrants() {
+		MigrationConfiguration config = context.getConfig();
+		List<SourceGrantConfig> grants = config.getExpGrantCfg();
+		for (SourceGrantConfig gr : grants) {
+			executeTask(taskFactory.createExportGrantTask(gr));
+		}
+		await();
+	}
 
 	/**
 	 * Append update sql for updating statistics of all indexes
 	 */
 	private void updateIndexStatistics() {
 		executeTask(taskFactory.createUpdateStatisticsTask());
+	}
+	
+	/**
+	 * List of schema file names to be used in loaddb
+	 */
+	private void createSchemaFileList() {
+		executeTask(taskFactory.createSchemaFileListTask());
 	}
 
 	public void setTaskFactory(MigrationTaskFactory taskFactory) {

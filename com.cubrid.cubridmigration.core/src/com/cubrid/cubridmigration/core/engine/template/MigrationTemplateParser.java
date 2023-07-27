@@ -66,6 +66,7 @@ import com.cubrid.cubridmigration.core.dbobject.PartitionInfo;
 import com.cubrid.cubridmigration.core.dbobject.PartitionTable;
 import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
+import com.cubrid.cubridmigration.core.dbobject.Synonym;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.View;
 import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
@@ -74,9 +75,11 @@ import com.cubrid.cubridmigration.core.engine.config.SourceCSVConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceColumnConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceEntryTableConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceFKConfig;
+import com.cubrid.cubridmigration.core.engine.config.SourceGrantConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceIndexConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceSQLTableConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceSequenceConfig;
+import com.cubrid.cubridmigration.core.engine.config.SourceSynonymConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceViewConfig;
 import com.cubrid.cubridmigration.core.engine.exception.ErrorMigrationTemplateException;
 import com.cubrid.cubridmigration.mysql.trans.MySQL2CUBRIDMigParas;
@@ -284,6 +287,7 @@ public final class MigrationTemplateParser {
 		createTargetTableNodes(config, document, target);
 		createTargetSequenceNodes(config, document, target);
 		createTargetViewNodes(config, document, target);
+		createTargetSynonymNodes(config, document, target);
 	}
 	
 	/**
@@ -387,6 +391,31 @@ public final class MigrationTemplateParser {
 				sequence.setAttribute(TemplateTags.ATTR_CACHE_SIZE,
 						String.valueOf(sc.getCacheSize()));
 			}
+		}
+	}
+	
+	/**
+	 * createTargetSynonymNodes
+	 * 
+	 * @param config MigrationConfiguration
+	 * @param document Document
+	 * @param target Element
+	 */
+	private static void createTargetSynonymNodes(MigrationConfiguration config, Document document,
+			Element target) {
+		//synonym
+		List<Synonym> targetSynonyms = config.getTargetSynonymSchema();
+		if (targetSynonyms.isEmpty()) {
+			return;
+		}
+		Element synonyms = createElement(document, target, TemplateTags.TAG_SYNONYMS);
+		for (Synonym sc : targetSynonyms) {
+			Element synonym = createElement(document, synonyms, TemplateTags.TAG_SYNONYM);
+			//CMT112 script control. add owner in synonym
+			synonym.setAttribute(TemplateTags.ATTR_OWNER, sc.getOwner());
+			synonym.setAttribute(TemplateTags.ATTR_NAME, sc.getName());
+			synonym.setAttribute(TemplateTags.ATTR_SYNONYM_OBJECT_OWNER, sc.getObjectOwner());
+			synonym.setAttribute(TemplateTags.ATTR_SYNONYM_OBJECT, sc.getObjectName());
 		}
 	}
 
@@ -549,12 +578,10 @@ public final class MigrationTemplateParser {
 		if (config.targetIsFile()) {
 			Element dir = createElement(document, target, TemplateTags.TAG_FILE_REPOSITORY);
 			dir.setAttribute(TemplateTags.ATTR_DIR, config.getFileRepositroyPath());
-			dir.setAttribute(TemplateTags.ATTR_SCHEMA, config.getTargetSchemaFileName());
-			dir.setAttribute(TemplateTags.ATTR_DATA, config.getTargetDataFileName());
-			dir.setAttribute(TemplateTags.ATTR_INDEX, config.getTargetIndexFileName());
 			dir.setAttribute(TemplateTags.ATTR_TIMEZONE, config.getTargetFileTimeZone());
 			dir.setAttribute(TemplateTags.ATTR_CHARSET, config.getTargetCharSet());
 			dir.setAttribute(TemplateTags.ATTR_ADD_SCHEMA, config.getOfflineUserSchema().toString());
+			dir.setAttribute(TemplateTags.ATTR_SPLIT_SCHEMA, getBooleanString(config.isSplitSchema()));
 
 			dir.setAttribute(TemplateTags.ATTR_ONETABLEONEFILE,
 					getBooleanString(config.isOneTableOneFile()));
@@ -855,6 +882,22 @@ public final class MigrationTemplateParser {
 						getBooleanString(sc.isAutoSynchronizeStartValue()));
 			}
 		}
+		//source synonym
+		List<SourceSynonymConfig> exportSynonyms = config.getExpSynonymCfg();
+		if (!exportSynonyms.isEmpty()) {
+			Element synonyms = createElement(document, source, TemplateTags.TAG_SYNONYMS);
+			for (SourceSynonymConfig sc : exportSynonyms) {
+				Element synonym = createElement(document, synonyms, TemplateTags.TAG_SYNONYM);
+				synonym.setAttribute(TemplateTags.ATTR_OWNER, sc.getOwner());
+				synonym.setAttribute(TemplateTags.ATTR_NAME, sc.getName());
+				synonym.setAttribute(TemplateTags.ATTR_TARGET_OWNER, sc.getTargetOwner());
+				synonym.setAttribute(TemplateTags.ATTR_TARGET, sc.getTarget());
+				synonym.setAttribute(TemplateTags.ATTR_SYNONYM_OBJECT_OWNER, sc.getObjectOwner());
+				synonym.setAttribute(TemplateTags.ATTR_SYNONYM_OBJECT, sc.getObjectName());
+				synonym.setAttribute(TemplateTags.ATTR_SYNONYM_OBJECT_TARGET_OWNER, sc.getObjectTargetOwner());
+				synonym.setAttribute(TemplateTags.ATTR_SYNONYM_OBJECT_TARGET, sc.getObjectTargetName());
+			}
+		}
 		//source views
 		List<SourceViewConfig> exportViews = config.getExpViewCfg();
 		if (!exportViews.isEmpty()) {
@@ -864,6 +907,24 @@ public final class MigrationTemplateParser {
 				vwNode.setAttribute(TemplateTags.ATTR_OWNER, sc.getOwner());
 				vwNode.setAttribute(TemplateTags.ATTR_NAME, sc.getName());
 				vwNode.setAttribute(TemplateTags.ATTR_TARGET, sc.getTarget());
+			}
+		}
+		//source grants
+		List<SourceGrantConfig> exportGrants = config.getExpGrantCfg();
+		if (!exportGrants.isEmpty()) {
+			Element grants = createElement(document, source, TemplateTags.TAG_GRANTS);
+			for (SourceGrantConfig sc : exportGrants) {
+				Element grNode = createElement(document, grants, TemplateTags.TAG_GRANT);
+				grNode.setAttribute(TemplateTags.ATTR_OWNER, sc.getOwner());
+				grNode.setAttribute(TemplateTags.ATTR_NAME, sc.getName());
+				grNode.setAttribute(TemplateTags.ATTR_GRANTOR, sc.getGrantorName());
+				grNode.setAttribute(TemplateTags.ATTR_GRANTEE, sc.getGranteeName());
+				grNode.setAttribute(TemplateTags.ATTR_OBJECT_OWNER, sc.getClassOwner());
+				grNode.setAttribute(TemplateTags.ATTR_OBJECT_NAME, sc.getClassName());
+				grNode.setAttribute(TemplateTags.ATTR_AUTH_TYPE, sc.getAuthType());
+				grNode.setAttribute(TemplateTags.ATTR_GRANTABLE, getBooleanString(sc.isGrantable()));
+				grNode.setAttribute(TemplateTags.ATTR_TARGET_OWNER, sc.getTargetOwner());
+				grNode.setAttribute(TemplateTags.ATTR_SOURCE_GRANTOR_NAME, sc.getSourceGrantorName());
 			}
 		}
 		

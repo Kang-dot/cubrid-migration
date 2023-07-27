@@ -131,7 +131,7 @@ public class MigrationWizard extends
 	protected MigrationConfiguration migrationConfig;
 
 	protected Catalog sourceCatalog;
-
+	protected Catalog originalSourceCatalog;
 	protected Catalog targetCatalog;
 
 	protected DatabaseNode sourceDBNode;
@@ -313,6 +313,10 @@ public class MigrationWizard extends
 	public Catalog getSourceCatalog() {
 		return sourceCatalog;
 	}
+	
+	public Catalog getOriginalSourceCatalog() {
+		return originalSourceCatalog;
+	}
 
 	/**
 	 * Retrieves the step no of this page.
@@ -449,9 +453,6 @@ public class MigrationWizard extends
 			} else if (tempConfig.targetIsFile()) {
 				migrationConfig.setOneTableOneFile(tempConfig.isOneTableOneFile());
 				migrationConfig.setFileRepositroyPath(tempConfig.getFileRepositroyPath());
-				migrationConfig.setTargetIndexFileName(tempConfig.getTargetIndexFileName());
-				migrationConfig.setTargetSchemaFileName(tempConfig.getTargetSchemaFileName());
-				migrationConfig.setTargetDataFileName(tempConfig.getTargetDataFileName());
 				migrationConfig.setTargetFileTimeZone(tempConfig.getTargetFileTimeZone());
 				migrationConfig.getCsvSettings().copyFrom(tempConfig.getCsvSettings());
 			}
@@ -489,6 +490,23 @@ public class MigrationWizard extends
 	 */
 	public void setSourceCatalog(Catalog sourceCatalog) {
 		this.sourceCatalog = sourceCatalog;
+	}
+	
+	/**
+	 * setOriginalSourceCatalog
+	 * 
+	 * @param originalSourceCatalog
+	 */
+	public void setOriginalSourceCatalog(Catalog originalSourceCatalog) {
+		this.originalSourceCatalog = originalSourceCatalog;
+	}
+	
+	/**
+	 * setSourceDBNode
+	 * 
+	 * @param sourceCatalog
+	 */
+	public void setSourceDBNode(Catalog sourceCatalog) {
 		if (sourceCatalog == null) {
 			sourceDBNode = null;
 		} else {
@@ -496,7 +514,7 @@ public class MigrationWizard extends
 					migrationConfig.sourceIsXMLDump() ? "MySQL dump file" : "Online");
 		}
 	}
-
+	
 	public void setTargetCatalog(Catalog targetCatalog) {
 		this.targetCatalog = targetCatalog;
 	}

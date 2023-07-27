@@ -55,6 +55,8 @@ public abstract class DBObject implements
 	public final static String OBJ_TYPE_PROCEDURE = "procedure";
 	public final static String OBJ_TYPE_FUNCTION = "function";
 	public final static String OBJ_TYPE_RECORD = "record";
+	public final static String OBJ_TYPE_SYNONYM = "synonym";
+	public final static String OBJ_TYPE_GRANT = "grant";
 
 	/**
 	 * Retrieves the Object's name

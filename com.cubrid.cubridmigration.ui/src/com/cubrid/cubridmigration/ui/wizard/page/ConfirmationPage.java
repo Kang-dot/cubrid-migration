@@ -29,6 +29,7 @@
  */
 package com.cubrid.cubridmigration.ui.wizard.page;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -45,14 +46,17 @@ import org.eclipse.swt.widgets.ToolItem;
 
 import com.cubrid.cubridmigration.core.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.connection.ConnParameters;
+import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbtype.DatabaseType;
 import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
 import com.cubrid.cubridmigration.core.engine.config.SourceConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceEntryTableConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceFKConfig;
+import com.cubrid.cubridmigration.core.engine.config.SourceGrantConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceIndexConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceSQLTableConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceSequenceConfig;
+import com.cubrid.cubridmigration.core.engine.config.SourceSynonymConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceTableConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceViewConfig;
 import com.cubrid.cubridmigration.mysql.trans.MySQL2CUBRIDMigParas;
@@ -157,45 +161,371 @@ public class ConfirmationPage extends
 			text.append(migration.getFileRepositroyPath());
 			text.append(lineSeparator).append(tabSeparator);
 
-			text.append(Messages.confrimSchema).append("  ");
-			if (styleRanges != null) {
-				styleRanges.add(new StyleRange(text.length(),
-						migration.getTargetSchemaFileName().length(),
-						SWTResourceConstents.COLOR_BLUE, null));
-			}
-			text.append(migration.getTargetSchemaFileName());
-			text.append(lineSeparator).append(tabSeparator);
-
-			text.append(Messages.confrimIndex).append("  ");
-			if (styleRanges != null) {
-				styleRanges.add(new StyleRange(text.length(),
-						migration.getTargetIndexFileName().length(),
-						SWTResourceConstents.COLOR_BLUE, null));
-			}
-			text.append(migration.getTargetIndexFileName());
-			text.append(lineSeparator).append(tabSeparator);
-
-			text.append(Messages.confrimData).append("  ");
-			int oldLength = text.length();
-			if (migration.isOneTableOneFile()) {
-				text.append(Messages.btnOneTableOneFile).append(lineSeparator).append(tabSeparator);
-			} else {
-				if (migration.getDestType() == MigrationConfiguration.DEST_DB_UNLOAD
-						|| migration.getDestType() == MigrationConfiguration.DEST_SQL) {
-					text.append(migration.getTargetDataFileName());
-				} else {
-					text.append(migration.getFileRepositroyPath());
-					//text.append("data").append(File.separator);
-					text.append(migration.getTargetFilePrefix()).append(
-							Messages.lblConfirmDataFormat);
-					text.append(migration.getDataFileExt());
+			int oldLength;
+			boolean isCreateFileRepository = false;
+			if (migration.isSplitSchema()) {
+				// table
+				text.append(Messages.confrimTable).append(lineSeparator);
+				oldLength = text.length();
+				for (Schema targetSchema : migration.getTargetSchemaList()) {
+					for (SourceEntryTableConfig expTable : migration.getExpEntryTableCfg()) {
+						if (expTable.getTargetOwner().equals(targetSchema.getTargetSchemaName()) && expTable.isCreateNewTable()) {
+							isCreateFileRepository = true;
+							break;
+						}
+					}
+					
+					if (isCreateFileRepository) {
+						text.append(tabSeparator).append(tabSeparator);
+						text.append(migration.getTargetTableFileName(targetSchema.getTargetSchemaName()));
+						text.append(lineSeparator);
+						isCreateFileRepository = false;
+					}
 				}
-				text.append(lineSeparator);
+				if (styleRanges != null) {
+					styleRanges.add(new StyleRange(oldLength, text.length() - oldLength,
+							SWTResourceConstents.COLOR_BLUE, null));
+				}
+				if (text.length() == oldLength) {
+					text.append(tabSeparator).append(tabSeparator);
+					text.append("-");
+					text.append(lineSeparator);
+				}
+				
+				// view
 				text.append(tabSeparator);
+				text.append(Messages.confrimView).append(lineSeparator);
+				isCreateFileRepository = false;
+				oldLength = text.length();
+				for (Schema targetSchema : migration.getTargetSchemaList()) {
+					for (SourceViewConfig expView : migration.getExpViewCfg()) {
+						if (expView.getTargetOwner().equals(targetSchema.getTargetSchemaName()) && expView.isCreate()) {
+							isCreateFileRepository = true;
+							break;
+						}
+					}
+					
+					if (isCreateFileRepository) {
+						text.append(tabSeparator).append(tabSeparator);
+						text.append(migration.getTargetViewFileName(targetSchema.getTargetSchemaName()));
+						text.append(lineSeparator);
+						isCreateFileRepository = false;
+					}
+				}
+				if (styleRanges != null) {
+					styleRanges.add(new StyleRange(oldLength, text.length() - oldLength,
+							SWTResourceConstents.COLOR_BLUE, null));
+				}
+				if (text.length() == oldLength) {
+					text.append(tabSeparator).append(tabSeparator);
+					text.append("-");
+					text.append(lineSeparator);
+				}
+				
+				// pk
+				text.append(tabSeparator);
+				text.append(Messages.confrimPk).append(lineSeparator);
+				isCreateFileRepository = false;
+				oldLength = text.length();
+				for (Schema targetSchema : migration.getTargetSchemaList()) {
+					for (SourceEntryTableConfig expTable : migration.getExpEntryTableCfg()) {
+						if (expTable.getTargetOwner().equals(targetSchema.getTargetSchemaName()) 
+								&& expTable.isCreatePK()) {
+							isCreateFileRepository = true;
+							break;
+						}
+					}
+					
+					if (isCreateFileRepository) {
+						text.append(tabSeparator).append(tabSeparator);
+						text.append(migration.getTargetPkFileName(targetSchema.getTargetSchemaName()));
+						text.append(lineSeparator);
+						isCreateFileRepository = false;
+					}
+				}
+				if (styleRanges != null) {
+					styleRanges.add(new StyleRange(oldLength, text.length() - oldLength,
+							SWTResourceConstents.COLOR_BLUE, null));
+				}
+				if (text.length() == oldLength) {
+					text.append(tabSeparator).append(tabSeparator);
+					text.append("-");
+					text.append(lineSeparator);
+				}
+				
+				// fk
+				text.append(tabSeparator);
+				text.append(Messages.confrimFk).append(lineSeparator);
+				isCreateFileRepository = false;
+				oldLength = text.length();
+				for (Schema targetSchema : migration.getTargetSchemaList()) {
+					for (SourceEntryTableConfig expTable : migration.getExpEntryTableCfg()) {
+						if (expTable.getTargetOwner().equals(targetSchema.getTargetSchemaName()) && 
+								expTable.isCreateNewTable() && expTable.getFKConfigList().size() > 0) {
+							isCreateFileRepository = true;
+							break;
+						}
+					}
+					
+					if (isCreateFileRepository) {
+						text.append(tabSeparator).append(tabSeparator);
+						text.append(migration.getTargetFkFileName(targetSchema.getTargetSchemaName()));
+						text.append(lineSeparator);
+						isCreateFileRepository = false;
+					}
+				}
+				if (styleRanges != null) {
+					styleRanges.add(new StyleRange(oldLength, text.length() - oldLength,
+							SWTResourceConstents.COLOR_BLUE, null));
+				}
+				if (text.length() == oldLength) {
+					text.append(tabSeparator).append(tabSeparator);
+					text.append("-");
+					text.append(lineSeparator);
+				}
+				
+				// serial
+				text.append(tabSeparator);
+				text.append(Messages.confrimSerial).append(lineSeparator);
+				isCreateFileRepository = false;
+				oldLength = text.length();
+				for (Schema targetSchema : migration.getTargetSchemaList()) {
+					for (SourceSequenceConfig expSerial : migration.getExpSerialCfg()) {
+						if (expSerial.getTargetOwner().equals(targetSchema.getTargetSchemaName()) 
+								&& expSerial.isCreate()) {
+							isCreateFileRepository = true;
+							break;
+						}
+					}
+					
+					if (isCreateFileRepository) {
+						text.append(tabSeparator).append(tabSeparator);
+						text.append(migration.getTargetSerialFileName(targetSchema.getTargetSchemaName()));
+						text.append(lineSeparator);
+						isCreateFileRepository = false;
+					}
+				}
+				if (styleRanges != null) {
+					styleRanges.add(new StyleRange(oldLength, text.length() - oldLength,
+							SWTResourceConstents.COLOR_BLUE, null));
+				}
+				if (text.length() == oldLength) {
+					text.append(tabSeparator).append(tabSeparator);
+					text.append("-");
+					text.append(lineSeparator);
+				}
+				
+				// synonym
+				text.append(tabSeparator);
+				text.append(Messages.confrimSynonym).append(lineSeparator);
+				isCreateFileRepository = false;
+				oldLength = text.length();
+				for (Schema targetSchema : migration.getTargetSchemaList()) {
+					for (SourceSynonymConfig expSynonym : migration.getExpSynonymCfg()) {
+						if (expSynonym.getTargetOwner().equals(targetSchema.getTargetSchemaName())
+								&& expSynonym.isCreate()) {
+							isCreateFileRepository = true;
+							break;
+						}
+					}
+					
+					if (isCreateFileRepository) {
+						text.append(tabSeparator).append(tabSeparator);
+						text.append(migration.getTargetSynonymFileName(targetSchema.getTargetSchemaName()));
+						text.append(lineSeparator);
+						isCreateFileRepository = false;
+					}
+				}
+				if (styleRanges != null) {
+					styleRanges.add(new StyleRange(oldLength, text.length() - oldLength,
+							SWTResourceConstents.COLOR_BLUE, null));
+				}
+				if (text.length() == oldLength) {
+					text.append(tabSeparator).append(tabSeparator);
+					text.append("-");
+					text.append(lineSeparator);
+				}
+				
+				// grant
+				text.append(tabSeparator);
+				text.append(Messages.confrimGrant).append(lineSeparator);
+				isCreateFileRepository = false;
+				oldLength = text.length();
+				for (Schema targetSchema : migration.getTargetSchemaList()) {
+					for (SourceGrantConfig expGrant : migration.getExpGrantCfg()) {
+						if (expGrant.getTargetOwner().equals(targetSchema.getTargetSchemaName())
+								&& expGrant.isCreate()) {
+							isCreateFileRepository = true;
+							break;
+						}
+					}
+					
+					if (isCreateFileRepository) {
+						text.append(tabSeparator).append(tabSeparator);
+						text.append(migration.getTargetGrantFileName(targetSchema.getTargetSchemaName()));
+						text.append(lineSeparator);
+						isCreateFileRepository = false;
+					}
+				}
+				if (styleRanges != null) {
+					styleRanges.add(new StyleRange(oldLength, text.length() - oldLength,
+							SWTResourceConstents.COLOR_BLUE, null));
+				}
+				if (text.length() == oldLength) {
+					text.append(tabSeparator).append(tabSeparator);
+					text.append("-");
+					text.append(lineSeparator);
+				}
+			} else {
+				// schema
+				text.append(Messages.confrimSchema).append(lineSeparator);
+				isCreateFileRepository = false;
+				oldLength = text.length();
+				for (Schema targetSchema : migration.getTargetSchemaList()) {
+					for (SourceEntryTableConfig expTable : migration.getExpEntryTableCfg()) {
+						if (expTable.getTargetOwner().equals(targetSchema.getTargetSchemaName())
+								&& expTable.isCreateNewTable()) {
+							isCreateFileRepository = true;
+							break;
+						}
+					}
+					
+					for (SourceViewConfig expView : migration.getExpViewCfg()) {
+						if (!isCreateFileRepository 
+								&& expView.getTargetOwner().equals(targetSchema.getTargetSchemaName()) && expView.isCreate()) {
+							isCreateFileRepository = true;
+							break;
+						}
+					}
+					
+					for (SourceSequenceConfig expSerial : migration.getExpSerialCfg()) {
+						if (!isCreateFileRepository
+								&& expSerial.getTargetOwner().equals(targetSchema.getTargetSchemaName()) && expSerial.isCreate()) {
+							isCreateFileRepository = true;
+							break;
+						}
+					}
+					
+					if (isCreateFileRepository) {
+						text.append(tabSeparator).append(tabSeparator);
+						text.append(migration.getTargetSchemaFileName(targetSchema.getTargetSchemaName()));
+						text.append(lineSeparator);
+						isCreateFileRepository = false;
+					}
+				}
+				if (styleRanges != null) {
+					styleRanges.add(new StyleRange(oldLength, text.length() - oldLength,
+							SWTResourceConstents.COLOR_BLUE, null));
+				}
+				if (text.length() == oldLength) {
+					text.append(tabSeparator).append(tabSeparator);
+					text.append("-");
+					text.append(lineSeparator);
+				}
+			}
+
+			// index
+			text.append(tabSeparator).append(Messages.confrimIndex).append(lineSeparator);
+			isCreateFileRepository = false;
+			oldLength = text.length();
+			for (Schema targetSchema : migration.getTargetSchemaList()) {
+				for (SourceEntryTableConfig expTable : migration.getExpEntryTableCfg()) {
+					if (expTable.getTargetOwner().equals(targetSchema.getTargetSchemaName()) 
+							&& expTable.isCreateNewTable() && expTable.getIndexConfigList().size() > 0) {
+						isCreateFileRepository = true;
+						break;
+					}
+				}
+				
+				if (isCreateFileRepository) {
+					text.append(tabSeparator).append(tabSeparator);
+					text.append(migration.getTargetIndexFileName(targetSchema.getTargetSchemaName()));
+					text.append(lineSeparator);
+					isCreateFileRepository = false;
+				}
 			}
 			if (styleRanges != null) {
 				styleRanges.add(new StyleRange(oldLength, text.length() - oldLength,
 						SWTResourceConstents.COLOR_BLUE, null));
+			}
+			if (text.length() == oldLength) {
+				text.append(tabSeparator).append(tabSeparator);
+				text.append("-");
+				text.append(lineSeparator);
+			}
+
+			//data
+			text.append(tabSeparator).append(Messages.confrimData).append(lineSeparator);
+			isCreateFileRepository = false;
+			oldLength = text.length();
+			if (migration.isOneTableOneFile()) {
+				text.append(tabSeparator).append(tabSeparator);
+				text.append(Messages.btnOneTableOneFile).append(lineSeparator);
+			} else {
+				for (Schema targetSchema : migration.getTargetSchemaList()) {
+					for (SourceEntryTableConfig expTable : migration.getExpEntryTableCfg()) {
+						if (expTable.getTargetOwner().equals(targetSchema.getTargetSchemaName()) && expTable.isMigrateData()) {
+							isCreateFileRepository = true;
+							break;
+						}
+					}
+					
+					if (isCreateFileRepository) {
+						text.append(tabSeparator).append(tabSeparator);
+						if (migration.getDestType() == MigrationConfiguration.DEST_DB_UNLOAD
+								|| migration.getDestType() == MigrationConfiguration.DEST_SQL) {
+							text.append(migration.getTargetDataFileName(targetSchema.getTargetSchemaName()));
+						} else {
+							text.append(migration.getFileRepositroyPath());
+							text.append(targetSchema.getName()).append(File.separator);
+							//text.append("data").append(File.separator);
+							text.append(migration.getTargetFilePrefix())
+								.append(targetSchema.getName())
+								.append(Messages.lblConfirmDataFormat)
+								.append(migration.getDataFileExt());
+						}
+						text.append(lineSeparator);
+						isCreateFileRepository = false;
+					}
+				}	
+			}
+			if (styleRanges != null) {
+				styleRanges.add(new StyleRange(oldLength, text.length() - oldLength,
+						SWTResourceConstents.COLOR_BLUE, null));
+			}
+			if (text.length() == oldLength) {
+				text.append(tabSeparator).append(tabSeparator);
+				text.append("-");
+				text.append(lineSeparator);
+			}
+			
+			// updateStatistic
+			text.append(tabSeparator).append(Messages.confrimUpdateStatistic).append(lineSeparator);
+			isCreateFileRepository = false;
+			oldLength = text.length();
+			for (Schema targetSchema : migration.getTargetSchemaList()) {
+				for (SourceEntryTableConfig expTable : migration.getExpEntryTableCfg()) {
+					if (expTable.getTargetOwner().equals(targetSchema.getTargetSchemaName()) && expTable.isMigrateData()) {
+						isCreateFileRepository = true;
+						break;
+					}
+				}
+				
+				if (isCreateFileRepository) {
+					text.append(tabSeparator).append(tabSeparator);
+					text.append(migration.getTargetUpdateStatisticFileName(targetSchema.getTargetSchemaName()));
+					text.append(lineSeparator);
+					isCreateFileRepository = false;
+				}
+			}
+			if (styleRanges != null) {
+				styleRanges.add(new StyleRange(oldLength, text.length() - oldLength,
+						SWTResourceConstents.COLOR_BLUE, null));
+			}
+			if (text.length() == oldLength) {
+				text.append(tabSeparator).append(tabSeparator);
+				text.append("-");
+				text.append(lineSeparator);
 			}
 
 			int length = migration.getTargetFileTimeZone().length() > 9 ? 9
@@ -303,6 +633,35 @@ public class ConfirmationPage extends
 						lineSeparator);
 			}
 		}
+		//synonym
+		if (!migration.targetIsOnline() || Integer.parseInt(migration.getTargetDBVersion()) >= 112) {
+			List<SourceSynonymConfig> sourceConfigSynonymList = migration.getExpSynonymCfg();
+			if (!sourceConfigSynonymList.isEmpty()) {
+				text.append(Messages.confrimExportSynonym).append(lineSeparator);
+				for (SourceConfig sourceConfig : sourceConfigSynonymList) {
+					if (!sourceConfig.isCreate()) {
+						continue;
+					}
+					text.append(tabSeparator).append(sourceConfig.getName()).append(tabSeparator).append(
+							" -> ").append(tabSeparator).append(sourceConfig.getTarget()).append(
+							lineSeparator);
+				}
+			}
+		}
+		//grant
+		List<SourceGrantConfig> sourceConfigGrantList = migration.getExpGrantCfg();
+		if (!sourceConfigGrantList.isEmpty()) {
+			text.append(Messages.confrimExportGrants).append(lineSeparator);
+			for (SourceConfig sourceConfig : sourceConfigGrantList) {
+				if (!sourceConfig.isCreate()) {
+					continue;
+				}
+				text.append(tabSeparator).append(sourceConfig.getName()).append(tabSeparator).append(
+						" -> ").append(tabSeparator).append(sourceConfig.getTarget()).append(
+						lineSeparator);
+			}
+		}
+		
 		return text.toString();
 	}
 
