@@ -199,11 +199,16 @@ public abstract class AbstractJDBCSchemaFetcher implements
 		schema.setName(schemaName);
 		catalog.addSchema(schema);
 		
-		if (schema.getName().equalsIgnoreCase(catalog.getConnectionParameters().getConUser())) {
-			schema.setGrantorSchema(false);
+		if (catalog.isDbHasUserSchema()) {
+			if (schema.getName().equalsIgnoreCase(catalog.getConnectionParameters().getConUser())) {
+				schema.setGrantorSchema(false);
+			} else {
+				schema.setGrantorSchema(true);
+			}
 		} else {
-			schema.setGrantorSchema(true);
+			schema.setGrantorSchema(false);
 		}
+		
 
 		// Get Tables
 		try {
