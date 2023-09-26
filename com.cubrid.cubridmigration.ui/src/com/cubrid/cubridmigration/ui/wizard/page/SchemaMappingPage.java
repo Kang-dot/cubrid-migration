@@ -335,19 +335,17 @@ public class SchemaMappingPage extends MigrationWizardPage {
 		tarSchemaNameList = new ArrayList<String>();
 		
 		if (targetCatalog.isDbHasUserSchema()) {
-			tarSchemaNameList.add(targetCatalog.getConnectionParameters().getConUser());
-		} else {
 			List<Schema> targetSchemaList = targetCatalog.getSchemas();
 			
 			for (Schema schema : targetSchemaList) {
 				tarSchemaNameList.add(schema.getName());
 				dropDownSchemaList.add(schema.getName());
 			}
+		} else {
+			tarSchemaNameList.add(targetCatalog.getConnectionParameters().getConUser());
 		}
 		
 		if (sourceCatalog.isDbHasUserSchema()) {
-			tarSchemaNameList.add(sourceCatalog.getConnectionParameters().getConUser());
-		} else {
 			List<Schema> sourceSchemaList = sourceCatalog.getSchemas();
 			
 			for (Schema schema : sourceSchemaList) {
@@ -357,11 +355,12 @@ public class SchemaMappingPage extends MigrationWizardPage {
 				
 				dropDownSchemaList.add(schema.getName());
 			}
+		} else {
+			tarSchemaNameList.add(sourceCatalog.getConnectionParameters().getConUser());
 		}
 
 		if (targetCatalog.isDBAGroup()) {
 			tarSchemaNameArray = dropDownSchemaList.toArray(new String[] {});
-			
 		} else {
 			tarSchemaNameArray = new String[] {targetCatalog.getConnectionParameters().getConUser()};
 		}
