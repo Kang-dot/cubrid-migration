@@ -626,7 +626,6 @@ public class SchemaMappingPage extends MigrationWizardPage {
 				if (tarCatalog.isDBAGroup() && version >= 112) {
 					srcTable.setTarSchema(srcTable.getSrcSchema());
 				} else {
-//					srcTable.setTarSchema(tarCatalog.getSchemas().get(0).getName());
 					srcTable.setTarSchema(tarCatalog.getConnectionParameters().getConUser());
 				}
 			}
