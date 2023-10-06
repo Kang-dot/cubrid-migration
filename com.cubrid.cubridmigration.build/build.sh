@@ -1,9 +1,9 @@
 #!/bin/sh
 WORKSPACE=${HOME}/build/src
-JAVA_HOME=${HOME}/build/java
+JAVA_HOME=${HOME}/build/build_update/jdk-17
 PRODUCT_DIR=cubridmigration
 PRODUCT_NAME=CUBRIDMigration
-ECLIPSE_HOME=${HOME}/build/eclipse_for_build/eclipse
+ECLIPSE_HOME=${HOME}/build/build_update/eclipse-23-06/eclipse
 BUILD_HOME=${WORKSPACE}
 BUILD_DIR=${BUILD_HOME}/${PRODUCT_DIR}/com.cubrid.cubridmigration.build
 VERSION_DIR=${BUILD_HOME}/${PRODUCT_DIR}/com.cubrid.cubridmigration.ui
