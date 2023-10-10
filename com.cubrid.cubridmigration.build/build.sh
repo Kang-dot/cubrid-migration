@@ -1,14 +1,16 @@
 #!/bin/sh
-WORKSPACE=${HOME}/jenkins_build/src
-JAVA_HOME=${HOME}/jenkins_build/jdk-17
+TEST_HOME=/home/jeong
+
+WORKSPACE=${TEST_HOME}/jenkins_build/src
+JAVA_HOME=${TEST_HOME}/jenkins_build/jdk-17
 PRODUCT_DIR=cmt_rel
 PRODUCT_NAME=CUBRIDMigration
-ECLIPSE_HOME=${HOME}/jenkins_build/eclipse_build/eclipse
+ECLIPSE_HOME=${TEST_HOME}/jenkins_build/eclipse_build/eclipse
 BUILD_HOME=${WORKSPACE}
 BUILD_DIR=${BUILD_HOME}/${PRODUCT_DIR}/com.cubrid.cubridmigration.build
 VERSION_DIR=${BUILD_HOME}/${PRODUCT_DIR}/com.cubrid.cubridmigration.ui
 VERSION_FILE_PATH=${VERSION_DIR}/version.properties
-MAKENSIS_EXEC_PATH=${HOME}/build/nsis/makensis.exe
+MAKENSIS_EXEC_PATH=${TEST_HOME}/build/nsis/makensis.exe
 MAKENSIS_INPUT_PATH="c:/build/src/${PRODUCT_DIR}/com.cubrid.cubridmigration.build/deploy"
 MAKENSIS_OUTPUT_PATH="c:/build/src/${CUR_VER_DIR}"
 
