@@ -1,11 +1,9 @@
 #!/bin/sh
-TEST_HOME=/home/jeong
-
-WORKSPACE=${TEST_HOME}/jenkins_build/src
-JAVA_HOME=${TEST_HOME}/jenkins_build/jdk-17
+WORKSPACE=${HOME}/workspace/src
+JAVA_HOME=${HOME}/workspace/jdk-17
 PRODUCT_DIR=cmt_rel
 PRODUCT_NAME=CUBRIDMigration
-ECLIPSE_HOME=${TEST_HOME}/jenkins_build/eclipse_build/eclipse
+ECLIPSE_HOME=${HOME}/workspace/eclipse_build/eclipse
 BUILD_HOME=${WORKSPACE}
 BUILD_DIR=${BUILD_HOME}/${PRODUCT_DIR}/com.cubrid.cubridmigration.build
 VERSION_DIR=${BUILD_HOME}/${PRODUCT_DIR}/com.cubrid.cubridmigration.ui
@@ -43,6 +41,16 @@ mkdir -p ${OUTPUT_DIR}
 cd ${BUILD_HOME}
 ${JAVA_HOME}/bin/java -jar ${ECLIPSE_HOME}/plugins/org.eclipse.equinox.launcher_1.1.0.v20100507.jar -application org.eclipse.ant.core.antRunner -buildfile ${BUILD_DIR}/buildProduct.xml -Doutput.path=${OUTPUT_DIR} -Declipse.home=${ECLIPSE_HOME} -Dmakensis.path=${MAKENSIS_EXEC_PATH} -Dmakensis.input.path=${MAKENSIS_INPUT_PATH} -Dmakensis.output.path=${MAKENSIS_OUTPUT_PATH} -Dproduct.version=${VERSION} distlinux
 ${JAVA_HOME}/bin/java -jar ${ECLIPSE_HOME}/plugins/org.eclipse.equinox.launcher_1.1.0.v20100507.jar -application org.eclipse.ant.core.antRunner -buildfile ${BUILD_DIR}/buildPlugin.xml -Doutput.path=${OUTPUT_DIR} -Declipse.home=${ECLIPSE_HOME} -Dmakensis.path=${MAKENSIS_EXEC_PATH} -Dmakensis.input.path=${MAKENSIS_INPUT_PATH} -Dmakensis.output.path=${MAKENSIS_OUTPUT_PATH} -Dproduct.version=${VERSION} distlinux
+
+
+
+
+
+
+
+
+
+
 
 
 : <<'END'
