@@ -2280,14 +2280,9 @@ public final class CUBRIDSchemaFetcher extends
 		Integer ver = Integer.parseInt("" + conn.getMetaData().getDatabaseMajorVersion() 
 				+ conn.getMetaData().getDatabaseMinorVersion());
 		
-		if (ver < 112) {
-			return super.getSchemaNames(conn, cp);
-		}
-		
 		if (!getPrivilege(conn, cp)) {
 			return getUserSchemaNames(conn, cp);
 		}
-		
 		
 		List<String> schemaNames = new ArrayList<String>();
 		PreparedStatement stmt = null;
