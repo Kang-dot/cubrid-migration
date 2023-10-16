@@ -463,6 +463,10 @@ public class SelectDestinationPage extends
 			
 			Catalog catalog = conMgrView.getCatalog();
 			
+			if (catalog == null) {
+				return false;
+			}
+			
 			int targetCubridVersion = (catalog.getVersion().getDbMajorVersion() * 10) + (catalog.getVersion().getDbMinorVersion());
 			config.setTargetDBVersion(String.valueOf(targetCubridVersion));
 			config.setAddUserSchema(targetCubridVersion >= USERSCHEMA_VERSION);
