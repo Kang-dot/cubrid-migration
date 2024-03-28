@@ -889,8 +889,15 @@ public class MigrationCfgUtils {
 
     /** @return true if user should change the target character type's size to avoid data lost. */
     public boolean doesNeedToChangeCharacterTypeSize() {
-        return DatabaseType.MYSQL.equals(config.getSourceDBType())
-                || DatabaseType.ORACLE.equals(config.getSourceDBType());
+    	boolean isEffectedByCharacterTypeSize;
+    	
+    	if (config.targetIsDBDump() || config.targetIsCSV()) {
+    		isEffectedByCharacterTypeSize = !config.isAddUserSchema();
+    	} else {
+    		isEffectedByCharacterTypeSize = Integer.parseInt(config.getTargetDBVersion()) < 93 ? true : false;
+    	}
+    	return (DatabaseType.MYSQL.equals(config.getSourceDBType())
+    			|| DatabaseType.ORACLE.equals(config.getSourceDBType()) && isEffectedByCharacterTypeSize);
     }
 
     public MigrationConfiguration getMigrationConfiguration() {
