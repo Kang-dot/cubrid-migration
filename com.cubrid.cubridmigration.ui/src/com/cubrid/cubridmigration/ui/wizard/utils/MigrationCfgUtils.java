@@ -891,11 +891,11 @@ public class MigrationCfgUtils {
     public boolean doesNeedToChangeCharacterTypeSize() {
         boolean isEffectedByCharacterTypeSize;
 
-        if (config.targetIsDBDump() || config.targetIsCSV()) {
+        if (config.targetIsFile()) {
             isEffectedByCharacterTypeSize = !config.isAddUserSchema();
         } else {
             isEffectedByCharacterTypeSize =
-                    Integer.parseInt(config.getTargetDBVersion()) < 93 ? true : false;
+                    Integer.parseInt(config.getTargetDBVersion()) < 93;
         }
         return (DatabaseType.MYSQL.equals(config.getSourceDBType())
                 || DatabaseType.ORACLE.equals(config.getSourceDBType())
