@@ -87,6 +87,7 @@ public class MigrationCfgUtils {
 
     private static final String LINE_SEP = System.getProperty("line.separator");
     private final int SUPPORT_MULTI_SCHEMA = 112;
+    private static final int CHAR_SIZE_CHANGE_VERSION = 93;
 
     /**
      * Change the column order according to input list.
@@ -889,8 +890,17 @@ public class MigrationCfgUtils {
 
     /** @return true if user should change the target character type's size to avoid data lost. */
     public boolean doesNeedToChangeCharacterTypeSize() {
-        return DatabaseType.MYSQL.equals(config.getSourceDBType())
-                || DatabaseType.ORACLE.equals(config.getSourceDBType());
+        boolean isEffectedByCharacterTypeSize;
+
+        if (config.targetIsFile()) {
+            isEffectedByCharacterTypeSize = !config.isAddUserSchema();
+        } else {
+            isEffectedByCharacterTypeSize =
+                    Integer.parseInt(config.getTargetDBVersion()) < CHAR_SIZE_CHANGE_VERSION;
+        }
+        return (DatabaseType.MYSQL.equals(config.getSourceDBType())
+                || DatabaseType.ORACLE.equals(config.getSourceDBType())
+                        && isEffectedByCharacterTypeSize);
     }
 
     public MigrationConfiguration getMigrationConfiguration() {
