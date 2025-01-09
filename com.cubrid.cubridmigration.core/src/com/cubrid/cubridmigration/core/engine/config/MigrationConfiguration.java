@@ -31,6 +31,8 @@
 package com.cubrid.cubridmigration.core.engine.config;
 
 import static com.cubrid.cubridmigration.core.common.PathUtils.mergePath;
+import static java.util.Objects.isNull;
+import static java.util.Objects.nonNull;
 
 import au.com.bytecode.opencsv.CSVReader;
 import com.cubrid.cubridmigration.core.common.CUBRIDIOUtils;
@@ -51,6 +53,8 @@ import com.cubrid.cubridmigration.core.dbobject.Grant;
 import com.cubrid.cubridmigration.core.dbobject.Index;
 import com.cubrid.cubridmigration.core.dbobject.PK;
 import com.cubrid.cubridmigration.core.dbobject.PartitionInfo;
+import com.cubrid.cubridmigration.core.dbobject.PlcsqlFunction;
+import com.cubrid.cubridmigration.core.dbobject.PlcsqlProcedure;
 import com.cubrid.cubridmigration.core.dbobject.Procedure;
 import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
@@ -64,6 +68,8 @@ import com.cubrid.cubridmigration.core.trans.MigrationTransFactory;
 import com.cubrid.cubridmigration.cubrid.CUBRIDDataTypeHelper;
 import com.cubrid.cubridmigration.cubrid.CUBRIDSQLHelper;
 import com.cubrid.cubridmigration.mysql.MysqlXmlDumpSource;
+import com.cubrid.cubridmigration.oracle.parser.PlConvOracleToCubrid;
+import com.cubrid.cubridmigration.oracle.parser.ProcedureDDL;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -77,6 +83,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.TimeZone;
 import java.util.TreeMap;
 import org.apache.commons.collections.CollectionUtils;
@@ -158,6 +166,8 @@ public class MigrationConfiguration {
     private final List<SourceEntryTableConfig> expTables = new ArrayList<SourceEntryTableConfig>();
     private final List<String> expTriggers = new ArrayList<String>();
     private final List<SourceViewConfig> expViews = new ArrayList<SourceViewConfig>();
+    private final List<SourcePlcsqlProcedureConfig> expPlcsqlProcedures = new ArrayList<>();
+    private final List<SourcePlcsqlFunctionConfig> expPlcsqlFunctions = new ArrayList<>();
     private String fileRepositroyPath;
     private final List<SourceCSVConfig> csvFiles = new ArrayList<SourceCSVConfig>();
 
@@ -176,6 +186,13 @@ public class MigrationConfiguration {
     private Map<String, Map<String, String>> targetGrantFileName =
             new HashMap<String, Map<String, String>>();
     private Map<String, List<String>> targetTableDataFileName = new HashMap<String, List<String>>();
+    private Map<String, String> targetAllPlcsqlProcedureHeaderFileName = new HashMap<>();
+    private Map<String, String> targetAllPlcsqlFunctionHeaderFileName = new HashMap<>();
+    private Map<String, String> targetAllPlcsqlProcedureFileName = new HashMap<>();
+    private Map<String, String> targetAllPlcsqlFunctionFileName = new HashMap<>();
+    private Map<String, Map<String, String>> targetPlcsqlProcedureFileName = new HashMap<>();
+    private Map<String, Map<String, String>> targetPlcsqlFunctionFileName = new HashMap<>();
+
     private String targetFilePrefix;
     private String targetCharSet = "UTF-8";
     private String targetLOBRootPath = "";
@@ -214,6 +231,8 @@ public class MigrationConfiguration {
     private final List<Sequence> targetSequences = new ArrayList<Sequence>();
     private final List<Synonym> targetSynonyms = new ArrayList<Synonym>();
     private final List<Grant> targetGrants = new ArrayList<Grant>();
+    private final List<PlcsqlProcedure> targetPlcsqlProcedures = new ArrayList<>();
+    private final List<PlcsqlFunction> targetPlcsqlFunctions = new ArrayList<>();
     private String targetFileTimeZone = "Default";
 
     // Used by database unload file migration,
@@ -304,6 +323,35 @@ public class MigrationConfiguration {
         }
     }
 
+    public void addExpPlcsqlFunctionCfg(
+            String owner,
+            String targetOwner,
+            String name,
+            String targetName,
+            String authid,
+            boolean authidChanged,
+            String sourceDDL,
+            String headerDDL,
+            String bodyDDL,
+            String procedureDDL) {
+        if (srcCatalog != null) {
+            throw new RuntimeException("Source database was specified.");
+        }
+        SourcePlcsqlFunctionConfig sc =
+                new SourcePlcsqlFunctionConfig(
+                        owner,
+                        targetOwner,
+                        name,
+                        targetName,
+                        authid,
+                        authidChanged,
+                        sourceDDL,
+                        headerDDL,
+                        bodyDDL,
+                        procedureDDL);
+        expPlcsqlFunctions.add(sc);
+    }
+
     /**
      * Add an export procedure.
      *
@@ -316,6 +364,35 @@ public class MigrationConfiguration {
         if (expProcedures.indexOf(name) < 0) {
             expProcedures.add(name);
         }
+    }
+
+    public void addExpPlcsqlProcedureCfg(
+            String owner,
+            String targetOwner,
+            String name,
+            String targetName,
+            String authid,
+            boolean authidChanged,
+            String sourceDDL,
+            String headerDDL,
+            String bodyDDL,
+            String procedureDDL) {
+        if (srcCatalog != null) {
+            throw new RuntimeException("Source database was specified.");
+        }
+        SourcePlcsqlProcedureConfig sc =
+                new SourcePlcsqlProcedureConfig(
+                        owner,
+                        targetOwner,
+                        name,
+                        targetName,
+                        authid,
+                        authidChanged,
+                        sourceDDL,
+                        headerDDL,
+                        bodyDDL,
+                        procedureDDL);
+        expPlcsqlProcedures.add(sc);
     }
 
     /**
@@ -610,6 +687,20 @@ public class MigrationConfiguration {
         }
     }
 
+    public void addTargetPlcsqlProcedureSchema(PlcsqlProcedure proc) {
+        if (srcCatalog != null) {
+            throw new RuntimeException("Source database was specified.");
+        }
+        targetPlcsqlProcedures.add(proc);
+    }
+
+    public void addTargetPlcsqlFunctionSchema(PlcsqlFunction func) {
+        if (srcCatalog != null) {
+            throw new RuntimeException("Source database was specified.");
+        }
+        targetPlcsqlFunctions.add(func);
+    }
+
     /**
      * Clean up the settings, remove the configurations which are not in source schema.
      *
@@ -624,6 +715,8 @@ public class MigrationConfiguration {
         buildSerialCfg(isReset);
         buildSynonymCfg(isReset);
         buildGrantCfg(isReset);
+        buildPlcsqlProcedureCfg(isReset);
+        buildPlcsqlFunctionCfg(isReset);
         List<Schema> schemas = srcCatalog.getSchemas();
         for (Schema sourceDBSchema : schemas) {
             String prefix = "";
@@ -883,6 +976,128 @@ public class MigrationConfiguration {
         targetSynonyms.addAll(tempSynonyms);
     }
 
+    private void buildPlcsqlProcedureCfg(boolean isReset) {
+        List<SourcePlcsqlProcedureConfig> tempList = new ArrayList<>();
+        List<PlcsqlProcedure> tempProcedures = new ArrayList<>();
+        List<Schema> schemas = srcCatalog.getSchemas();
+        for (Schema sourceDBSchema : schemas) {
+            for (PlcsqlProcedure procedure : sourceDBSchema.getPlcsqlProcedures()) {
+                SourcePlcsqlProcedureConfig sc =
+                        getExpPlcsqlProcedureCfg(procedure.getOwner(), procedure.getName());
+
+                if (isNull(sc)
+                        || (nonNull(sourceDBSchema.getTargetSchemaName())
+                                && !sourceDBSchema
+                                        .getTargetSchemaName()
+                                        .equals(sc.getTargetOwner()))) {
+                    sc =
+                            new SourcePlcsqlProcedureConfig(
+                                    procedure.getOwner(),
+                                    sourceDBSchema.getTargetSchemaName(),
+                                    procedure.getName(),
+                                    procedure.getName().toLowerCase(),
+                                    procedure.getAuthid(),
+                                    procedure.isAuthidChanged(),
+                                    procedure.getSourceDDL(),
+                                    procedure.getHeaderDDL(),
+                                    procedure.getBodyDDL(),
+                                    procedure.getDDL());
+                    sc.setCreate(isReset);
+                    sc.setReplace(isReset);
+                }
+                tempList.add(sc);
+
+                PlcsqlProcedure tprocedure = null;
+                if (isNull(sc.getOwner())) {
+                    tprocedure = getTargetPlcsqlProcedureSchema(sc.getTarget());
+                } else {
+                    tprocedure =
+                            getTargetPlcsqlProcedureSchema(sc.getTargetOwner(), sc.getTarget());
+                }
+
+                if (tprocedure == null) {
+                    tprocedure = new PlcsqlProcedure();
+                    tprocedure.setOwner(sc.getOwner());
+                    tprocedure.setTargetOwner(sc.getTargetOwner());
+                    tprocedure.setName(sc.getName());
+                    tprocedure.setTargetName(sc.getTarget());
+                    tprocedure.setAuthid(sc.getAuthid());
+                    tprocedure.setAuthidChanged(sc.isAuthidChagned());
+                    tprocedure.setSourceDDL(sc.getSourceDDL());
+                    tprocedure.setHeaderDDL(sc.getHeaderDDL());
+                    tprocedure.setBodyDDL(sc.getBodyDDL());
+                    tprocedure.setProcedureDDL(sc.getProcedureDDL());
+                }
+                tempProcedures.add(tprocedure);
+            }
+        }
+        expPlcsqlProcedures.clear();
+        expPlcsqlProcedures.addAll(tempList);
+        targetPlcsqlProcedures.clear();
+        targetPlcsqlProcedures.addAll(tempProcedures);
+    }
+
+    private void buildPlcsqlFunctionCfg(boolean isReset) {
+        List<SourcePlcsqlFunctionConfig> tempList = new ArrayList<>();
+        List<PlcsqlFunction> tempFunctions = new ArrayList<>();
+        List<Schema> schemas = srcCatalog.getSchemas();
+        for (Schema sourceDBSchema : schemas) {
+            for (PlcsqlFunction function : sourceDBSchema.getPlcsqlFunctions()) {
+                SourcePlcsqlFunctionConfig sc =
+                        getExpPlcsqlFunctionCfg(function.getOwner(), function.getName());
+
+                if (isNull(sc)
+                        || (nonNull(sourceDBSchema.getTargetSchemaName())
+                                && !sourceDBSchema
+                                        .getTargetSchemaName()
+                                        .equals(sc.getTargetOwner()))) {
+                    sc =
+                            new SourcePlcsqlFunctionConfig(
+                                    function.getOwner(),
+                                    sourceDBSchema.getTargetSchemaName(),
+                                    function.getName(),
+                                    function.getName().toLowerCase(),
+                                    function.getAuthid(),
+                                    function.isAuthidChanged(),
+                                    function.getSourceDDL(),
+                                    function.getHeaderDDL(),
+                                    function.getBodyDDL(),
+                                    function.getDDL());
+                    sc.setCreate(isReset);
+                    sc.setReplace(isReset);
+                }
+
+                tempList.add(sc);
+
+                PlcsqlFunction tfunction = null;
+                if (isNull(sc.getOwner())) {
+                    tfunction = getTargetPlcsqlFunctionSchema(sc.getTarget());
+                } else {
+                    tfunction = getTargetPlcsqlFunctionSchema(sc.getTargetOwner(), sc.getTarget());
+                }
+
+                if (tfunction == null) {
+                    tfunction = new PlcsqlFunction();
+                    tfunction.setOwner(sc.getOwner());
+                    tfunction.setTargetOwner(sc.getTargetOwner());
+                    tfunction.setName(sc.getName());
+                    tfunction.setTargetName(sc.getTarget());
+                    tfunction.setAuthid(sc.getAuthid());
+                    tfunction.setAuthidChanged(sc.isAuthidChanged());
+                    tfunction.setSourceDDL(sc.getSourceDDL());
+                    tfunction.setHeaderDDL(sc.getHeaderDDL());
+                    tfunction.setBodyDDL(sc.getBodyDDL());
+                    tfunction.setFunctionDDL(sc.getFunctionDDL());
+                }
+                tempFunctions.add(tfunction);
+            }
+        }
+        expPlcsqlFunctions.clear();
+        expPlcsqlFunctions.addAll(tempList);
+        targetPlcsqlFunctions.clear();
+        targetPlcsqlFunctions.addAll(tempFunctions);
+    }
+
     public void createDumpfile(boolean isSplit, boolean isOneTableOneFile) {
         if (getSourceDBType().isSupportMultiSchema()) {
             Iterator<String> keys = scriptSchemaMapping.keySet().iterator();
@@ -927,6 +1142,29 @@ public class MigrationConfiguration {
                             buildLocalFileFullPath(
                                     schemaName, "grant", grant.getSourceGrantorName()));
                 }
+            }
+            this.addTargetAllPlcsqlProcedureHeaderFileName(
+                    schemaName, buildLocalFileFullPath(schemaName, "procedure_header", null));
+            this.addTargetAllPlcsqlFunctionHeaderFileName(
+                    schemaName, buildLocalFileFullPath(schemaName, "function_header", null));
+
+            this.addTargetAllPlcsqlProcedureFileName(
+                    schemaName, buildLocalFileFullPath(schemaName, "procedure", null));
+            this.addTargetAllPlcsqlFunctionFileName(
+                    schemaName, buildLocalFileFullPath(schemaName, "function", null));
+
+            for (SourcePlcsqlProcedureConfig spc : expPlcsqlProcedures) {
+                this.addTargetPlcsqlProcedureFileName(
+                        schemaName,
+                        spc.getName(),
+                        buildPlcsqlProcedureFileFullPath(schemaName, spc.getName(), "procedure"));
+            }
+
+            for (SourcePlcsqlFunctionConfig fpc : expPlcsqlFunctions) {
+                this.addTargetPlcsqlFunctionFileName(
+                        schemaName,
+                        fpc.getName(),
+                        buildPlcsqlProcedureFileFullPath(schemaName, fpc.getName(), "function"));
             }
         } else {
             this.addTargetSchemaFileName(
@@ -1742,6 +1980,60 @@ public class MigrationConfiguration {
                     }
                 }
             }
+            if (targetAllPlcsqlProcedureHeaderFileName.get(schemaName) != null) {
+                addTargetAllPlcsqlProcedureHeaderFileName(
+                        schemaName,
+                        path2
+                                + targetAllPlcsqlProcedureHeaderFileName
+                                        .get(schemaName)
+                                        .substring(tempPath.length()));
+            }
+            if (targetAllPlcsqlFunctionHeaderFileName.get(schemaName) != null) {
+                addTargetAllPlcsqlFunctionHeaderFileName(
+                        schemaName,
+                        path2
+                                + targetAllPlcsqlFunctionHeaderFileName
+                                        .get(schemaName)
+                                        .substring(tempPath.length()));
+            }
+            if (targetAllPlcsqlProcedureFileName.get(schemaName) != null) {
+                addTargetAllPlcsqlProcedureFileName(
+                        schemaName,
+                        path2
+                                + targetAllPlcsqlProcedureFileName
+                                        .get(schemaName)
+                                        .substring(tempPath.length()));
+            }
+            if (targetAllPlcsqlFunctionFileName.get(schemaName) != null) {
+                addTargetAllPlcsqlFunctionFileName(
+                        schemaName,
+                        path2
+                                + targetAllPlcsqlFunctionFileName
+                                        .get(schemaName)
+                                        .substring(tempPath.length()));
+            }
+            if (targetPlcsqlProcedureFileName.get(schemaName) != null) {
+                for (SourcePlcsqlProcedureConfig spc : expPlcsqlProcedures) {
+                    addTargetPlcsqlProcedureFileName(
+                            schemaName,
+                            spc.getName(),
+                            path2
+                                    + targetSchemaFileListName
+                                            .get(schemaName)
+                                            .substring(tempPath.length()));
+                }
+            }
+            if (targetPlcsqlFunctionFileName.get(schemaName) != null) {
+                for (SourcePlcsqlFunctionConfig fpc : expPlcsqlFunctions) {
+                    addTargetPlcsqlFunctionFileName(
+                            schemaName,
+                            fpc.getName(),
+                            path2
+                                    + targetSchemaFileListName
+                                            .get(schemaName)
+                                            .substring(tempPath.length()));
+                }
+            }
         } else {
             if (targetSchemaFileName.get(schemaName) != null) {
                 addTargetSchemaFileName(
@@ -1950,6 +2242,20 @@ public class MigrationConfiguration {
                     expGrants.remove(sc);
                 }
             }
+
+            for (SourceConfig sc : getExpPlcsqlProcedureCfg()) {
+                if (!sc.isCreate()) {
+                    targetPlcsqlProcedures.remove(getTargetPlcsqlProcedureSchema(sc.getTarget()));
+                    expPlcsqlProcedures.remove(sc);
+                }
+            }
+
+            for (SourceConfig sc : getExpPlcsqlFunctionCfg()) {
+                if (!sc.isCreate()) {
+                    targetPlcsqlFunctions.remove(getTargetPlcsqlFunctionSchema(sc.getTarget()));
+                    expPlcsqlFunctions.remove(sc);
+                }
+            }
             cleanN21Tables();
         } else if (sourceType == SOURCE_TYPE_CSV) {
             final Iterator<Table> it = targetTables.iterator();
@@ -1982,6 +2288,34 @@ public class MigrationConfiguration {
         }
     }
 
+    public void parsingProcedureFunction(boolean changeDataType) {
+        List<SourcePlcsqlProcedureConfig> spcs = getExpPlcsqlProcedureCfg();
+        for (SourcePlcsqlProcedureConfig spc : spcs) {
+            PlcsqlProcedure targetProc =
+                    getTargetPlcsqlProcedureSchema(spc.getOwner(), spc.getName());
+            if (Objects.isNull(targetProc.getHeaderDDL())
+                    && Objects.isNull(targetProc.getBodyDDL())) {
+                ProcedureDDL procedureDDL =
+                        PlConvOracleToCubrid.getProcedureDDL(spc.getSourceDDL(), changeDataType);
+                targetProc.setHeaderDDL(procedureDDL.getHeader());
+                targetProc.setBodyDDL(procedureDDL.getBody());
+            }
+        }
+
+        List<SourcePlcsqlFunctionConfig> fpcs = getExpPlcsqlFunctionCfg();
+        for (SourcePlcsqlFunctionConfig fpc : fpcs) {
+            PlcsqlFunction targetFunc =
+                    getTargetPlcsqlFunctionSchema(fpc.getOwner(), fpc.getName());
+            if (Objects.isNull(targetFunc.getHeaderDDL())
+                    && Objects.isNull(targetFunc.getBodyDDL())) {
+                ProcedureDDL procedureDDL =
+                        PlConvOracleToCubrid.getProcedureDDL(fpc.getSourceDDL(), changeDataType);
+                targetFunc.setHeaderDDL(procedureDDL.getHeader());
+                targetFunc.setBodyDDL(procedureDDL.getBody());
+            }
+        }
+    }
+
     /** Clear all configurations and target schemas including SQL schemas */
     private void clearAll() {
         srcSQLSchemas.clear();
@@ -1995,11 +2329,15 @@ public class MigrationConfiguration {
         expTriggers.clear();
         expSynonyms.clear();
         expGrants.clear();
+        expPlcsqlProcedures.clear();
+        expPlcsqlFunctions.clear();
 
         targetSequences.clear();
         targetTables.clear();
         targetViews.clear();
         targetSynonyms.clear();
+        targetPlcsqlProcedures.clear();
+        targetPlcsqlFunctions.clear();
     }
 
     /** Clear all sql tables */
@@ -2277,6 +2615,29 @@ public class MigrationConfiguration {
         return new ArrayList<String>(expFunctions);
     }
 
+    public List<SourcePlcsqlFunctionConfig> getExpPlcsqlFunctionCfg() {
+        return new ArrayList<SourcePlcsqlFunctionConfig>(expPlcsqlFunctions);
+    }
+
+    public SourcePlcsqlFunctionConfig getExpPlcsqlFunctionCfg(String schema, String name) {
+        SourcePlcsqlFunctionConfig result = null;
+        for (SourcePlcsqlFunctionConfig config : expPlcsqlFunctions) {
+            if (config.getName().equals(name)) {
+                if (isNull(schema)) {
+                    return config;
+                }
+                if (schema.equalsIgnoreCase(config.getOwner())) {
+                    return config;
+                }
+                if (isNull(config.getOwner())) {
+                    result = config;
+                    break;
+                }
+            }
+        }
+        return result;
+    }
+
     /**
      * getExportFunction
      *
@@ -2349,6 +2710,29 @@ public class MigrationConfiguration {
      */
     public String getExpProcedureCfg(String name) {
         return expProcedures.indexOf(name) < 0 ? null : name;
+    }
+
+    public List<SourcePlcsqlProcedureConfig> getExpPlcsqlProcedureCfg() {
+        return new ArrayList<SourcePlcsqlProcedureConfig>(expPlcsqlProcedures);
+    }
+
+    public SourcePlcsqlProcedureConfig getExpPlcsqlProcedureCfg(String schema, String name) {
+        SourcePlcsqlProcedureConfig result = null;
+        for (SourcePlcsqlProcedureConfig config : expPlcsqlProcedures) {
+            if (config.getName().equals(name)) {
+                if (isNull(schema)) {
+                    return config;
+                }
+                if (schema.equalsIgnoreCase(config.getOwner())) {
+                    return config;
+                }
+                if (isNull(config.getOwner())) {
+                    result = config;
+                    break;
+                }
+            }
+        }
+        return result;
     }
 
     /**
@@ -3272,6 +3656,56 @@ public class MigrationConfiguration {
                 : new ArrayList<String>();
     }
 
+    public Map<String, String> getTargetAllPlcsqlProcedureHeaderFileName() {
+        return new HashMap<String, String>(this.targetAllPlcsqlProcedureHeaderFileName);
+    }
+
+    public String getTargetAllPlcsqlProcedureHeaderFileName(String schemaName) {
+        return this.targetAllPlcsqlProcedureHeaderFileName.get(schemaName);
+    }
+
+    public Map<String, String> getTargetAllPlcsqlProcedureFileName() {
+        return new HashMap<String, String>(this.targetAllPlcsqlProcedureFileName);
+    }
+
+    public String getTargetAllPlcsqlProcedureFileName(String schemaName) {
+        return this.targetAllPlcsqlProcedureFileName.get(schemaName);
+    }
+
+    public Map<String, String> getTargetAllPlcsqlFunctionHeaderFileName() {
+        return new HashMap<String, String>(this.targetAllPlcsqlFunctionHeaderFileName);
+    }
+
+    public String getTargetAllPlcsqlFunctionHeaderFileName(String schemaName) {
+        return this.targetAllPlcsqlFunctionHeaderFileName.get(schemaName);
+    }
+
+    public Map<String, String> getTargetAllPlcsqlFunctionFileName() {
+        return new HashMap<String, String>(this.targetAllPlcsqlFunctionFileName);
+    }
+
+    public String getTargetAllPlcsqlFunctionFileName(String schemaName) {
+        return this.targetAllPlcsqlFunctionFileName.get(schemaName);
+    }
+
+    public Map<String, Map<String, String>> getTargetPlcsqlProcedureFileName() {
+        return new HashMap<String, Map<String, String>>(this.targetPlcsqlProcedureFileName);
+    }
+
+    public Map<String, String> getTargetPlcsqlProcedureFileName(String schemaName) {
+        return Optional.ofNullable(this.targetPlcsqlProcedureFileName.get(schemaName))
+                .orElse(new HashMap<>());
+    }
+
+    public Map<String, Map<String, String>> getTargetPlcsqlFunctionFileName() {
+        return new HashMap<String, Map<String, String>>(this.targetPlcsqlFunctionFileName);
+    }
+
+    public Map<String, String> getTargetPlcsqlFunctionFileName(String schemaName) {
+        return Optional.ofNullable(this.targetPlcsqlFunctionFileName.get(schemaName))
+                .orElse(new HashMap<>());
+    }
+
     /**
      * getTargetSerialList
      *
@@ -3479,6 +3913,58 @@ public class MigrationConfiguration {
         return null;
     }
 
+    public List<PlcsqlProcedure> getTargetPlcsqlProcedureSchema() {
+        return new ArrayList<>(this.targetPlcsqlProcedures);
+    }
+
+    public PlcsqlProcedure getTargetPlcsqlProcedureSchema(String name) {
+        for (PlcsqlProcedure proc : this.targetPlcsqlProcedures) {
+            if (proc.getName().equalsIgnoreCase(name)) {
+                return proc;
+            }
+        }
+        return null;
+    }
+
+    public PlcsqlProcedure getTargetPlcsqlProcedureSchema(String owner, String name) {
+        if (owner == null) {
+            return getTargetPlcsqlProcedureSchema(name);
+        }
+
+        for (PlcsqlProcedure proc : this.targetPlcsqlProcedures) {
+            if (proc.getName().equalsIgnoreCase(name) && proc.getOwner().equalsIgnoreCase(owner)) {
+                return proc;
+            }
+        }
+        return null;
+    }
+
+    public List<PlcsqlFunction> getTargetPlcsqlFunctionSchema() {
+        return new ArrayList<>(this.targetPlcsqlFunctions);
+    }
+
+    public PlcsqlFunction getTargetPlcsqlFunctionSchema(String name) {
+        for (PlcsqlFunction func : this.targetPlcsqlFunctions) {
+            if (func.getName().equalsIgnoreCase(name)) {
+                return func;
+            }
+        }
+        return null;
+    }
+
+    public PlcsqlFunction getTargetPlcsqlFunctionSchema(String owner, String name) {
+        if (owner == null) {
+            return getTargetPlcsqlFunctionSchema(name);
+        }
+
+        for (PlcsqlFunction func : this.targetPlcsqlFunctions) {
+            if (func.getName().equalsIgnoreCase(name) && func.getOwner().equalsIgnoreCase(owner)) {
+                return func;
+            }
+        }
+        return null;
+    }
+
     public boolean nullCheckEquals(String owner, Schema targetSchema) {
         if (owner == null || targetSchema == null) {
             return false;
@@ -3557,6 +4043,16 @@ public class MigrationConfiguration {
             }
         }
         for (SourceConfig sc : expGrants) {
+            if (sc.isCreate()) {
+                return true;
+            }
+        }
+        for (SourceConfig sc : expPlcsqlProcedures) {
+            if (sc.isCreate()) {
+                return true;
+            }
+        }
+        for (SourceConfig sc : expPlcsqlFunctions) {
             if (sc.isCreate()) {
                 return true;
             }
@@ -4018,6 +4514,16 @@ public class MigrationConfiguration {
             sc.setReplace(value);
         }
 
+        for (SourceConfig sc : expPlcsqlProcedures) {
+            sc.setCreate(value);
+            sc.setReplace(value);
+        }
+
+        for (SourceConfig sc : expPlcsqlFunctions) {
+            sc.setCreate(value);
+            sc.setReplace(value);
+        }
+
         if (!targetIsOnline() || targetDBAGroup) {
             for (SourceConfig sc : expGrants) {
                 sc.setCreate(value);
@@ -4079,6 +4585,20 @@ public class MigrationConfiguration {
             if (ssyc.getOwner().equalsIgnoreCase(ownerName)) {
                 ssyc.setCreate(value);
                 ssyc.setReplace(value);
+            }
+        }
+
+        for (SourcePlcsqlProcedureConfig sppc : expPlcsqlProcedures) {
+            if (sppc.getOwner().equalsIgnoreCase(ownerName)) {
+                sppc.setCreate(value);
+                sppc.setReplace(value);
+            }
+        }
+
+        for (SourcePlcsqlFunctionConfig spfc : expPlcsqlFunctions) {
+            if (spfc.getOwner().equalsIgnoreCase(ownerName)) {
+                spfc.setCreate(value);
+                spfc.setReplace(value);
             }
         }
 
@@ -4218,8 +4738,16 @@ public class MigrationConfiguration {
                                 PathUtils.mergePath(odir, prefix),
                                 schemaName + "_" + table.getName()));
             }
+            addTargetAllPlcsqlProcedureFileName(
+                    schemaName,
+                    PathUtils.mergePath(
+                            PathUtils.mergePath(odir, prefix), schemaName + "_procedure"));
+            addTargetAllPlcsqlFunctionFileName(
+                    schemaName,
+                    PathUtils.mergePath(
+                            PathUtils.mergePath(odir, prefix), schemaName + "_function"));
+            setTargetCharSet(charset);
         }
-        setTargetCharSet(charset);
     }
 
     public void setExportNoSupportObjects(boolean value) {
@@ -4548,6 +5076,66 @@ public class MigrationConfiguration {
         this.targetTableDataFileName.get(schemaName).add(filePath);
     }
 
+    public void setTargetAllPlcsqlProcedureHeaderFileName(
+            Map<String, String> targetAllPlcsqlProcedureHeaderFileName) {
+        this.targetAllPlcsqlProcedureHeaderFileName.putAll(targetAllPlcsqlProcedureHeaderFileName);
+    }
+
+    public void addTargetAllPlcsqlProcedureHeaderFileName(String schemaName, String filePath) {
+        this.targetAllPlcsqlProcedureHeaderFileName.put(schemaName, filePath);
+    }
+
+    public void setTargetAllPlcsqlProcedureFileName(
+            Map<String, String> targetAllPlcsqlProcedureFileName) {
+        this.targetAllPlcsqlProcedureFileName.putAll(targetAllPlcsqlProcedureFileName);
+    }
+
+    public void addTargetAllPlcsqlProcedureFileName(String schemaName, String filePath) {
+        this.targetAllPlcsqlProcedureFileName.put(schemaName, filePath);
+    }
+
+    public void setTargetAllPlcsqlFunctionHeaderFileName(
+            Map<String, String> targetAllPlcsqlFunctionHeaderFileName) {
+        this.targetAllPlcsqlFunctionHeaderFileName.putAll(targetAllPlcsqlFunctionHeaderFileName);
+    }
+
+    public void addTargetAllPlcsqlFunctionHeaderFileName(String schemaName, String filePath) {
+        this.targetAllPlcsqlFunctionHeaderFileName.put(schemaName, filePath);
+    }
+
+    public void setTargetAllPlcsqlFunctionFileName(
+            Map<String, String> targetAllPlcsqlFunctionFileName) {
+        this.targetAllPlcsqlFunctionFileName.putAll(targetAllPlcsqlFunctionFileName);
+    }
+
+    public void addTargetAllPlcsqlFunctionFileName(String schemaName, String filePath) {
+        this.targetAllPlcsqlFunctionFileName.put(schemaName, filePath);
+    }
+
+    public void setTargetPlcsqlProcedureFileName(
+            Map<String, Map<String, String>> targetPlcsqlProcedureFileName) {
+        this.targetPlcsqlProcedureFileName.putAll(targetPlcsqlProcedureFileName);
+    }
+
+    public void addTargetPlcsqlProcedureFileName(
+            String schemaName, String objectName, String filePath) {
+        this.targetPlcsqlProcedureFileName
+                .computeIfAbsent(schemaName, sn -> new HashMap<String, String>())
+                .put(objectName, filePath);
+    }
+
+    public void setTargetPlcsqlFunctionFileName(
+            Map<String, Map<String, String>> targetPlcsqlFunctionFileName) {
+        this.targetPlcsqlFunctionFileName.putAll(targetPlcsqlFunctionFileName);
+    }
+
+    public void addTargetPlcsqlFunctionFileName(
+            String schemaName, String objectName, String filePath) {
+        this.targetPlcsqlFunctionFileName
+                .computeIfAbsent(schemaName, sn -> new HashMap<String, String>())
+                .put(objectName, filePath);
+    }
+
     /**
      * Target LOB Root Path will be written into dump files
      *
@@ -4837,6 +5425,28 @@ public class MigrationConfiguration {
                         mergePath(mergePath(getFileRepositroyPath(), getName()), sourceSchemaName),
                         isOneTableOneFile() ? "objects" : ""),
                 fileName.toString());
+    }
+
+    public String buildPlcsqlProcedureFileFullPath(
+            String sourceSchemaName, String objectName, String fileType) {
+        StringBuilder fileName = new StringBuilder();
+        fileName.append(File.separator)
+                .append(getTargetFilePrefix())
+                .append("_")
+                .append(sourceSchemaName)
+                .append("_")
+                .append(objectName)
+                .append("_")
+                .append(fileType)
+                .append(fileExtName(fileType, null));
+
+        String scriptNamePath = mergePath(getFileRepositroyPath(), getName());
+        String schemaPath = mergePath(scriptNamePath, sourceSchemaName);
+        String typePath =
+                mergePath(schemaPath, fileType.equals("procedure") ? "PROCEDURE" : "FUNCTION");
+        String fullPath = mergePath(typePath, fileName.toString());
+
+        return fullPath;
     }
 
     /**
