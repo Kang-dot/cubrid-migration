@@ -47,9 +47,9 @@ jobs:
           fi
 
       - name: Install reviewdog
-        run: |
-          curl -sfL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh | sh -s -- -b ./ reviewdog
-          echo "$(pwd)" >> $GITHUB_PATH
+        uses: reviewdog/action-setup@e04ffabe3898a0af8d0fb1af00c188831c4b5893
+        with:
+          reviewdog_version: latest
 
       - name: Run reviewdog
         env:
