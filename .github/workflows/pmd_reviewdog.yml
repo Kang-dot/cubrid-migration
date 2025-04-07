@@ -1,0 +1,59 @@
+name: PMD with reviewdog (only changed files)
+
+on:
+  pull_request:
+    branches: [ "develop" ]
+
+jobs:
+  pmd-reviewdog:
+    runs-on: ubuntu-latest
+    env:
+      PMD_HOME: ./pmd/pmd-bin-6.55.0
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # need all history for git diff
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Download PMD
+        run: |
+          curl -L -o pmd.zip https://github.com/pmd/pmd/releases/download/pmd_releases%2F6.55.0/pmd-bin-6.55.0.zip
+          unzip pmd.zip -d pmd
+
+      - name: Generate .java file list (only changed in PR)
+        run: |
+          git fetch origin develop
+          git diff --name-only origin/develop...HEAD -- '*.java' > filelist.txt
+          cat filelist.txt
+
+      - name: Run PMD if file list is not empty
+        run: |
+          if [ -s filelist.txt ]; then
+            $PMD_HOME/bin/run.sh pmd \
+              --file-list filelist.txt \
+              --dir . \
+              --rulesets rulesets/java/quickstart.xml \
+              --format text \
+              --report-file pmd-report.txt
+          else
+            echo "No Java files changed, skipping PMD"
+            echo "" > pmd-report.txt
+          fi
+
+      - name: Comment PMD results on PR
+        uses: reviewdog/action-reviewdog@v5
+        with:
+          tool_name: pmd
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-pr-check
+          fail_on_error: true
+          filter_mode: diff_context
+          level: warning
+          format: pmd
+          input: pmd-report.txt
