@@ -40,7 +40,7 @@ jobs:
               --dir . \
               --rulesets rulesets/java/quickstart.xml \
               --format text \
-              --report-file pmd-report.txt
+              --report-file pmd-report.txt || true
           else
             echo "No Java files changed, skipping PMD"
             echo "" > pmd-report.txt
