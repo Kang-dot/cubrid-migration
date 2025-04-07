@@ -47,7 +47,7 @@ jobs:
           fi
 
       - name: Comment PMD results on PR
-        uses: reviewdog/action-reviewdog@v5
+        uses: reviewdog/action-reviewdog@v4
         with:
           tool_name: pmd
           github_token: ${{ secrets.GITHUB_TOKEN }}
