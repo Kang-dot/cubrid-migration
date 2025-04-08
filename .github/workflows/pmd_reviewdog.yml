@@ -46,6 +46,8 @@ jobs:
             echo "" > pmd-report.txt
           fi
 
+          cat pmd-report.txt
+
       - name: Install reviewdog
         uses: reviewdog/action-setup@e04ffabe3898a0af8d0fb1af00c188831c4b5893
         with:
@@ -55,4 +57,4 @@ jobs:
         env:
           REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cat pmd-report.txt | reviewdog -f=checkstyle -name="pmd" -reporter=github-pr-check -level=warning -fail-on-error
+          cat pmd-report.txt | reviewdog -f=checkstyle -name="pmd" -reporter=github-pr-check -level=warning -fail-level=any
