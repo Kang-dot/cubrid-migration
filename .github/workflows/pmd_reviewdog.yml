@@ -52,7 +52,7 @@ jobs:
             echo "{}" > pmd-report.sarif
           fi
 
-          cat pmd-report.txt | ./reviewdog \
+          cat pmd-report.sarif | ./reviewdog \
             -f=sarif \
             -name="PMD" \
             -reporter=github-pr-check \
