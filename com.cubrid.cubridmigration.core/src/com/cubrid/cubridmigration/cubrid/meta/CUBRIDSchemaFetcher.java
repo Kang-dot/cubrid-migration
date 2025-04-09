@@ -99,6 +99,9 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
     private final int USERSCHEMA_VERSION = 112;
     private final int DB_SERIAL_ATTR_NAME = 114;
 
+    // git action test variable
+    private final String TEST_STRING = "show tables";
+    
     /**
      * Retrieves the lower case of type, and some type may be changed into stand format.
      *
