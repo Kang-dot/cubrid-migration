@@ -1,7 +1,7 @@
 name: PMD with SARIF (only changed files)
 
 on:
-  pull_request:
+  push:
     branches: [ "pmd-test" ]
 
 jobs:
