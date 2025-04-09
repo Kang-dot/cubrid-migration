@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PMD_HOME: ./pmd/pmd-bin-6.55.0
+      REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -20,6 +21,11 @@ jobs:
         with:
           java-version: '11'
           distribution: 'temurin'
+
+      - name: Download and install reviewdog
+        run: |
+          curl -sfL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh | sh -s -- -b . latest
+          echo "$(pwd)" >> $GITHUB_PATH
 
       - name: Download PMD
         run: |
@@ -45,6 +51,13 @@ jobs:
             echo "No Java files changed, skipping PMD"
             echo "{}" > pmd-report.sarif
           fi
+
+          cat pmd-report.txt | ./reviewdog \
+            -f=sarif \
+            -name="PMD" \
+            -reporter=github-pr-check \
+            -level=warning \
+            -fail-level=any
 
       - name: Upload SARIF to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
