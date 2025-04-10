@@ -83,6 +83,9 @@ public class CUBRIDSQLHelper extends SQLHelper {
     private static final String HINT = "/*+ NO_STATS */";
     private static final String END_LINE_CHAR = ";";
     public static final String SQL_NULL = "null";
+    
+    // test var
+    private final String TEST = "show table";
 
     private static final CUBRIDSQLHelper HELPER = new CUBRIDSQLHelper();
 
