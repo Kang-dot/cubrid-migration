@@ -191,7 +191,8 @@ public class ObjectMappingPage extends MigrationWizardPage implements IRefreshab
 
             showLobInfo(sourceCatalog);
             cfg.setSrcCatalog(sourceCatalog, isFirstVisible && !mw.isLoadMigrationScript());
-
+            cfg.setTarCatalog(mw.getTargetCatalog());
+            
             // Reset migration configuration
             for (AbstractMappingView amv : node2ViewMapping.values()) {
                 amv.setMigrationConfig(cfg);

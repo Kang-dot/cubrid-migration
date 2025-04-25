@@ -43,6 +43,18 @@ public class ComboBoxCellEditorFactory implements CellEditorFactory {
     private boolean isReadOnly = true;
     private int defaultValue = 0;
 
+
+    public ComboBoxCellEditorFactory(String[] itemArray){
+    	setItems(itemArray);
+    }
+    
+    public ComboBoxCellEditorFactory() {
+    	String[] arr = {"temp"};
+    	
+    	this.items = arr; 
+    	
+    }
+    
     /* (non-Javadoc)
      * @see com.cubrid.common.ui.table.CellEditorFactory#getCellEditor(org.eclipse.swt.widgets.Table)
      */
