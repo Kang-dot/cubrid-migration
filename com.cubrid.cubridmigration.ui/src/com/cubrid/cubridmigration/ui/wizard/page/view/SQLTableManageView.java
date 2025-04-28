@@ -658,7 +658,7 @@ public class SQLTableManageView extends AbstractMappingView {
             SourceSQLTableConfig sstc = (SourceSQLTableConfig) obj[obj.length - 1];
             config.replaceSQL(sstc, (String) obj[0], sstc.getSql());
             config.changeSQLOwner(sstc, this.tarSchemaList[(int) obj[2]]);
-            sstc.setOwner(this.tarSchemaList[(int) obj[2]]);
+            sstc.setTargetOwner(this.tarSchemaList[(int) obj[2]]);
             config.changeTarget(sstc, (String) obj[3]);
             sstc.setMigrateData((Boolean) obj[4]);
             sstc.setCreateNewTable((Boolean) obj[5]);
