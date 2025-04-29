@@ -257,19 +257,19 @@ public class MigrationCfgUtils {
     /**
      * Check CSV configuration's validation
      *
+     * Because of the modifications in TOOLS-4704, 
+     * the existTableList variable was modified and changed the code. 
+     * If the csv source transfer function is restored in the future, it may be a problem
+     *
      * @param config MigrationConfiguration
      * @return VerifyResultMessages
      */
     protected VerifyResultMessages checkCSVCfg(MigrationConfiguration config) {
         final List<SourceCSVConfig> csvConfigs = config.getCSVConfigs();
-//        Set<String> csvOnlyCreateTarget = new HashSet<String>();
-//        Set<String> csvReplaceTarget = new HashSet<String>();
-//        Set<String> csvNoCreateTarget = new HashSet<String>();
         
         Map<String, List<String>> csvOnlyCreateTarget = new HashMap<>();
         Map<String, List<String>> csvReplaceTarget = new HashMap<>();
         Map<String, List<String>> csvNoCreateTarget = new HashMap<>();
-        
         
         StringBuffer sbWarn = new StringBuffer();
         for (SourceCSVConfig scc : csvConfigs) {
@@ -282,12 +282,9 @@ public class MigrationCfgUtils {
             }
             if (scc.isCreate()) {
             	csvOnlyCreateTarget.computeIfAbsent(scc.getTargetOwner(), val -> new ArrayList<String>()).add(scc.getTarget());
-//                csvOnlyCreateTarget.add(scc.getTarget());
                 if (scc.isReplace()) {
                 	csvReplaceTarget.computeIfAbsent(scc.getTargetOwner(), val -> new ArrayList<String>()).add(scc.getTarget());
-//                    csvReplaceTarget.add(scc.getTarget());
                 	csvOnlyCreateTarget.computeIfAbsent(scc.getTargetOwner(), val -> new ArrayList<String>()).add(scc.getTarget());
-//                    csvOnlyCreateTarget.remove(scc.getTarget());
                 }
             }
         }
@@ -299,16 +296,10 @@ public class MigrationCfgUtils {
                     && !isOnlyCreateTarget
                     && !isReplaceTarget) {
             	csvNoCreateTarget.computeIfAbsent(scc.getTargetOwner(), val -> new ArrayList<String>()).add(scc.getTarget());
-//                csvNoCreateTarget.add(scc.getTarget());
             }
         }
 
         for (String schema : existsTableNameList.keySet()) {
-//            final boolean isExist = existsTableNameList.indexOf(target.toUpperCase(Locale.US)) >= 0;
-//        	final boolean isExist = Optional.ofNullable(existsTableNameList.get(targetKey))
-//                    .orElse(Collections.emptyList())
-//                    .stream()
-//                    .anyMatch("a"::equals);
         	
         	List<String> csvOnlyCreateTargetSet = csvOnlyCreateTarget.get(schema);
         	List<String> exsistTableNameSet = existsTableNameList.get(schema);
@@ -321,7 +312,6 @@ public class MigrationCfgUtils {
             }
         }
         for (String schema : existsTableNameList.keySet()) {
-//            final boolean isExist = existsTableNameList.indexOf(target.toUpperCase(Locale.US)) >= 0;
         	
         	List<String> csvNoCreateTargetSet = csvNoCreateTarget.get(schema);
         	List<String> exsistTableNameSet = existsTableNameList.get(schema);
@@ -333,7 +323,6 @@ public class MigrationCfgUtils {
             }
         }
         for (String schema : existsTableNameList.keySet()) {
-//            final boolean isExist = existsTableNameList.indexOf(target.toUpperCase(Locale.US)) >= 0;
         	
         	List<String> csvReplaceTargetSet = csvReplaceTarget.get(schema);
         	List<String> exsistTableNameSet = existsTableNameList.get(schema);

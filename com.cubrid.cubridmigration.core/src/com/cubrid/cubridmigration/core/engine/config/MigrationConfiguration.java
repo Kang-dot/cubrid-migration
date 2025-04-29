@@ -4459,7 +4459,13 @@ public class MigrationConfiguration {
             }
         }
     }
-    
+    /**
+     * change SQL query's target table owner
+     * used in user schema db
+     * 
+     * @param oldsstc
+     * @param newOwner
+     */
     public void changeSQLOwner(SourceSQLTableConfig oldsstc, String newOwner) {
     	for (int i = 0; i < targetTables.size(); i++) {
     		Table t = targetTables.get(i);
@@ -4960,7 +4966,11 @@ public class MigrationConfiguration {
         this.buildConfigAndTargetSchema(reset);
     }
     
-    
+    /**
+     * set target catalog.
+     * 
+     * @param tarCatalog
+     */
     public void setTarCatalog(Catalog tarCatalog) {
         if (tarCatalog == null) {
             throw new IllegalArgumentException("Catalog can't not be null.");

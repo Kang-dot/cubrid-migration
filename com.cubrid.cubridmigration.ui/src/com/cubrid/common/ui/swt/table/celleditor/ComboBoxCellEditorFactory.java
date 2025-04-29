@@ -49,10 +49,9 @@ public class ComboBoxCellEditorFactory implements CellEditorFactory {
     }
     
     public ComboBoxCellEditorFactory() {
-    	String[] arr = {"temp"};
-    	
-    	this.items = arr; 
-    	
+//    	String[] arr = {"temp"};
+//    	
+//    	this.items = arr; 
     }
     
     /* (non-Javadoc)
