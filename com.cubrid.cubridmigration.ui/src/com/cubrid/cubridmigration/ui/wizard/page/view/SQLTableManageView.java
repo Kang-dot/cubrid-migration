@@ -68,8 +68,12 @@ import org.eclipse.jface.action.MenuManager;
 import org.eclipse.jface.action.Separator;
 import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.jface.dialogs.IInputValidator;
+import org.eclipse.jface.dialogs.IPageChangedListener;
+import org.eclipse.jface.dialogs.IPageChangingListener;
 import org.eclipse.jface.dialogs.InputDialog;
 import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.jface.dialogs.PageChangedEvent;
+import org.eclipse.jface.dialogs.PageChangingEvent;
 import org.eclipse.jface.operation.IRunnableWithProgress;
 import org.eclipse.jface.viewers.DoubleClickEvent;
 import org.eclipse.jface.viewers.ICellEditorValidator;
@@ -343,7 +347,7 @@ public class SQLTableManageView extends AbstractMappingView {
         // and change this value in setupCombobox method
         ComboBoxCellEditorFactory comboFactory = new ComboBoxCellEditorFactory();
         comboFactory.setReadOnly(false);
-        String[] tempArr = {"temp"};
+        String[] tempArr = {""};
         comboFactory.setItems(tempArr);
         
         tvBuilder.setCellEditorClasses(
@@ -373,7 +377,7 @@ public class SQLTableManageView extends AbstractMappingView {
                                     new Object[] {
                                         sstc.getName(),
                                         sstc.getSql(),
-                                        0,
+                                        getValueIndex(sstc.getTargetOwner()),
                                         sstc.getTarget(),
                                         sstc.isMigrateData(),
                                         sstc.isCreateNewTable(),
@@ -618,6 +622,7 @@ public class SQLTableManageView extends AbstractMappingView {
      * setup real combo box value(target schema name list)
      */
     protected void setupCombobox() {
+	
     	List<Schema> tarSchemaList = config.getTarCatalog().getSchemas();
     	List<String> schemaNameList = new ArrayList<>();
     	
@@ -631,6 +636,22 @@ public class SQLTableManageView extends AbstractMappingView {
     	CellEditor[] cellEditorArray = tvSQL.getCellEditors();
     	
     	((ComboBoxCellEditor) cellEditorArray[2]).setItems(schemaNameArr);
+    	
+    }
+    
+    protected int getValueIndex(String targetOwner) {
+	if ((targetOwner == null || targetOwner.isEmpty()) || (tarSchemaList == null)) {
+	    return 0;
+	}
+	
+	
+	for (int index = 0; index < tarSchemaList.length; index++) {
+	    if (targetOwner.equals(tarSchemaList[index])) {
+		return index;
+	    }
+	}
+	
+	return 0;
     }
 
     /**
@@ -641,7 +662,6 @@ public class SQLTableManageView extends AbstractMappingView {
     public VerifyResultMessages save() {
         // Check
     	
-    	setupCombobox();
         List<String> names = new ArrayList<String>();
         for (TableItem ti : tvSQL.getTable().getItems()) {
             Object[] obj = (Object[]) ti.getData();
@@ -686,6 +706,7 @@ public class SQLTableManageView extends AbstractMappingView {
      */
     public void showData(Object obj) {
         boolean flag = config.sourceIsOnline() && !wizardStatus.isSourceOfflineMode();
+        setupCombobox();
         btnAddSQL.setEnabled(flag);
         btnEditSQL.setEnabled(flag);
         btnRemoveSQL.setEnabled(config.sourceIsOnline());
@@ -693,6 +714,7 @@ public class SQLTableManageView extends AbstractMappingView {
         tvSQL.getTable().setEnabled(config.sourceIsOnline());
         tvSQL.setInput(config.getExpSQLCfg());
         CompositeUtils.initTableViewerCheckColumnImage(tvSQL);
+        
     }
 
     /**
