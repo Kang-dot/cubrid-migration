@@ -30,12 +30,31 @@
  */
 package com.cubrid.cubridmigration.ui.wizard.page.view;
 
+import com.cubrid.common.ui.StructuredContentProviderAdaptor;
+import com.cubrid.common.ui.swt.table.CellEditorFactory;
+import com.cubrid.common.ui.swt.table.ObjectArrayRowCellModifier;
+import com.cubrid.common.ui.swt.table.TableViewerBuilder;
+import com.cubrid.common.ui.swt.table.celleditor.CheckboxCellEditorFactory;
+import com.cubrid.common.ui.swt.table.celleditor.ComboBoxCellEditorFactory;
+import com.cubrid.common.ui.swt.table.celleditor.TextCellEditorFactory;
+import com.cubrid.common.ui.swt.table.listener.CheckBoxColumnSelectionListener;
+import com.cubrid.cubridmigration.core.common.CUBRIDIOUtils;
+import com.cubrid.cubridmigration.core.dbobject.Schema;
+import com.cubrid.cubridmigration.core.engine.config.SourceSQLTableConfig;
+import com.cubrid.cubridmigration.core.engine.listener.ISQLTableChangedListener;
+import com.cubrid.cubridmigration.core.io.SQLParser;
+import com.cubrid.cubridmigration.core.io.SQLParser.ISQLParsingCallback;
+import com.cubrid.cubridmigration.ui.common.CompositeUtils;
+import com.cubrid.cubridmigration.ui.common.tableviewer.cell.validator.CUBRIDNameValidator;
+import com.cubrid.cubridmigration.ui.message.Messages;
+import com.cubrid.cubridmigration.ui.wizard.dialog.SQLEditorDialog;
+import com.cubrid.cubridmigration.ui.wizard.utils.MigrationCfgUtils;
+import com.cubrid.cubridmigration.ui.wizard.utils.VerifyResultMessages;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.IntStream;
-
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.StringUtils;
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -70,29 +89,6 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.FileDialog;
 import org.eclipse.swt.widgets.TableItem;
 
-import com.cubrid.common.ui.StructuredContentProviderAdaptor;
-import com.cubrid.common.ui.swt.table.CellEditorFactory;
-import com.cubrid.common.ui.swt.table.ObjectArrayRowCellModifier;
-import com.cubrid.common.ui.swt.table.TableViewerBuilder;
-import com.cubrid.common.ui.swt.table.celleditor.CheckboxCellEditorFactory;
-import com.cubrid.common.ui.swt.table.celleditor.ComboBoxCellEditorFactory;
-import com.cubrid.common.ui.swt.table.celleditor.TextCellEditorFactory;
-import com.cubrid.common.ui.swt.table.listener.CheckBoxColumnSelectionListener;
-import com.cubrid.cubridmigration.core.common.CUBRIDIOUtils;
-import com.cubrid.cubridmigration.core.dbobject.Schema;
-import com.cubrid.cubridmigration.core.engine.config.SourceSQLTableConfig;
-import com.cubrid.cubridmigration.core.engine.listener.ISQLTableChangedListener;
-import com.cubrid.cubridmigration.core.io.SQLParser;
-import com.cubrid.cubridmigration.core.io.SQLParser.ISQLParsingCallback;
-import com.cubrid.cubridmigration.ui.common.CompositeUtils;
-import com.cubrid.cubridmigration.ui.common.tableviewer.cell.validator.CUBRIDNameValidator;
-import com.cubrid.cubridmigration.ui.message.Messages;
-import com.cubrid.cubridmigration.ui.wizard.dialog.SQLEditorDialog;
-import com.cubrid.cubridmigration.ui.wizard.utils.MigrationCfgUtils;
-import com.cubrid.cubridmigration.ui.wizard.utils.VerifyResultMessages;
-
-
-
 /**
  * Edit target view name and SQL statement
  *
@@ -108,7 +104,7 @@ public class SQLTableManageView extends AbstractMappingView {
     private Button btnRemoveSQL;
 
     private String[] tarSchemaList;
-    
+
     private final IAction actNew =
             new Action() {
 
@@ -220,7 +216,7 @@ public class SQLTableManageView extends AbstractMappingView {
     private ISQLTableChangedListener listener;
     // private Button btnExport2Xls;
     private Button btnImportFromXls;
-    
+
     public SQLTableManageView(Composite parent) {
         super(parent);
     }
@@ -340,19 +336,19 @@ public class SQLTableManageView extends AbstractMappingView {
                     Messages.lblCreateDes,
                     Messages.lblReplaceDes
                 });
-        
+
         // combobox instance need value set when it declare. so insert temp value
         // and change this value in setupCombobox method
         ComboBoxCellEditorFactory comboFactory = new ComboBoxCellEditorFactory();
         comboFactory.setReadOnly(false);
         String[] tempArr = {""};
         comboFactory.setItems(tempArr);
-        
+
         tvBuilder.setCellEditorClasses(
                 new CellEditorFactory[] {
                     new TextCellEditorFactory(),
                     null,
-//                    null,
+                    //                    null,
                     comboFactory,
                     new TextCellEditorFactory(),
                     new CheckboxCellEditorFactory(),
@@ -402,9 +398,9 @@ public class SQLTableManageView extends AbstractMappingView {
                                 updateColumnImage(value, ti, columnIdx - 1);
                             }
                         } else if (columnIdx == 2) {
-                        	super.modify(ti, element, columnIdx, value);
+                            super.modify(ti, element, columnIdx, value);
                         }
-                        
+
                         super.modify(ti, element, columnIdx, value);
                     }
                 };
@@ -615,33 +611,31 @@ public class SQLTableManageView extends AbstractMappingView {
             }
         }
     }
-    
-    /**
-     * setup real combo box value(target schema name list)
-     */
+
+    /** setup real combo box value(target schema name list) */
     protected void setupCombobox() {
-	
-	String[] schemaNameArr = config.getTarCatalog().getSchemas().stream()
-		    .map(Schema::getName)
-		    .toArray(String[]::new);
-    	
-    	this.tarSchemaList = schemaNameArr;
-    	
-    	CellEditor[] cellEditorArray = tvSQL.getCellEditors();
-    	
-    	((ComboBoxCellEditor) cellEditorArray[2]).setItems(schemaNameArr);
-    	
+
+        String[] schemaNameArr =
+                config.getTarCatalog().getSchemas().stream()
+                        .map(Schema::getName)
+                        .toArray(String[]::new);
+
+        this.tarSchemaList = schemaNameArr;
+
+        CellEditor[] cellEditorArray = tvSQL.getCellEditors();
+
+        ((ComboBoxCellEditor) cellEditorArray[2]).setItems(schemaNameArr);
     }
-    
+
     protected int getValueIndex(String targetOwner) {
-	if ((targetOwner == null || targetOwner.isEmpty()) || (tarSchemaList == null)) {
-	    return 0;
-	}
-	
-	return IntStream.range(0, tarSchemaList.length)
-		    .filter(i -> targetOwner.equals(tarSchemaList[i]))
-		    .findFirst()
-		    .orElse(0);
+        if ((targetOwner == null || targetOwner.isEmpty()) || (tarSchemaList == null)) {
+            return 0;
+        }
+
+        return IntStream.range(0, tarSchemaList.length)
+                .filter(i -> targetOwner.equals(tarSchemaList[i]))
+                .findFirst()
+                .orElse(0);
     }
 
     /**
@@ -651,7 +645,7 @@ public class SQLTableManageView extends AbstractMappingView {
      */
     public VerifyResultMessages save() {
         // Check
-    	
+
         List<String> names = new ArrayList<String>();
         for (TableItem ti : tvSQL.getTable().getItems()) {
             Object[] obj = (Object[]) ti.getData();
@@ -704,7 +698,6 @@ public class SQLTableManageView extends AbstractMappingView {
         tvSQL.getTable().setEnabled(config.sourceIsOnline());
         tvSQL.setInput(config.getExpSQLCfg());
         CompositeUtils.initTableViewerCheckColumnImage(tvSQL);
-        
     }
 
     /**

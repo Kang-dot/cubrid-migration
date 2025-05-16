@@ -4460,22 +4460,21 @@ public class MigrationConfiguration {
         }
     }
     /**
-     * change SQL query's target table owner
-     * used in user schema db
-     * 
+     * change SQL query's target table owner used in user schema db
+     *
      * @param oldsstc
      * @param newOwner
      */
     public void changeSQLOwner(SourceSQLTableConfig oldsstc, String newOwner) {
-    	for (int i = 0; i < targetTables.size(); i++) {
-    		Table t = targetTables.get(i);
-    		if (t.getName().equals(oldsstc.getTarget())) {
-    			t.setOwner(newOwner);
-    			
-    			targetTables.remove(i);
-    			targetTables.add(t);
-    		}
-    	}
+        for (int i = 0; i < targetTables.size(); i++) {
+            Table t = targetTables.get(i);
+            if (t.getName().equals(oldsstc.getTarget())) {
+                t.setOwner(newOwner);
+
+                targetTables.remove(i);
+                targetTables.add(t);
+            }
+        }
     }
 
     /**
@@ -4965,10 +4964,10 @@ public class MigrationConfiguration {
         }
         this.buildConfigAndTargetSchema(reset);
     }
-    
+
     /**
      * set target catalog.
-     * 
+     *
      * @param tarCatalog
      */
     public void setTarCatalog(Catalog tarCatalog) {
@@ -4977,9 +4976,9 @@ public class MigrationConfiguration {
         }
         this.tarCatalog = tarCatalog;
     }
-    
+
     public Catalog getTarCatalog() {
-    	return tarCatalog;
+        return tarCatalog;
     }
 
     /**

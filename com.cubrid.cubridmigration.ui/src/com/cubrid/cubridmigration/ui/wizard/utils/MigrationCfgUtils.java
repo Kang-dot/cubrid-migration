@@ -71,13 +71,11 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.StringUtils;
 import org.eclipse.osgi.util.NLS;
@@ -257,20 +255,20 @@ public class MigrationCfgUtils {
     /**
      * Check CSV configuration's validation
      *
-     * Because of the modifications in TOOLS-4704, 
-     * the existTableList variable was modified and changed the code. 
-     * If the csv source transfer function is restored in the future, it may be a problem
+     * <p>Because of the modifications in TOOLS-4704, the existTableList variable was modified and
+     * changed the code. If the csv source transfer function is restored in the future, it may be a
+     * problem
      *
      * @param config MigrationConfiguration
      * @return VerifyResultMessages
      */
     protected VerifyResultMessages checkCSVCfg(MigrationConfiguration config) {
         final List<SourceCSVConfig> csvConfigs = config.getCSVConfigs();
-        
+
         Map<String, List<String>> csvOnlyCreateTarget = new HashMap<>();
         Map<String, List<String>> csvReplaceTarget = new HashMap<>();
         Map<String, List<String>> csvNoCreateTarget = new HashMap<>();
-        
+
         StringBuffer sbWarn = new StringBuffer();
         for (SourceCSVConfig scc : csvConfigs) {
             if (!verifyTargetDBObjName(scc.getTarget())) {
@@ -281,55 +279,69 @@ public class MigrationCfgUtils {
                                 scc.getTarget()));
             }
             if (scc.isCreate()) {
-            	csvOnlyCreateTarget.computeIfAbsent(scc.getTargetOwner(), val -> new ArrayList<String>()).add(scc.getTarget());
+                csvOnlyCreateTarget
+                        .computeIfAbsent(scc.getTargetOwner(), val -> new ArrayList<String>())
+                        .add(scc.getTarget());
                 if (scc.isReplace()) {
-                	csvReplaceTarget.computeIfAbsent(scc.getTargetOwner(), val -> new ArrayList<String>()).add(scc.getTarget());
-                	csvOnlyCreateTarget.computeIfAbsent(scc.getTargetOwner(), val -> new ArrayList<String>()).add(scc.getTarget());
+                    csvReplaceTarget
+                            .computeIfAbsent(scc.getTargetOwner(), val -> new ArrayList<String>())
+                            .add(scc.getTarget());
+                    csvOnlyCreateTarget
+                            .computeIfAbsent(scc.getTargetOwner(), val -> new ArrayList<String>())
+                            .add(scc.getTarget());
                 }
             }
         }
         for (SourceCSVConfig scc : csvConfigs) {
-        	boolean isOnlyCreateTarget = csvOnlyCreateTarget.get(scc.getTargetOwner()).contains(scc.getTarget());
-        	boolean isReplaceTarget = csvReplaceTarget.get(scc.getTargetOwner()).contains(scc.getTarget());
-        	
-            if (!scc.isCreate()
-                    && !isOnlyCreateTarget
-                    && !isReplaceTarget) {
-            	csvNoCreateTarget.computeIfAbsent(scc.getTargetOwner(), val -> new ArrayList<String>()).add(scc.getTarget());
+            boolean isOnlyCreateTarget =
+                    csvOnlyCreateTarget.get(scc.getTargetOwner()).contains(scc.getTarget());
+            boolean isReplaceTarget =
+                    csvReplaceTarget.get(scc.getTargetOwner()).contains(scc.getTarget());
+
+            if (!scc.isCreate() && !isOnlyCreateTarget && !isReplaceTarget) {
+                csvNoCreateTarget
+                        .computeIfAbsent(scc.getTargetOwner(), val -> new ArrayList<String>())
+                        .add(scc.getTarget());
             }
         }
 
         for (String schema : existsTableNameList.keySet()) {
-        	
-        	List<String> csvOnlyCreateTargetSet = csvOnlyCreateTarget.get(schema);
-        	List<String> exsistTableNameSet = existsTableNameList.get(schema);
-        	
-        	boolean isOnlyCreateTargetExist = csvOnlyCreateTargetSet.retainAll(exsistTableNameSet);
-        	
+
+            List<String> csvOnlyCreateTargetSet = csvOnlyCreateTarget.get(schema);
+            List<String> exsistTableNameSet = existsTableNameList.get(schema);
+
+            boolean isOnlyCreateTargetExist = csvOnlyCreateTargetSet.retainAll(exsistTableNameSet);
+
             if (isOnlyCreateTargetExist) {
                 throw new MigrationConfigurationCheckingErrorException(
-                        NLS.bind(Messages.objectMapPageErrMsgDuplicatedTable1, csvOnlyCreateTargetSet.get(0)));
+                        NLS.bind(
+                                Messages.objectMapPageErrMsgDuplicatedTable1,
+                                csvOnlyCreateTargetSet.get(0)));
             }
         }
         for (String schema : existsTableNameList.keySet()) {
-        	
-        	List<String> csvNoCreateTargetSet = csvNoCreateTarget.get(schema);
-        	List<String> exsistTableNameSet = existsTableNameList.get(schema);
-        	
-        	boolean isNoCreateTarget = csvNoCreateTargetSet.retainAll(exsistTableNameSet);
+
+            List<String> csvNoCreateTargetSet = csvNoCreateTarget.get(schema);
+            List<String> exsistTableNameSet = existsTableNameList.get(schema);
+
+            boolean isNoCreateTarget = csvNoCreateTargetSet.retainAll(exsistTableNameSet);
             if (!isNoCreateTarget) {
                 throw new MigrationConfigurationCheckingErrorException(
-                        NLS.bind(Messages.objectMapPageErrMsgDuplicatedTable5, csvNoCreateTargetSet.get(0)));
+                        NLS.bind(
+                                Messages.objectMapPageErrMsgDuplicatedTable5,
+                                csvNoCreateTargetSet.get(0)));
             }
         }
         for (String schema : existsTableNameList.keySet()) {
-        	
-        	List<String> csvReplaceTargetSet = csvReplaceTarget.get(schema);
-        	List<String> exsistTableNameSet = existsTableNameList.get(schema);
-        	
-        	boolean isReplaceTargetSet = csvReplaceTargetSet.retainAll(exsistTableNameSet);
+
+            List<String> csvReplaceTargetSet = csvReplaceTarget.get(schema);
+            List<String> exsistTableNameSet = existsTableNameList.get(schema);
+
+            boolean isReplaceTargetSet = csvReplaceTargetSet.retainAll(exsistTableNameSet);
             if (isReplaceTargetSet) {
-                sbWarn.append(Messages.bind(Messages.msgWarnTableRecreated, csvReplaceTargetSet.get(0)))
+                sbWarn.append(
+                                Messages.bind(
+                                        Messages.msgWarnTableRecreated, csvReplaceTargetSet.get(0)))
                         .append(LINE_SEP);
             }
         }
@@ -800,12 +812,11 @@ public class MigrationCfgUtils {
             StringBuffer sbConfirm) {
         if (config.targetIsOnline() && !wizardStatus.isTargetOfflineMode()) {
             boolean contained =
-            		Optional.<List<String>>ofNullable(existsTableNameList.get(setc.getTargetOwner()))
-                    .orElse(Collections.emptyList())
-                    .stream()
-                    .anyMatch(targetTable.getName()::equals);
-            		
-//                    existsTableNameList.contains(targetTable.getName().toUpperCase(Locale.US));
+                    Optional.<List<String>>ofNullable(
+                                    existsTableNameList.get(setc.getTargetOwner()))
+                            .orElse(Collections.emptyList()).stream()
+                            .anyMatch(targetTable.getName()::equals);
+
             if (setc.isCreateNewTable() && setc.isReplace() && contained) {
                 sbConfirm
                         .append(Messages.bind(Messages.msgWarnTableRecreated, setc.getTarget()))
@@ -1052,23 +1063,27 @@ public class MigrationCfgUtils {
         // convert all name to upper case .when check convert to upper too
         if (targetCatalog != null && !targetCatalog.getSchemas().isEmpty()) {
             for (Schema schema : targetCatalog.getSchemas()) {
-            	List<Table> tables = schema.getTables();
-	            for (Table table : tables) {
-	                existsTableNameList.computeIfAbsent(schema.getName(), val -> new ArrayList<>()).add(table.getName());
-	                existsViewNameList.add(table.getName().toUpperCase(Locale.US));
-	            }
-	
-	            List<View> views = schema.getViews();
-	            for (View view : views) {
-	                existsViewNameList.add(view.getName().toUpperCase(Locale.US));
-	                existsTableNameList.computeIfAbsent(schema.getName(), val -> new ArrayList<>()).add(view.getName());
-	            }
-	
-	            List<Sequence> serials = schema.getSequenceList();
-	            for (Sequence serial : serials) {
-	                existsSerialNameList.add(serial.getName().toUpperCase(Locale.US));
-	            }
-	        }
+                List<Table> tables = schema.getTables();
+                for (Table table : tables) {
+                    existsTableNameList
+                            .computeIfAbsent(schema.getName(), val -> new ArrayList<>())
+                            .add(table.getName());
+                    existsViewNameList.add(table.getName().toUpperCase(Locale.US));
+                }
+
+                List<View> views = schema.getViews();
+                for (View view : views) {
+                    existsViewNameList.add(view.getName().toUpperCase(Locale.US));
+                    existsTableNameList
+                            .computeIfAbsent(schema.getName(), val -> new ArrayList<>())
+                            .add(view.getName());
+                }
+
+                List<Sequence> serials = schema.getSequenceList();
+                for (Sequence serial : serials) {
+                    existsSerialNameList.add(serial.getName().toUpperCase(Locale.US));
+                }
+            }
         }
     }
 

@@ -660,7 +660,8 @@ public final class MigrationTemplateParser {
                     TemplateTags.ATTR_WRITE_ERROR_RECORDS,
                     getBooleanString(config.isWriteErrorRecords()));
             jdbc.setAttribute(TemplateTags.ATTR_USER_JDBC_URL, tcp.getUserJDBCURL());
-            jdbc.setAttribute(TemplateTags.ATTR_ADD_SCHEMA, getBooleanString(config.isAddUserSchema()));
+            jdbc.setAttribute(
+                    TemplateTags.ATTR_ADD_SCHEMA, getBooleanString(config.isAddUserSchema()));
             // jdbc.setAttribute(TemplateTags.ATTR_SCHEMA, tcp.getSchema());
             return;
         }
