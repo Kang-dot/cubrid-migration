@@ -30,6 +30,46 @@
  */
 package com.cubrid.cubridmigration.ui.wizard.page.view;
 
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.stream.IntStream;
+
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang.StringUtils;
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.jface.action.Action;
+import org.eclipse.jface.action.IAction;
+import org.eclipse.jface.action.IMenuListener;
+import org.eclipse.jface.action.IMenuManager;
+import org.eclipse.jface.action.MenuManager;
+import org.eclipse.jface.action.Separator;
+import org.eclipse.jface.dialogs.Dialog;
+import org.eclipse.jface.dialogs.IInputValidator;
+import org.eclipse.jface.dialogs.InputDialog;
+import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.jface.operation.IRunnableWithProgress;
+import org.eclipse.jface.viewers.CellEditor;
+import org.eclipse.jface.viewers.ComboBoxCellEditor;
+import org.eclipse.jface.viewers.DoubleClickEvent;
+import org.eclipse.jface.viewers.ICellEditorValidator;
+import org.eclipse.jface.viewers.IDoubleClickListener;
+import org.eclipse.jface.viewers.ISelection;
+import org.eclipse.jface.viewers.IStructuredSelection;
+import org.eclipse.jface.viewers.TableViewer;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.SelectionAdapter;
+import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.events.SelectionListener;
+import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.FileDialog;
+import org.eclipse.swt.widgets.TableItem;
+
 import com.cubrid.common.ui.StructuredContentProviderAdaptor;
 import com.cubrid.common.ui.swt.table.CellEditorFactory;
 import com.cubrid.common.ui.swt.table.ObjectArrayRowCellModifier;
@@ -50,48 +90,6 @@ import com.cubrid.cubridmigration.ui.message.Messages;
 import com.cubrid.cubridmigration.ui.wizard.dialog.SQLEditorDialog;
 import com.cubrid.cubridmigration.ui.wizard.utils.MigrationCfgUtils;
 import com.cubrid.cubridmigration.ui.wizard.utils.VerifyResultMessages;
-import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-
-import org.eclipse.jface.viewers.CellEditor;
-import org.eclipse.jface.viewers.ComboBoxCellEditor;
-import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.lang.StringUtils;
-import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.jface.action.Action;
-import org.eclipse.jface.action.IAction;
-import org.eclipse.jface.action.IMenuListener;
-import org.eclipse.jface.action.IMenuManager;
-import org.eclipse.jface.action.MenuManager;
-import org.eclipse.jface.action.Separator;
-import org.eclipse.jface.dialogs.Dialog;
-import org.eclipse.jface.dialogs.IInputValidator;
-import org.eclipse.jface.dialogs.IPageChangedListener;
-import org.eclipse.jface.dialogs.IPageChangingListener;
-import org.eclipse.jface.dialogs.InputDialog;
-import org.eclipse.jface.dialogs.MessageDialog;
-import org.eclipse.jface.dialogs.PageChangedEvent;
-import org.eclipse.jface.dialogs.PageChangingEvent;
-import org.eclipse.jface.operation.IRunnableWithProgress;
-import org.eclipse.jface.viewers.DoubleClickEvent;
-import org.eclipse.jface.viewers.ICellEditorValidator;
-import org.eclipse.jface.viewers.IDoubleClickListener;
-import org.eclipse.jface.viewers.ISelection;
-import org.eclipse.jface.viewers.IStructuredSelection;
-import org.eclipse.jface.viewers.TableViewer;
-import org.eclipse.swt.SWT;
-import org.eclipse.swt.events.SelectionAdapter;
-import org.eclipse.swt.events.SelectionEvent;
-import org.eclipse.swt.events.SelectionListener;
-import org.eclipse.swt.layout.GridData;
-import org.eclipse.swt.layout.GridLayout;
-import org.eclipse.swt.widgets.Button;
-import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Display;
-import org.eclipse.swt.widgets.FileDialog;
-import org.eclipse.swt.widgets.TableItem;
 
 
 
@@ -623,14 +621,10 @@ public class SQLTableManageView extends AbstractMappingView {
      */
     protected void setupCombobox() {
 	
-    	List<Schema> tarSchemaList = config.getTarCatalog().getSchemas();
-    	List<String> schemaNameList = new ArrayList<>();
+	String[] schemaNameArr = config.getTarCatalog().getSchemas().stream()
+		    .map(Schema::getName)
+		    .toArray(String[]::new);
     	
-    	for (Schema schema : tarSchemaList) {
-    		schemaNameList.add(schema.getName());
-    	}
-    	
-    	String[] schemaNameArr = schemaNameList.toArray(new String[schemaNameList.size()]);
     	this.tarSchemaList = schemaNameArr;
     	
     	CellEditor[] cellEditorArray = tvSQL.getCellEditors();
@@ -644,14 +638,10 @@ public class SQLTableManageView extends AbstractMappingView {
 	    return 0;
 	}
 	
-	
-	for (int index = 0; index < tarSchemaList.length; index++) {
-	    if (targetOwner.equals(tarSchemaList[index])) {
-		return index;
-	    }
-	}
-	
-	return 0;
+	return IntStream.range(0, tarSchemaList.length)
+		    .filter(i -> targetOwner.equals(tarSchemaList[i]))
+		    .findFirst()
+		    .orElse(0);
     }
 
     /**
