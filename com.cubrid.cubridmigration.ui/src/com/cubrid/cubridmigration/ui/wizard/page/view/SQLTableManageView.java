@@ -103,7 +103,7 @@ public class SQLTableManageView extends AbstractMappingView {
     private Button btnEditSQL;
     private Button btnRemoveSQL;
 
-    private String[] tarSchemaList;
+    private String[] tarSchemaList = {""};
 
     private final IAction actNew =
             new Action() {
@@ -348,7 +348,6 @@ public class SQLTableManageView extends AbstractMappingView {
                 new CellEditorFactory[] {
                     new TextCellEditorFactory(),
                     null,
-                    //                    null,
                     comboFactory,
                     new TextCellEditorFactory(),
                     new CheckboxCellEditorFactory(),
@@ -645,7 +644,6 @@ public class SQLTableManageView extends AbstractMappingView {
      */
     public VerifyResultMessages save() {
         // Check
-
         List<String> names = new ArrayList<String>();
         for (TableItem ti : tvSQL.getTable().getItems()) {
             Object[] obj = (Object[]) ti.getData();

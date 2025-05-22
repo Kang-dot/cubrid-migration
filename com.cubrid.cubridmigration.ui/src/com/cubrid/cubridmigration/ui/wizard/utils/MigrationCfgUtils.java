@@ -75,7 +75,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.StringUtils;
 import org.eclipse.osgi.util.NLS;
@@ -210,7 +209,7 @@ public class MigrationCfgUtils {
     private MigrationConfiguration config;
 
     private final List<String> existsViewNameList = new ArrayList<String>();
-    private final HashMap<String, List<String>> existsTableNameList = new HashMap<>();
+    private final Map<String, List<String>> existsTableNameList = new HashMap<>();
     private final List<String> existsSerialNameList = new ArrayList<String>();
 
     private IMigrationWizardStatus wizardStatus;
@@ -286,9 +285,10 @@ public class MigrationCfgUtils {
                     csvReplaceTarget
                             .computeIfAbsent(scc.getTargetOwner(), val -> new ArrayList<String>())
                             .add(scc.getTarget());
-                    csvOnlyCreateTarget
-                            .computeIfAbsent(scc.getTargetOwner(), val -> new ArrayList<String>())
-                            .add(scc.getTarget());
+                    List<String> list = csvOnlyCreateTarget.get(scc.getTargetOwner());
+                    if (list != null) {
+                        list.remove(scc.getTarget());
+                    }
                 }
             }
         }
@@ -311,8 +311,7 @@ public class MigrationCfgUtils {
             List<String> exsistTableNameSet = existsTableNameList.get(schema);
 
             boolean isOnlyCreateTargetExist = csvOnlyCreateTargetSet.retainAll(exsistTableNameSet);
-
-            if (isOnlyCreateTargetExist) {
+            if (isOnlyCreateTargetExist && !csvOnlyCreateTargetSet.isEmpty()) {
                 throw new MigrationConfigurationCheckingErrorException(
                         NLS.bind(
                                 Messages.objectMapPageErrMsgDuplicatedTable1,
@@ -325,7 +324,7 @@ public class MigrationCfgUtils {
             List<String> exsistTableNameSet = existsTableNameList.get(schema);
 
             boolean isNoCreateTarget = csvNoCreateTargetSet.retainAll(exsistTableNameSet);
-            if (!isNoCreateTarget) {
+            if (!isNoCreateTarget && !csvNoCreateTargetSet.isEmpty()) {
                 throw new MigrationConfigurationCheckingErrorException(
                         NLS.bind(
                                 Messages.objectMapPageErrMsgDuplicatedTable5,
@@ -812,10 +811,9 @@ public class MigrationCfgUtils {
             StringBuffer sbConfirm) {
         if (config.targetIsOnline() && !wizardStatus.isTargetOfflineMode()) {
             boolean contained =
-                    Optional.<List<String>>ofNullable(
-                                    existsTableNameList.get(setc.getTargetOwner()))
-                            .orElse(Collections.emptyList()).stream()
-                            .anyMatch(targetTable.getName()::equals);
+                    existsTableNameList
+                            .getOrDefault(setc.getTargetOwner(), Collections.emptyList())
+                            .contains(targetTable.getName());
 
             if (setc.isCreateNewTable() && setc.isReplace() && contained) {
                 sbConfirm
