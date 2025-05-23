@@ -4974,7 +4974,6 @@ public class MigrationConfiguration {
         if (tarCatalog == null) {
             throw new IllegalArgumentException("Target Catalog cannot be null");
         }
-
         this.tarCatalog = tarCatalog;
     }
 
