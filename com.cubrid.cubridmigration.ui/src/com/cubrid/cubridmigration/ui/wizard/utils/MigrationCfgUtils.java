@@ -310,7 +310,7 @@ public class MigrationCfgUtils {
             List<String> csvOnlyCreateTargetSet = csvOnlyCreateTarget.get(schema);
             List<String> exsistTableNameSet = existsTableNameList.get(schema);
 
-            boolean isOnlyCreateTargetExist = csvOnlyCreateTargetSet.retainAll(exsistTableNameSet);
+            boolean isOnlyCreateTargetExist = csvOnlyCreateTargetSet.stream().anyMatch(exsistTableNameSet::contains);
             if (isOnlyCreateTargetExist && !csvOnlyCreateTargetSet.isEmpty()) {
                 throw new MigrationConfigurationCheckingErrorException(
                         NLS.bind(
@@ -322,9 +322,9 @@ public class MigrationCfgUtils {
 
             List<String> csvNoCreateTargetSet = csvNoCreateTarget.get(schema);
             List<String> exsistTableNameSet = existsTableNameList.get(schema);
-
-            boolean isNoCreateTarget = csvNoCreateTargetSet.retainAll(exsistTableNameSet);
-            if (!isNoCreateTarget && !csvNoCreateTargetSet.isEmpty()) {
+            
+            boolean isNoCreateTarget = csvNoCreateTargetSet.stream().anyMatch(exsistTableNameSet::contains);
+            if (isNoCreateTarget && !csvNoCreateTargetSet.isEmpty()) {
                 throw new MigrationConfigurationCheckingErrorException(
                         NLS.bind(
                                 Messages.objectMapPageErrMsgDuplicatedTable5,
@@ -336,8 +336,8 @@ public class MigrationCfgUtils {
             List<String> csvReplaceTargetSet = csvReplaceTarget.get(schema);
             List<String> exsistTableNameSet = existsTableNameList.get(schema);
 
-            boolean isReplaceTargetSet = csvReplaceTargetSet.retainAll(exsistTableNameSet);
-            if (isReplaceTargetSet) {
+            boolean isReplaceTargetSet = csvReplaceTargetSet.stream().anyMatch(exsistTableNameSet::contains);
+            if (isReplaceTargetSet && !csvReplaceTargetSet.isEmpty()) {
                 sbWarn.append(
                                 Messages.bind(
                                         Messages.msgWarnTableRecreated, csvReplaceTargetSet.get(0)))

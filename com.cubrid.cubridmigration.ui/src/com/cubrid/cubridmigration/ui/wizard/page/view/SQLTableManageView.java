@@ -399,7 +399,6 @@ public class SQLTableManageView extends AbstractMappingView {
                         } else if (columnIdx == 2) {
                             super.modify(ti, element, columnIdx, value);
                         }
-
                         super.modify(ti, element, columnIdx, value);
                     }
                 };
@@ -613,16 +612,12 @@ public class SQLTableManageView extends AbstractMappingView {
 
     /** setup real combo box value(target schema name list) */
     protected void setupCombobox() {
-
         String[] schemaNameArr =
                 config.getTarCatalog().getSchemas().stream()
                         .map(Schema::getName)
                         .toArray(String[]::new);
-
         this.tarSchemaList = schemaNameArr;
-
         CellEditor[] cellEditorArray = tvSQL.getCellEditors();
-
         ((ComboBoxCellEditor) cellEditorArray[2]).setItems(schemaNameArr);
     }
 
