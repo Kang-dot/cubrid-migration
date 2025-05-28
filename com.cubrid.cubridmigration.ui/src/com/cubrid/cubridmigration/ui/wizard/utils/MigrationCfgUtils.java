@@ -310,7 +310,8 @@ public class MigrationCfgUtils {
             List<String> csvOnlyCreateTargetSet = csvOnlyCreateTarget.get(schema);
             List<String> exsistTableNameSet = existsTableNameList.get(schema);
 
-            boolean isOnlyCreateTargetExist = csvOnlyCreateTargetSet.stream().anyMatch(exsistTableNameSet::contains);
+            boolean isOnlyCreateTargetExist =
+                    csvOnlyCreateTargetSet.stream().anyMatch(exsistTableNameSet::contains);
             if (isOnlyCreateTargetExist && !csvOnlyCreateTargetSet.isEmpty()) {
                 throw new MigrationConfigurationCheckingErrorException(
                         NLS.bind(
@@ -322,8 +323,9 @@ public class MigrationCfgUtils {
 
             List<String> csvNoCreateTargetSet = csvNoCreateTarget.get(schema);
             List<String> exsistTableNameSet = existsTableNameList.get(schema);
-            
-            boolean isNoCreateTarget = csvNoCreateTargetSet.stream().anyMatch(exsistTableNameSet::contains);
+
+            boolean isNoCreateTarget =
+                    csvNoCreateTargetSet.stream().anyMatch(exsistTableNameSet::contains);
             if (isNoCreateTarget && !csvNoCreateTargetSet.isEmpty()) {
                 throw new MigrationConfigurationCheckingErrorException(
                         NLS.bind(
@@ -336,7 +338,8 @@ public class MigrationCfgUtils {
             List<String> csvReplaceTargetSet = csvReplaceTarget.get(schema);
             List<String> exsistTableNameSet = existsTableNameList.get(schema);
 
-            boolean isReplaceTargetSet = csvReplaceTargetSet.stream().anyMatch(exsistTableNameSet::contains);
+            boolean isReplaceTargetSet =
+                    csvReplaceTargetSet.stream().anyMatch(exsistTableNameSet::contains);
             if (isReplaceTargetSet && !csvReplaceTargetSet.isEmpty()) {
                 sbWarn.append(
                                 Messages.bind(
