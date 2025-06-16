@@ -39,6 +39,7 @@ import com.cubrid.common.ui.swt.table.celleditor.ComboBoxCellEditorFactory;
 import com.cubrid.common.ui.swt.table.celleditor.TextCellEditorFactory;
 import com.cubrid.common.ui.swt.table.listener.CheckBoxColumnSelectionListener;
 import com.cubrid.cubridmigration.core.common.CUBRIDIOUtils;
+import com.cubrid.cubridmigration.core.dbobject.Catalog;
 import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.engine.config.SourceSQLTableConfig;
 import com.cubrid.cubridmigration.core.engine.listener.ISQLTableChangedListener;
@@ -317,7 +318,7 @@ public class SQLTableManageView extends AbstractMappingView {
                 new String[] {
                     Messages.tabTitleName,
                     Messages.tabTitleSQL,
-                    Messages.tabTitleSchema,
+                    Messages.targetSchema,
                     Messages.tabTitleTargetTable,
                     Messages.tabTitleData,
                     Messages.lblCreate,
@@ -610,15 +611,19 @@ public class SQLTableManageView extends AbstractMappingView {
         }
     }
 
-    /** setup real combo box value(target schema name list) */
+    /** setup combo box value(target schema name list) */
     protected void setupCombobox() {
-        String[] schemaNameArr =
-                config.getTarCatalog().getSchemas().stream()
-                        .map(Schema::getName)
-                        .toArray(String[]::new);
-        this.tarSchemaList = schemaNameArr;
+        if (config.isAddUserSchema()) {
+            Catalog catalog = config.getTarCatalog().orElse(config.getSrcCatalog());
+
+            if (catalog != null && catalog.getSchemas() != null) {
+                tarSchemaList =
+                        catalog.getSchemas().stream().map(Schema::getName).toArray(String[]::new);
+            }
+        }
+
         CellEditor[] cellEditorArray = tvSQL.getCellEditors();
-        ((ComboBoxCellEditor) cellEditorArray[2]).setItems(schemaNameArr);
+        ((ComboBoxCellEditor) cellEditorArray[2]).setItems(tarSchemaList);
     }
 
     protected int getValueIndex(String targetOwner) {
@@ -658,8 +663,13 @@ public class SQLTableManageView extends AbstractMappingView {
             Object[] obj = (Object[]) ti.getData();
             SourceSQLTableConfig sstc = (SourceSQLTableConfig) obj[obj.length - 1];
             config.replaceSQL(sstc, (String) obj[0], sstc.getSql());
-            config.changeSQLOwner(sstc, this.tarSchemaList[(int) obj[2]]);
-            sstc.setTargetOwner(this.tarSchemaList[(int) obj[2]]);
+            if (tarSchemaList[(int) obj[2]].isEmpty() || !config.isAddUserSchema()) {
+                config.changeSQLOwner(sstc, config.getSrcConnOwner().toUpperCase(Locale.US));
+                sstc.setTargetOwner(config.getSrcConnOwner().toUpperCase(Locale.US));
+            } else {
+                config.changeSQLOwner(sstc, this.tarSchemaList[(int) obj[2]]);
+                sstc.setTargetOwner(this.tarSchemaList[(int) obj[2]]);
+            }
             config.changeTarget(sstc, (String) obj[3]);
             sstc.setMigrateData((Boolean) obj[4]);
             sstc.setCreateNewTable((Boolean) obj[5]);

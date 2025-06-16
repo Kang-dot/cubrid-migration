@@ -559,6 +559,11 @@ public class MigrationConfiguration {
         }
         // Build target schema
         Table tt = getDBTransformHelper().createCUBRIDTable(sstc, sqlSchema, this);
+
+        if (tt.getSourceOwner() == null) {
+            tt.setSourceOwner(getSrcConnOwner().toUpperCase(Locale.US));
+        }
+
         srcSQLSchemas.add(sqlSchema);
         targetTables.add(tt);
         expSQLTables.add(sstc);
@@ -1325,6 +1330,8 @@ public class MigrationConfiguration {
         if (sqlList != null) {
             for (SourceSQLTableConfig sqlCfg : sqlList) {
                 sqlCfg.setCreateNewTable(false);
+                String schemaName = sqlCfg.getOwner() == null ? defSchemaName : sqlCfg.getOwner();
+                sqlCfg.setOwner(schemaName);
             }
         }
 
@@ -4989,19 +4996,21 @@ public class MigrationConfiguration {
     }
 
     /**
-     * set target catalog.
+     * set target catalog. target catalog can be null
      *
      * @param tarCatalog
      */
     public void setTarCatalog(Catalog tarCatalog) {
-        if (tarCatalog == null) {
-            throw new IllegalArgumentException("Target Catalog cannot be null");
-        }
         this.tarCatalog = tarCatalog;
     }
 
-    public Catalog getTarCatalog() {
-        return tarCatalog;
+    /**
+     * Get target catalog. target catalog can be null
+     *
+     * @return Optional<Catalog> tarCatalog
+     */
+    public Optional<Catalog> getTarCatalog() {
+        return Optional.ofNullable(tarCatalog);
     }
 
     /**
