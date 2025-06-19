@@ -30,20 +30,10 @@
  */
 package com.cubrid.cubridmigration.app;
 
-import com.cubrid.common.ui.common.notice.ApplicationType;
-import com.cubrid.common.ui.common.notice.NoticeDashboardEditor;
-import com.cubrid.common.ui.common.notice.NoticeDashboardInput;
-import com.cubrid.common.update.p2.P2Util;
-import com.cubrid.cubridmigration.core.common.CUBRIDIOUtils;
-import com.cubrid.cubridmigration.core.common.log.LogUtil;
-import com.cubrid.cubridmigration.ui.MigrationUIPlugin;
-import com.cubrid.cubridmigration.ui.common.UrlConnUtils;
-import com.cubrid.cubridmigration.ui.preference.GeneralPreference;
-import com.cubrid.cubridmigration.ui.product.CopyrightDialog;
-import com.cubrid.cubridmigration.ui.product.Version;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+
 import org.apache.log4j.Logger;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences;
 import org.eclipse.core.runtime.preferences.InstanceScope;
@@ -54,13 +44,22 @@ import org.eclipse.jface.dialogs.MessageDialogWithToggle;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
-import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.application.ActionBarAdvisor;
 import org.eclipse.ui.application.IActionBarConfigurer;
 import org.eclipse.ui.application.IWorkbenchWindowConfigurer;
 import org.eclipse.ui.application.WorkbenchWindowAdvisor;
 import org.eclipse.ui.internal.WorkbenchWindow;
+
+import com.cubrid.common.ui.common.notice.ApplicationType;
+import com.cubrid.common.update.p2.P2Util;
+import com.cubrid.cubridmigration.core.common.CUBRIDIOUtils;
+import com.cubrid.cubridmigration.core.common.log.LogUtil;
+import com.cubrid.cubridmigration.ui.MigrationUIPlugin;
+import com.cubrid.cubridmigration.ui.common.UrlConnUtils;
+import com.cubrid.cubridmigration.ui.preference.GeneralPreference;
+import com.cubrid.cubridmigration.ui.product.CopyrightDialog;
+import com.cubrid.cubridmigration.ui.product.Version;
 
 /**
  * ApplicationWorkbenchWindowAdvisor
@@ -150,12 +149,6 @@ public class ApplicationWorkbenchWindowAdvisor extends WorkbenchWindowAdvisor {
                                         manager2.update(true);
                                     }
 
-                                    final IWorkbenchPage activePage = window.getActivePage();
-                                    if (GeneralPreference.isCheckNewInfoOnStartUp()) {
-                                        activePage.openEditor(
-                                                new NoticeDashboardInput(CLIENT),
-                                                NoticeDashboardEditor.ID);
-                                    }
                                     UrlConnUtils.isExistNewCubridVersion(
                                             Version.buildVersionId, "CUBRID-MIGRATION");
                                 } catch (Exception ignored) {
@@ -168,7 +161,7 @@ public class ApplicationWorkbenchWindowAdvisor extends WorkbenchWindowAdvisor {
 
     /**
      * Before the window close.
-     *
+     *s
      * @return true:close;
      */
     public boolean preWindowShellClose() {
