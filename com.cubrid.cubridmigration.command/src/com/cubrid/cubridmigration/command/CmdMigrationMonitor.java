@@ -116,8 +116,7 @@ public class CmdMigrationMonitor implements IMigrationMonitor {
 
         if (event instanceof MigrationFinishedEvent) {
             finalEvent = (MigrationFinishedEvent) event;
-            print('\b', String.valueOf(progress).length() + 2);
-            outPrinter.print("100%");
+            outPrinter.print("\rProgress:100%");
             outPrinter.println();
             if (hasError) {
                 outPrinter.println("Some errors occurred during migration.");
@@ -170,21 +169,9 @@ public class CmdMigrationMonitor implements IMigrationMonitor {
             tmpPro = tmpPro == 0 ? 1 : tmpPro;
             progress = tmpPro;
             if (!isNewLine) {
-                print('\b', String.valueOf(tmpPro).length() + 2);
+                outPrinter.print('\r');
             }
-            outPrinter.print(progress + "%");
-        }
-    }
-
-    /**
-     * Print chars on screen.
-     *
-     * @param ch char to be printed
-     * @param count repeat count
-     */
-    private void print(char ch, int count) {
-        for (int i = 0; i < count; i++) {
-            outPrinter.print(ch);
+            outPrinter.print("Progress:" + progress + "%");
         }
     }
 }
