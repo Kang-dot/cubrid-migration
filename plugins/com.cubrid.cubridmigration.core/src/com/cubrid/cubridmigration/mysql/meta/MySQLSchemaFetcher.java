@@ -468,24 +468,29 @@ public final class MySQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
 
         if (version.getDbMajorVersion() >= 5) {
             sqlStr =
-                    "SELECT COLUMN_NAME, CHARACTER_SET_NAME "
+                    "SELECT COLUMN_NAME, CHARACTER_SET_NAME, COLUMN_COMMENT "
                             + "FROM INFORMATION_SCHEMA.COLUMNS "
                             + "WHERE TABLE_SCHEMA=? AND TABLE_NAME=?";
 
             try {
                 stmt = conn.prepareStatement(sqlStr);
-                stmt.setString(1, schema.getName());
+                stmt.setString(1, catalog.getName());
                 stmt.setString(2, table.getName());
                 rs = stmt.executeQuery();
 
                 while (rs.next()) {
                     final String columnName = rs.getString(1);
                     final String charset = rs.getString(2);
+                    final String comment = rs.getString(3);
 
                     final Column column = table.getColumnByName(columnName);
-
-                    if (column != null && charset != null) {
-                        column.setCharset(charset);
+                    
+                    if (column != null) {
+	                    if (charset != null)
+	                        column.setCharset(charset);
+	
+	                    if (comment != null)
+	                    	column.setComment(comment);
                     }
                 }
             } finally {
@@ -968,6 +973,44 @@ public final class MySQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
             Closer.close(rs);
             Closer.close(stmt);
         }
+    }
+    
+    @Override
+    protected String getTableComment(Connection conn, String schemaName, String tableName) 
+    		throws SQLException {
+        if (StringUtils.isBlank(tableName)) {
+            throw new IllegalArgumentException("The table name is null!");
+        }
+    	
+        PreparedStatement stmt = null; // NOPMD
+        ResultSet rs = null; // NOPMD
+        try {
+        	String query = "select table_name, table_comment " + 
+        			"from information_schema.tables " + 
+        			"where table_schema = ? and table_name = ?";
+        	
+            stmt = conn.prepareStatement(query);
+            stmt.setString(1, schemaName);
+            stmt.setString(2, tableName);
+            rs = stmt.executeQuery();
+
+            String comment = null;
+
+            while (rs.next()) {
+                comment = rs.getString(2);
+            }
+
+            return comment;
+        } finally {
+            Closer.close(rs);
+            Closer.close(stmt);
+        }
+    }
+    
+@Override
+    protected String getViewComment(Connection conn, String SchemaName, String viewName) throws SQLException {
+    	// TODO Auto-generated method stub
+    	return null;
     }
 
     //	/**

@@ -790,6 +790,8 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
                     LOG.debug("[VAR]tableName=" + table.getName() + ", owner=" + table.getOwner());
                 }
                 table.setSchema(schema);
+                
+                table.setComment(getTableComment(conn, catalog.getName(), table.getName()));
 
                 buildTableColumns(conn, catalog, schema, table);
                 buildTablePK(conn, catalog, schema, table);
@@ -925,7 +927,8 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
             view.setOwner(viewOwnerName);
             view.setName(viewPureName);
             view.setSchema(schema);
-            schema.addView(view);
+            view.setComment(getViewComment(conn, schema.getName(), viewName));
+            schema.addView(view);  
             buildViewColumns(conn, catalog, schema, view);
         }
     }
@@ -1294,4 +1297,8 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
 
         return editedComment;
     }
+    
+    protected abstract String getTableComment(Connection conn, String SchemaName, String tableName) throws SQLException;
+    
+    protected abstract String getViewComment(Connection conn, String SchemaName, String viewName) throws SQLException;
 }

@@ -441,6 +441,7 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 column.setDefaultValue(defaultValue);
                 String shownDataType = dtHelper.getShownDataType(column);
                 column.setShownDataType(shownDataType);
+                column.setComment(getTableColumnComment(conn, schema.getName(), table.getName(), column.getName()));
                 table.addColumn(column);
             }
         } finally {
@@ -885,4 +886,103 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
             Closer.close(stmt);
         }
     }
+
+	@Override
+	protected String getTableComment(Connection conn, String schemaName, String tableName) throws SQLException {
+        if (StringUtils.isBlank(tableName)) {
+            throw new IllegalArgumentException("The table name is null!");
+        }
+    	
+        PreparedStatement stmt = null; // NOPMD
+        ResultSet rs = null; // NOPMD
+        try {
+        	String query = "SELECT"
+        			+ "    s.name AS SchemaName, "
+        			+ "    obj.name AS TableName, "
+        			+ "    CAST(ep.value AS NVARCHAR(MAX)) AS TableComment "
+        			+ "FROM"
+        			+ "    sys.extended_properties AS ep "
+        			+ "INNER JOIN"
+        			+ "    sys.objects AS obj ON ep.major_id = obj.object_id "
+        			+ "INNER JOIN"
+        			+ "    sys.schemas AS s ON obj.schema_id = s.schema_id "
+        			+ "WHERE"
+        			+ "    ep.minor_id = 0 "
+        			+ "    AND ep.name = 'MS_Description' "
+        			+ "    AND obj.type = 'U' "
+        			+ "    AND s.name = ? "
+        			+ "    AND obj.name = ?";
+        	
+            stmt = conn.prepareStatement(query);
+            stmt.setString(1, schemaName);
+            stmt.setString(2, tableName);
+            rs = stmt.executeQuery();
+
+            String comment = null;
+
+            while (rs.next()) {
+                comment = rs.getString(3);
+            }
+
+            return comment;
+        } finally {
+            Closer.close(rs);
+            Closer.close(stmt);
+        }
+	}
+	
+	protected String getTableColumnComment(Connection conn, String schemaName, String tableName, String columnName) throws SQLException {
+        if (StringUtils.isBlank(tableName)) {
+            throw new IllegalArgumentException("The table name is null!");
+        }
+    	
+        PreparedStatement stmt = null; // NOPMD
+        ResultSet rs = null; // NOPMD
+        try {
+        	String query = "SELECT"
+        			+ "    s.name AS SchemaName, "
+        			+ "    obj.name AS TableName, "
+        			+ "    col.name AS ColumnName, "
+        			+ "    CAST(ep.value AS NVARCHAR(MAX)) AS ColumnComment "
+        			+ "FROM "
+        			+ "    sys.extended_properties AS ep "
+        			+ "INNER JOIN "
+        			+ "    sys.objects AS obj ON ep.major_id = obj.object_id "
+        			+ "INNER JOIN "
+        			+ "    sys.schemas AS s ON obj.schema_id = s.schema_id "
+        			+ "INNER JOIN "
+        			+ "    sys.columns AS col ON ep.major_id = col.object_id AND ep.minor_id = col.column_id "
+        			+ "WHERE "
+        			+ "    ep.name = 'MS_Description' "
+        			+ "    AND obj.type = 'U' "
+        			+ "    AND s.name = ? "
+        			+ "    AND obj.name = ? "
+        			+ "    AND col.name = ? "
+        			+ "ORDER BY "
+        			+ "    col.column_id; ";
+        	
+            stmt = conn.prepareStatement(query);
+            stmt.setString(1, schemaName);
+            stmt.setString(2, tableName);
+            stmt.setString(3, columnName);
+            rs = stmt.executeQuery();
+
+            String comment = null;
+
+            while (rs.next()) {
+                comment = rs.getString(4);
+            }
+
+            return comment;
+        } finally {
+            Closer.close(rs);
+            Closer.close(stmt);
+        }
+	}
+
+	@Override
+	protected String getViewComment(Connection conn, String SchemaName, String viewName) throws SQLException {
+		// TODO Auto-generated method stub
+		return null;
+	}
 }

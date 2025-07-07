@@ -1204,7 +1204,7 @@ public final class OracleSchemaFetcher extends AbstractJDBCSchemaFetcher {
      * @param objectName String
      * @return comment
      */
-    private String getTableComment(Connection conn, String schemaName, String objectName) {
+    protected String getTableComment(Connection conn, String schemaName, String objectName) {
         PreparedStatement pstmt = null;
         ResultSet rs = null;
         try {
@@ -1233,7 +1233,7 @@ public final class OracleSchemaFetcher extends AbstractJDBCSchemaFetcher {
         }
     }
 
-    private String getViewComment(Connection conn, String schemaName, String viewName) {
+    protected String getViewComment(Connection conn, String schemaName, String viewName) {
         PreparedStatement pstmt = null;
         ResultSet rs = null;
         try {

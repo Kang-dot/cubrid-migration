@@ -548,4 +548,15 @@ public class InformixSchemaFetcher extends AbstractJDBCSchemaFetcher {
     protected DBExportHelper getExportHelper() {
         return new InformixExportHelper();
     }
+
+	@Override
+	protected String getTableComment(Connection conn, String schemaName, String tableName) throws SQLException {
+		// informix isn't have comment
+		return null;
+	}
+	
+	@Override
+	protected String getViewComment(Connection conn, String schemaName, String viewName) throws SQLException {
+		return null;
+	}
 }

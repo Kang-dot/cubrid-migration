@@ -2506,4 +2506,14 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
         }
         return false;
     }
+
+	@Override
+	protected String getTableComment(Connection conn, String SchemaName, String tableName) throws SQLException {
+		return null;
+	}
+	
+	@Override
+	protected String getViewComment(Connection conn, String SchemaName, String viewName) throws SQLException {
+		return null;
+	}
 }
