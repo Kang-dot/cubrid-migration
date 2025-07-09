@@ -49,6 +49,8 @@ import com.cubrid.cubridmigration.core.dbtype.IDependOnDatabaseType;
 import com.cubrid.cubridmigration.core.engine.exception.JDBCConnectErrorException;
 import com.cubrid.cubridmigration.core.export.DBExportHelper;
 import com.cubrid.cubridmigration.core.sql.SQLHelper;
+import com.cubrid.cubridmigration.mssql.meta.MSSQLSchemaFetcher;
+
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -791,7 +793,11 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
                 }
                 table.setSchema(schema);
                 
-                table.setComment(getTableComment(conn, catalog.getName(), table.getName()));
+                if (this instanceof MSSQLSchemaFetcher) {
+                	table.setComment(getTableComment(conn, schema.getName(), table.getName()));
+                } else {
+                	table.setComment(getTableComment(conn, catalog.getName(), table.getName()));
+                }
 
                 buildTableColumns(conn, catalog, schema, table);
                 buildTablePK(conn, catalog, schema, table);
