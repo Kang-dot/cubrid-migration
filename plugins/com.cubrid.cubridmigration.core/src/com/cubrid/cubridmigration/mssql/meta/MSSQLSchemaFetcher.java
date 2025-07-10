@@ -171,6 +171,9 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
                     if (table == null) {
                         continue;
                     }
+
+                    table.setComment(getTableComment(conn, schema.getName(), table.getName()));
+
                     Column column = table.getColumnByName(rs.getString("columnname"));
                     if (column == null) {
                         continue;
@@ -205,6 +208,8 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 view.setDDL(viewDDL);
                 view.setQuerySpec(sqlHelper.getViewQuerySpec(viewDDL));
                 view.setOwner(schema.getName());
+
+                view.setComment(getViewComment(conn, schema.getName(), view.getName()));
             }
             // get partitions
             buildPartitions(conn, catalog, schema);
@@ -441,7 +446,9 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 column.setDefaultValue(defaultValue);
                 String shownDataType = dtHelper.getShownDataType(column);
                 column.setShownDataType(shownDataType);
-                column.setComment(getTableColumnComment(conn, schema.getName(), table.getName(), column.getName()));
+                column.setComment(
+                        getTableColumnComment(
+                                conn, schema.getName(), table.getName(), column.getName()));
                 table.addColumn(column);
             }
         } finally {
@@ -887,32 +894,34 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
         }
     }
 
-	@Override
-	protected String getTableComment(Connection conn, String schemaName, String tableName) throws SQLException {
+    @Override
+    protected String getTableComment(Connection conn, String schemaName, String tableName)
+            throws SQLException {
         if (StringUtils.isBlank(tableName)) {
             throw new IllegalArgumentException("The table name is null!");
         }
-    	
+
         PreparedStatement stmt = null; // NOPMD
         ResultSet rs = null; // NOPMD
         try {
-        	String query = "SELECT"
-        			+ "    s.name AS SchemaName, "
-        			+ "    obj.name AS TableName, "
-        			+ "    CAST(ep.value AS NVARCHAR(MAX)) AS TableComment "
-        			+ "FROM"
-        			+ "    sys.extended_properties AS ep "
-        			+ "INNER JOIN"
-        			+ "    sys.objects AS obj ON ep.major_id = obj.object_id "
-        			+ "INNER JOIN"
-        			+ "    sys.schemas AS s ON obj.schema_id = s.schema_id "
-        			+ "WHERE"
-        			+ "    ep.minor_id = 0 "
-        			+ "    AND ep.name = 'MS_Description' "
-        			+ "    AND obj.type = 'U' "
-        			+ "    AND s.name = ? "
-        			+ "    AND obj.name = ?";
-        	
+            String query =
+                    "SELECT"
+                            + "    s.name AS SchemaName, "
+                            + "    obj.name AS TableName, "
+                            + "    CAST(ep.value AS NVARCHAR(MAX)) AS TableComment "
+                            + "FROM"
+                            + "    sys.extended_properties AS ep "
+                            + "INNER JOIN"
+                            + "    sys.objects AS obj ON ep.major_id = obj.object_id "
+                            + "INNER JOIN"
+                            + "    sys.schemas AS s ON obj.schema_id = s.schema_id "
+                            + "WHERE"
+                            + "    ep.minor_id = 0 "
+                            + "    AND ep.name = 'MS_Description' "
+                            + "    AND obj.type = 'U' "
+                            + "    AND s.name = ? "
+                            + "    AND obj.name = ?";
+
             stmt = conn.prepareStatement(query);
             stmt.setString(1, schemaName);
             stmt.setString(2, tableName);
@@ -929,38 +938,41 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
             Closer.close(rs);
             Closer.close(stmt);
         }
-	}
-	
-	protected String getTableColumnComment(Connection conn, String schemaName, String tableName, String columnName) throws SQLException {
+    }
+
+    protected String getTableColumnComment(
+            Connection conn, String schemaName, String tableName, String columnName)
+            throws SQLException {
         if (StringUtils.isBlank(tableName)) {
             throw new IllegalArgumentException("The table name is null!");
         }
-    	
+
         PreparedStatement stmt = null; // NOPMD
         ResultSet rs = null; // NOPMD
         try {
-        	String query = "SELECT"
-        			+ "    s.name AS SchemaName, "
-        			+ "    obj.name AS TableName, "
-        			+ "    col.name AS ColumnName, "
-        			+ "    CAST(ep.value AS NVARCHAR(MAX)) AS ColumnComment "
-        			+ "FROM "
-        			+ "    sys.extended_properties AS ep "
-        			+ "INNER JOIN "
-        			+ "    sys.objects AS obj ON ep.major_id = obj.object_id "
-        			+ "INNER JOIN "
-        			+ "    sys.schemas AS s ON obj.schema_id = s.schema_id "
-        			+ "INNER JOIN "
-        			+ "    sys.columns AS col ON ep.major_id = col.object_id AND ep.minor_id = col.column_id "
-        			+ "WHERE "
-        			+ "    ep.name = 'MS_Description' "
-        			+ "    AND obj.type = 'U' "
-        			+ "    AND s.name = ? "
-        			+ "    AND obj.name = ? "
-        			+ "    AND col.name = ? "
-        			+ "ORDER BY "
-        			+ "    col.column_id; ";
-        	
+            String query =
+                    "SELECT"
+                            + "    s.name AS SchemaName, "
+                            + "    obj.name AS TableName, "
+                            + "    col.name AS ColumnName, "
+                            + "    CAST(ep.value AS NVARCHAR(MAX)) AS ColumnComment "
+                            + "FROM "
+                            + "    sys.extended_properties AS ep "
+                            + "INNER JOIN "
+                            + "    sys.objects AS obj ON ep.major_id = obj.object_id "
+                            + "INNER JOIN "
+                            + "    sys.schemas AS s ON obj.schema_id = s.schema_id "
+                            + "INNER JOIN "
+                            + "    sys.columns AS col ON ep.major_id = col.object_id AND ep.minor_id = col.column_id "
+                            + "WHERE "
+                            + "    ep.name = 'MS_Description' "
+                            + "    AND obj.type = 'U' "
+                            + "    AND s.name = ? "
+                            + "    AND obj.name = ? "
+                            + "    AND col.name = ? "
+                            + "ORDER BY "
+                            + "    col.column_id; ";
+
             stmt = conn.prepareStatement(query);
             stmt.setString(1, schemaName);
             stmt.setString(2, tableName);
@@ -978,11 +990,48 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
             Closer.close(rs);
             Closer.close(stmt);
         }
-	}
+    }
 
-	@Override
-	protected String getViewComment(Connection conn, String SchemaName, String viewName) throws SQLException {
-		// TODO Auto-generated method stub
-		return null;
-	}
+    @Override
+    protected String getViewComment(Connection conn, String schemaName, String viewName)
+            throws SQLException {
+        if (StringUtils.isBlank(viewName)) {
+            throw new IllegalArgumentException("The table name is null!");
+        }
+
+        PreparedStatement stmt = null; // NOPMD
+        ResultSet rs = null; // NOPMD
+        try {
+            String query =
+                    "SELECT "
+                            + "    SCHEMA_NAME(v.schema_id)   AS schema_name, "
+                            + "    v.name                     AS view_name, "
+                            + "    ep.value                   AS view_comment "
+                            + "FROM "
+                            + "    sys.views v "
+                            + "    LEFT JOIN sys.extended_properties ep "
+                            + "        ON ep.major_id = v.object_id "
+                            + "       AND ep.minor_id = 0 "
+                            + "       AND ep.name = 'MS_Description'"
+                            + "WHERE "
+                            + "    SCHEMA_NAME(v.schema_id) = ? and"
+                            + "    v.name = ?";
+
+            stmt = conn.prepareStatement(query);
+            stmt.setString(1, schemaName);
+            stmt.setString(2, viewName);
+            rs = stmt.executeQuery();
+
+            String comment = null;
+
+            while (rs.next()) {
+                comment = rs.getString(3);
+            }
+
+            return comment;
+        } finally {
+            Closer.close(rs);
+            Closer.close(stmt);
+        }
+    }
 }

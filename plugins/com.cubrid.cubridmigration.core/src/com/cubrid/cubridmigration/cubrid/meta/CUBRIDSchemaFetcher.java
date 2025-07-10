@@ -641,7 +641,7 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 String tableName = rs.getString("class_name");
                 String comment = rs.getString("comment");
                 String owner = rs.getString("owner_name");
-                
+
                 String columnComment = rs.getString("attr_comment");
 
                 if (tableName == null) {
@@ -683,7 +683,7 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 column.setPrecision(prec);
                 column.setScale(scale);
                 column.setComment(columnComment);
-                
+
                 String isNull = rs.getString("is_nullable");
                 column.setNullable(isYes(isNull));
 
@@ -2510,13 +2510,17 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
         return false;
     }
 
-	@Override
-	protected String getTableComment(Connection conn, String SchemaName, String tableName) throws SQLException {
-		return null;
-	}
-	
-	@Override
-	protected String getViewComment(Connection conn, String SchemaName, String viewName) throws SQLException {
-		return null;
-	}
+    @Override
+    protected String getTableComment(Connection conn, String SchemaName, String tableName)
+            throws SQLException {
+        // cubrid schema fetcher have it's own table build method
+        return null;
+    }
+
+    @Override
+    protected String getViewComment(Connection conn, String SchemaName, String viewName)
+            throws SQLException {
+        // cubrid schema fetcher have it's own view build method
+        return null;
+    }
 }

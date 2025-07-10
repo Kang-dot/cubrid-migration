@@ -49,8 +49,6 @@ import com.cubrid.cubridmigration.core.dbtype.IDependOnDatabaseType;
 import com.cubrid.cubridmigration.core.engine.exception.JDBCConnectErrorException;
 import com.cubrid.cubridmigration.core.export.DBExportHelper;
 import com.cubrid.cubridmigration.core.sql.SQLHelper;
-import com.cubrid.cubridmigration.mssql.meta.MSSQLSchemaFetcher;
-
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -792,12 +790,6 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
                     LOG.debug("[VAR]tableName=" + table.getName() + ", owner=" + table.getOwner());
                 }
                 table.setSchema(schema);
-                
-                if (this instanceof MSSQLSchemaFetcher) {
-                	table.setComment(getTableComment(conn, schema.getName(), table.getName()));
-                } else {
-                	table.setComment(getTableComment(conn, catalog.getName(), table.getName()));
-                }
 
                 buildTableColumns(conn, catalog, schema, table);
                 buildTablePK(conn, catalog, schema, table);
@@ -933,8 +925,7 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
             view.setOwner(viewOwnerName);
             view.setName(viewPureName);
             view.setSchema(schema);
-            view.setComment(getViewComment(conn, schema.getName(), viewName));
-            schema.addView(view);  
+            schema.addView(view);
             buildViewColumns(conn, catalog, schema, view);
         }
     }
@@ -1303,8 +1294,10 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
 
         return editedComment;
     }
-    
-    protected abstract String getTableComment(Connection conn, String SchemaName, String tableName) throws SQLException;
-    
-    protected abstract String getViewComment(Connection conn, String SchemaName, String viewName) throws SQLException;
+
+    protected abstract String getTableComment(Connection conn, String SchemaName, String tableName)
+            throws SQLException;
+
+    protected abstract String getViewComment(Connection conn, String SchemaName, String viewName)
+            throws SQLException;
 }

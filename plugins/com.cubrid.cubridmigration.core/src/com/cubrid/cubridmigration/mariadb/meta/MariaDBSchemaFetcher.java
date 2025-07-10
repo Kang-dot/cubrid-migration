@@ -226,6 +226,7 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
 
             for (Table table : tableList) {
                 table.setDDL(getTableDDL(conn, table.getName()));
+                table.setComment(getTableComment(conn, catalog.getName(), table.getName()));
             }
 
             // get views
@@ -234,6 +235,7 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
             for (View view : viewList) {
                 view.setDDL(getViewDDL(conn, view.getName()));
                 view.setQuerySpec(sqlHelper.getViewQuerySpec(view.getDDL()));
+                view.setComment(getViewComment(conn, schema.getName(), view.getName()));
             }
         }
 
@@ -488,7 +490,7 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
 
         if (version.getDbMajorVersion() >= 5) {
             sqlStr =
-                    "SELECT COLUMN_NAME, CHARACTER_SET_NAME, COLUMN_COMMENT"
+                    "SELECT COLUMN_NAME, CHARACTER_SET_NAME, COLUMN_COMMENT "
                             + "FROM INFORMATION_SCHEMA.COLUMNS "
                             + "WHERE TABLE_SCHEMA=? AND TABLE_NAME=?";
 
@@ -504,13 +506,11 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
                     final String comment = rs.getString(3);
 
                     final Column column = table.getColumnByName(columnName);
-                    
+
                     if (column != null) {
-                        if (charset != null) 
-                        	column.setCharset(charset);
-                        
-                        if (comment != null) 
-                        	column.setComment(comment);
+                        if (charset != null) column.setCharset(charset);
+
+                        if (comment != null) column.setComment(comment);
                     }
                 }
             } finally {
@@ -995,8 +995,8 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
         }
     }
 
-    protected String getTableComment(Connection conn, String schemaName, String tableName) 
-    		throws SQLException {
+    protected String getTableComment(Connection conn, String schemaName, String tableName)
+            throws SQLException {
         if (StringUtils.isBlank(tableName)) {
             throw new IllegalArgumentException("The table name is null!");
         }
@@ -1004,9 +1004,10 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
         PreparedStatement stmt = null; // NOPMD
         ResultSet rs = null; // NOPMD
         try {
-        	String query = "select table_name, table_comment " + 
-        			"from information_schema.tables " + 
-        			"where table_schema = ? and table_name = ?";
+            String query =
+                    "select table_name, table_comment "
+                            + "from information_schema.tables "
+                            + "where table_schema = ? and table_name = ?";
 
             stmt = conn.prepareStatement(query);
             stmt.setString(1, schemaName);
@@ -1025,11 +1026,12 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
             Closer.close(stmt);
         }
     }
-    
+
     @Override
-    protected String getViewComment(Connection conn, String SchemaName, String viewName) throws SQLException {
-    	// TODO Auto-generated method stub
-    	return null;
+    protected String getViewComment(Connection conn, String SchemaName, String viewName)
+            throws SQLException {
+        // MariaDB does not support view comment feature
+        return null;
     }
     //	/**
     //	 * get table's row count by schema name
