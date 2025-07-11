@@ -894,6 +894,15 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
         }
     }
 
+    /**
+     * Get table comment
+     *
+     * @param conn Connection
+     * @param schemaName Schema name
+     * @param tableName Table name
+     * @return String table comment
+     * @throws SQLException e
+     */
     @Override
     protected String getTableComment(Connection conn, String schemaName, String tableName)
             throws SQLException {
@@ -940,6 +949,14 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
         }
     }
 
+    /**
+     * Get table column comment
+     *
+     * @param conn Connection
+     * @param schemaName Schema name
+     * @param tableName Table name
+     * @param columnName Column name
+     */
     protected String getTableColumnComment(
             Connection conn, String schemaName, String tableName, String columnName)
             throws SQLException {
@@ -992,6 +1009,15 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
         }
     }
 
+    /**
+     * Get view comment
+     *
+     * @param conn Connection
+     * @param schemaName Schema name
+     * @param viewName View name
+     * @return String view comment
+     * @throws SQLException e
+     */
     @Override
     protected String getViewComment(Connection conn, String schemaName, String viewName)
             throws SQLException {

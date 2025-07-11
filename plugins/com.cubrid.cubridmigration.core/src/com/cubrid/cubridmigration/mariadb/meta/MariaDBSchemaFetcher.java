@@ -995,6 +995,15 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
         }
     }
 
+    /**
+     * Get table comment
+     *
+     * @param conn Connection
+     * @param schemaName Schema name
+     * @param tableName Table name
+     * @return String table comment
+     * @throws SQLException e
+     */
     protected String getTableComment(Connection conn, String schemaName, String tableName)
             throws SQLException {
         if (StringUtils.isBlank(tableName)) {
@@ -1027,6 +1036,15 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
         }
     }
 
+    /**
+     * Get view comment
+     *
+     * @param conn Connection
+     * @param schemaName Schema name
+     * @param viewName View name
+     * @return String view comment
+     * @throws SQLException e
+     */
     @Override
     protected String getViewComment(Connection conn, String SchemaName, String viewName)
             throws SQLException {
