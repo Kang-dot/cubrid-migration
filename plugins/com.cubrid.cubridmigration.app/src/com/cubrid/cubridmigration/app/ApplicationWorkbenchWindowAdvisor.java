@@ -32,8 +32,6 @@ package com.cubrid.cubridmigration.app;
 
 import com.cubrid.common.log.LogUtil;
 import com.cubrid.common.ui.common.notice.ApplicationType;
-import com.cubrid.common.ui.common.notice.NoticeDashboardEditor;
-import com.cubrid.common.ui.common.notice.NoticeDashboardInput;
 import com.cubrid.common.update.p2.P2Util;
 import com.cubrid.cubridmigration.core.common.CUBRIDIOUtils;
 import com.cubrid.cubridmigration.ui.MigrationUIPlugin;
@@ -53,7 +51,6 @@ import org.eclipse.jface.dialogs.MessageDialogWithToggle;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
-import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.application.ActionBarAdvisor;
 import org.eclipse.ui.application.IActionBarConfigurer;
@@ -148,13 +145,6 @@ public class ApplicationWorkbenchWindowAdvisor extends WorkbenchWindowAdvisor {
                                         manager2 = (MenuManager) help;
                                         manager2.remove("com.cubrid.common.update.p2.menu.install");
                                         manager2.update(true);
-                                    }
-
-                                    final IWorkbenchPage activePage = window.getActivePage();
-                                    if (GeneralPreference.isCheckNewInfoOnStartUp()) {
-                                        activePage.openEditor(
-                                                new NoticeDashboardInput(CLIENT),
-                                                NoticeDashboardEditor.ID);
                                     }
                                     UrlConnUtils.isExistNewCubridVersion(
                                             Version.buildVersionId, "CUBRID-MIGRATION");
