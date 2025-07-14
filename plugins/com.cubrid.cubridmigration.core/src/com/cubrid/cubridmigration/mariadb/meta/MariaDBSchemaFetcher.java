@@ -95,6 +95,12 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
     private static final String SHOW_VIEW = "SHOW CREATE VIEW ";
     private static final String SHOW_COLUMN =
             "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ?";
+
+    private static final String SQL_GET_TABLE_COMMENT =
+            "select table_name, table_comment "
+                    + "from information_schema.tables "
+                    + "where table_schema = ? and table_name = ?";
+
     // private static final String SCHEMA_SELECT = "SHOW DATABASES";
 
     /**
@@ -509,7 +515,6 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
 
                     if (column != null) {
                         if (charset != null) column.setCharset(charset);
-
                         if (comment != null) column.setComment(comment);
                     }
                 }
@@ -1013,12 +1018,8 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
         PreparedStatement stmt = null; // NOPMD
         ResultSet rs = null; // NOPMD
         try {
-            String query =
-                    "select table_name, table_comment "
-                            + "from information_schema.tables "
-                            + "where table_schema = ? and table_name = ?";
-
-            stmt = conn.prepareStatement(query);
+            LOG.debug("[SQL]{} (1={}, 2={})", SQL_GET_TABLE_COMMENT, schemaName, tableName);
+            stmt = conn.prepareStatement(SQL_GET_TABLE_COMMENT);
             stmt.setString(1, schemaName);
             stmt.setString(2, tableName);
             rs = stmt.executeQuery();

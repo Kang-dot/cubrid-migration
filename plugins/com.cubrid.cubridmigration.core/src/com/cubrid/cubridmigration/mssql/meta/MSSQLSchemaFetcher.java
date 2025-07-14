@@ -115,6 +115,62 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
             "select t.name as username,t2.name as realname"
                     + " from sys.systypes t,sys.systypes t2 where t.xtype<>t.xusertype and t.xtype=t2.xusertype";
 
+    private static final String SQL_GET_TABLE_COMMENT =
+            "SELECT"
+                    + "    s.name AS SchemaName, "
+                    + "    obj.name AS TableName, "
+                    + "    CAST(ep.value AS NVARCHAR(MAX)) AS TableComment "
+                    + "FROM"
+                    + "    sys.extended_properties AS ep "
+                    + "INNER JOIN"
+                    + "    sys.objects AS obj ON ep.major_id = obj.object_id "
+                    + "INNER JOIN"
+                    + "    sys.schemas AS s ON obj.schema_id = s.schema_id "
+                    + "WHERE"
+                    + "    ep.minor_id = 0 "
+                    + "    AND ep.name = 'MS_Description' "
+                    + "    AND obj.type = 'U' "
+                    + "    AND s.name = ? "
+                    + "    AND obj.name = ?";
+
+    private static final String SQL_GET_TABLE_COLUMN_COMMENT =
+            "SELECT"
+                    + "    s.name AS SchemaName, "
+                    + "    obj.name AS TableName, "
+                    + "    col.name AS ColumnName, "
+                    + "    CAST(ep.value AS NVARCHAR(MAX)) AS ColumnComment "
+                    + "FROM "
+                    + "    sys.extended_properties AS ep "
+                    + "INNER JOIN "
+                    + "    sys.objects AS obj ON ep.major_id = obj.object_id "
+                    + "INNER JOIN "
+                    + "    sys.schemas AS s ON obj.schema_id = s.schema_id "
+                    + "INNER JOIN "
+                    + "    sys.columns AS col ON ep.major_id = col.object_id AND ep.minor_id = col.column_id "
+                    + "WHERE "
+                    + "    ep.name = 'MS_Description' "
+                    + "    AND obj.type = 'U' "
+                    + "    AND s.name = ? "
+                    + "    AND obj.name = ? "
+                    + "    AND col.name = ? "
+                    + "ORDER BY "
+                    + "    col.column_id; ";
+
+    private static final String SQL_GET_VIEW_COMMENT =
+            "SELECT "
+                    + "    SCHEMA_NAME(v.schema_id)   AS schema_name, "
+                    + "    v.name                     AS view_name, "
+                    + "    ep.value                   AS view_comment "
+                    + "FROM "
+                    + "    sys.views v "
+                    + "    LEFT JOIN sys.extended_properties ep "
+                    + "        ON ep.major_id = v.object_id "
+                    + "       AND ep.minor_id = 0 "
+                    + "       AND ep.name = 'MS_Description'"
+                    + "WHERE "
+                    + "    SCHEMA_NAME(v.schema_id) = ? and"
+                    + "    v.name = ?";
+
     private static final Map<String, String> CHARSET_MAPPING = new HashMap<String, String>();
 
     static {
@@ -913,27 +969,10 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
         PreparedStatement stmt = null; // NOPMD
         ResultSet rs = null; // NOPMD
         try {
-            String query =
-                    "SELECT"
-                            + "    s.name AS SchemaName, "
-                            + "    obj.name AS TableName, "
-                            + "    CAST(ep.value AS NVARCHAR(MAX)) AS TableComment "
-                            + "FROM"
-                            + "    sys.extended_properties AS ep "
-                            + "INNER JOIN"
-                            + "    sys.objects AS obj ON ep.major_id = obj.object_id "
-                            + "INNER JOIN"
-                            + "    sys.schemas AS s ON obj.schema_id = s.schema_id "
-                            + "WHERE"
-                            + "    ep.minor_id = 0 "
-                            + "    AND ep.name = 'MS_Description' "
-                            + "    AND obj.type = 'U' "
-                            + "    AND s.name = ? "
-                            + "    AND obj.name = ?";
-
-            stmt = conn.prepareStatement(query);
+            stmt = conn.prepareStatement(SQL_GET_TABLE_COMMENT);
             stmt.setString(1, schemaName);
             stmt.setString(2, tableName);
+            LOG.debug("[SQL]{} (1={}, 2={})", SQL_GET_TABLE_COMMENT, schemaName, tableName);
             rs = stmt.executeQuery();
 
             String comment = null;
@@ -967,33 +1006,16 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
         PreparedStatement stmt = null; // NOPMD
         ResultSet rs = null; // NOPMD
         try {
-            String query =
-                    "SELECT"
-                            + "    s.name AS SchemaName, "
-                            + "    obj.name AS TableName, "
-                            + "    col.name AS ColumnName, "
-                            + "    CAST(ep.value AS NVARCHAR(MAX)) AS ColumnComment "
-                            + "FROM "
-                            + "    sys.extended_properties AS ep "
-                            + "INNER JOIN "
-                            + "    sys.objects AS obj ON ep.major_id = obj.object_id "
-                            + "INNER JOIN "
-                            + "    sys.schemas AS s ON obj.schema_id = s.schema_id "
-                            + "INNER JOIN "
-                            + "    sys.columns AS col ON ep.major_id = col.object_id AND ep.minor_id = col.column_id "
-                            + "WHERE "
-                            + "    ep.name = 'MS_Description' "
-                            + "    AND obj.type = 'U' "
-                            + "    AND s.name = ? "
-                            + "    AND obj.name = ? "
-                            + "    AND col.name = ? "
-                            + "ORDER BY "
-                            + "    col.column_id; ";
-
-            stmt = conn.prepareStatement(query);
+            stmt = conn.prepareStatement(SQL_GET_TABLE_COLUMN_COMMENT);
             stmt.setString(1, schemaName);
             stmt.setString(2, tableName);
             stmt.setString(3, columnName);
+            LOG.debug(
+                    "[SQL]{} (1={}, 2={}, 3={})",
+                    SQL_GET_TABLE_COLUMN_COMMENT,
+                    schemaName,
+                    tableName,
+                    columnName);
             rs = stmt.executeQuery();
 
             String comment = null;
@@ -1028,24 +1050,10 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
         PreparedStatement stmt = null; // NOPMD
         ResultSet rs = null; // NOPMD
         try {
-            String query =
-                    "SELECT "
-                            + "    SCHEMA_NAME(v.schema_id)   AS schema_name, "
-                            + "    v.name                     AS view_name, "
-                            + "    ep.value                   AS view_comment "
-                            + "FROM "
-                            + "    sys.views v "
-                            + "    LEFT JOIN sys.extended_properties ep "
-                            + "        ON ep.major_id = v.object_id "
-                            + "       AND ep.minor_id = 0 "
-                            + "       AND ep.name = 'MS_Description'"
-                            + "WHERE "
-                            + "    SCHEMA_NAME(v.schema_id) = ? and"
-                            + "    v.name = ?";
-
-            stmt = conn.prepareStatement(query);
+            stmt = conn.prepareStatement(SQL_GET_VIEW_COMMENT);
             stmt.setString(1, schemaName);
             stmt.setString(2, viewName);
+            LOG.debug("[SQL]{} (1={}, 2={})", SQL_GET_VIEW_COMMENT, schemaName, viewName);
             rs = stmt.executeQuery();
 
             String comment = null;
