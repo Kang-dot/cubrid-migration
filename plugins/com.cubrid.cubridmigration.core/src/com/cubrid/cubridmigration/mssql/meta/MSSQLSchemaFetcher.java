@@ -171,6 +171,23 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
                     + "    SCHEMA_NAME(v.schema_id) = ? and"
                     + "    v.name = ?";
 
+    private static final String SQL_GET_VIEW_COLUMN_COMMENT =
+            "SELECT "
+                    + "    objtype       AS ObjectType, "
+                    + "    objname       AS ViewName, "
+                    + "    name          AS PropertyName, "
+                    + "    value         AS Description "
+                    + "FROM  "
+                    + "    fn_listextendedproperty ( "
+                    + "        default,        "
+                    + "        'schema',       "
+                    + "        'mssql_user',          "
+                    + "        'VIEW',         "
+                    + "        'ms_user_view1',  "
+                    + "        'COLUMN',       "
+                    + "        'varchar_col'         "
+                    + "    )";
+
     private static final Map<String, String> CHARSET_MAPPING = new HashMap<String, String>();
 
     static {
@@ -548,6 +565,8 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
         for (Column column : view.getColumns()) {
             String shownDataType = dtHelper.getShownDataType(column);
             column.setShownDataType(shownDataType);
+            column.setComment(
+                    getViewColumnComment(conn, schema.getName(), view.getName(), column.getName()));
         }
     }
 
@@ -1060,6 +1079,41 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
 
             while (rs.next()) {
                 comment = rs.getString(3);
+            }
+
+            return comment;
+        } finally {
+            Closer.close(rs);
+            Closer.close(stmt);
+        }
+    }
+
+    protected String getViewColumnComment(
+            Connection conn, String schemaName, String viewName, String viewColumnName)
+            throws SQLException {
+        if (StringUtils.isBlank(viewName)) {
+            throw new IllegalArgumentException("The table name is null!");
+        }
+
+        PreparedStatement stmt = null; // NOPMD
+        ResultSet rs = null; // NOPMD
+        try {
+            stmt = conn.prepareStatement(SQL_GET_VIEW_COLUMN_COMMENT);
+            stmt.setString(1, schemaName);
+            stmt.setString(2, viewName);
+            stmt.setString(3, viewColumnName);
+            LOG.debug(
+                    "[SQL]{} (1={}, 2={}, 3={})",
+                    SQL_GET_VIEW_COLUMN_COMMENT,
+                    schemaName,
+                    viewName,
+                    viewColumnName);
+            rs = stmt.executeQuery();
+
+            String comment = null;
+
+            while (rs.next()) {
+                comment = rs.getString(4);
             }
 
             return comment;
