@@ -2511,14 +2511,14 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
     }
 
     @Override
-    protected String getTableComment(Connection conn, String SchemaName, String tableName)
+    protected String getTableComment(Connection conn, String schemaName, String tableName)
             throws SQLException {
         // cubrid schema fetcher have it's own table build method
         return null;
     }
 
     @Override
-    protected String getViewComment(Connection conn, String SchemaName, String viewName)
+    protected String getViewComment(Connection conn, String schemaName, String viewName)
             throws SQLException {
         // cubrid schema fetcher have it's own view build method
         return null;

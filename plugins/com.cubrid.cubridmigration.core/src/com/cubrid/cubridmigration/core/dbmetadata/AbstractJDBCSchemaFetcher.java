@@ -1303,7 +1303,7 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
      * @return String table comment
      * @throws SQLException e
      */
-    protected abstract String getTableComment(Connection conn, String SchemaName, String tableName)
+    protected abstract String getTableComment(Connection conn, String schemaName, String tableName)
             throws SQLException;
 
     /**
@@ -1315,6 +1315,6 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
      * @return String view comment
      * @throws SQLException e
      */
-    protected abstract String getViewComment(Connection conn, String SchemaName, String viewName)
+    protected abstract String getViewComment(Connection conn, String schemaName, String viewName)
             throws SQLException;
 }

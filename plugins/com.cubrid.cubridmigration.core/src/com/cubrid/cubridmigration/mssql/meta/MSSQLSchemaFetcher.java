@@ -156,6 +156,28 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
                     + "ORDER BY "
                     + "    col.column_id; ";
 
+    private static final String SQL_GET_ALL_TABLE_COLUMN_COMMENTS =
+            "SELECT"
+                    + "    s.name AS SchemaName, "
+                    + "    obj.name AS TableName, "
+                    + "    col.name AS ColumnName, "
+                    + "    CAST(ep.value AS NVARCHAR(MAX)) AS ColumnComment "
+                    + "FROM "
+                    + "    sys.extended_properties AS ep "
+                    + "INNER JOIN "
+                    + "    sys.objects AS obj ON ep.major_id = obj.object_id "
+                    + "INNER JOIN "
+                    + "    sys.schemas AS s ON obj.schema_id = s.schema_id "
+                    + "INNER JOIN "
+                    + "    sys.columns AS col ON ep.major_id = col.object_id AND ep.minor_id = col.column_id "
+                    + "WHERE "
+                    + "    ep.name = 'MS_Description' "
+                    + "    AND obj.type = 'U' "
+                    + "    AND s.name = ? "
+                    + "    AND obj.name = ? "
+                    + "ORDER BY "
+                    + "    col.column_id; ";
+
     private static final String SQL_GET_VIEW_COMMENT =
             "SELECT "
                     + "    SCHEMA_NAME(v.schema_id)   AS schema_name, "
@@ -181,11 +203,11 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
                     + "    fn_listextendedproperty ( "
                     + "        default,        "
                     + "        'schema',       "
-                    + "        'mssql_user',          "
+                    + "        ?,          "
                     + "        'VIEW',         "
-                    + "        'ms_user_view1',  "
+                    + "        ?,  "
                     + "        'COLUMN',       "
-                    + "        'varchar_col'         "
+                    + "        ?         "
                     + "    )";
 
     private static final Map<String, String> CHARSET_MAPPING = new HashMap<String, String>();
@@ -466,6 +488,11 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
             if (table.getName().equalsIgnoreCase("ProductDocument")) {
                 System.out.println();
             }
+
+            // Get all column comments in one query for optimization
+            Map<String, String> columnComments =
+                    getAllTableColumnComments(conn, schema.getName(), table.getName());
+
             while (rs.next()) {
                 // create new column
                 final Column column = factory.createColumn();
@@ -519,9 +546,11 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 column.setDefaultValue(defaultValue);
                 String shownDataType = dtHelper.getShownDataType(column);
                 column.setShownDataType(shownDataType);
-                column.setComment(
-                        getTableColumnComment(
-                                conn, schema.getName(), table.getName(), column.getName()));
+
+                // Set column comment from the pre-fetched map
+                String comment = columnComments.get(column.getName());
+                column.setComment(comment);
+
                 table.addColumn(column);
             }
         } finally {
@@ -1044,6 +1073,48 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
             }
 
             return comment;
+        } finally {
+            Closer.close(rs);
+            Closer.close(stmt);
+        }
+    }
+
+    /**
+     * Get all table column comments for a specific table
+     *
+     * @param conn Connection
+     * @param schemaName Schema name
+     * @param tableName Table name
+     * @return Map<String, String> column name to comment mapping
+     * @throws SQLException e
+     */
+    protected Map<String, String> getAllTableColumnComments(
+            Connection conn, String schemaName, String tableName) throws SQLException {
+        if (StringUtils.isBlank(tableName)) {
+            throw new IllegalArgumentException("The table name is null!");
+        }
+
+        Map<String, String> columnComments = new HashMap<String, String>();
+        PreparedStatement stmt = null; // NOPMD
+        ResultSet rs = null; // NOPMD
+        try {
+            stmt = conn.prepareStatement(SQL_GET_ALL_TABLE_COLUMN_COMMENTS);
+            stmt.setString(1, schemaName);
+            stmt.setString(2, tableName);
+            LOG.debug(
+                    "[SQL]{} (1={}, 2={})",
+                    SQL_GET_ALL_TABLE_COLUMN_COMMENTS,
+                    schemaName,
+                    tableName);
+            rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                String columnName = rs.getString("ColumnName");
+                String comment = rs.getString("ColumnComment");
+                columnComments.put(columnName, comment);
+            }
+
+            return columnComments;
         } finally {
             Closer.close(rs);
             Closer.close(stmt);

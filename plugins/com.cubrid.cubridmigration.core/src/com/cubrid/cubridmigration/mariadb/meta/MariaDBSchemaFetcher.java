@@ -241,7 +241,6 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
             for (View view : viewList) {
                 view.setDDL(getViewDDL(conn, view.getName()));
                 view.setQuerySpec(sqlHelper.getViewQuerySpec(view.getDDL()));
-                view.setComment(getViewComment(conn, schema.getName(), view.getName()));
             }
         }
 
@@ -1015,25 +1014,21 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
             throw new IllegalArgumentException("The table name is null!");
         }
 
-        PreparedStatement stmt = null; // NOPMD
-        ResultSet rs = null; // NOPMD
-        try {
+        try (PreparedStatement stmt = conn.prepareStatement(SQL_GET_TABLE_COMMENT)) {
             LOG.debug("[SQL]{} (1={}, 2={})", SQL_GET_TABLE_COMMENT, schemaName, tableName);
-            stmt = conn.prepareStatement(SQL_GET_TABLE_COMMENT);
             stmt.setString(1, schemaName);
             stmt.setString(2, tableName);
-            rs = stmt.executeQuery();
 
             String comment = null;
 
-            while (rs.next()) {
-                comment = rs.getString(2);
+            try (ResultSet rs = stmt.executeQuery()) {
+
+                while (rs.next()) {
+                    comment = rs.getString(2);
+                }
             }
 
             return comment;
-        } finally {
-            Closer.close(rs);
-            Closer.close(stmt);
         }
     }
 
