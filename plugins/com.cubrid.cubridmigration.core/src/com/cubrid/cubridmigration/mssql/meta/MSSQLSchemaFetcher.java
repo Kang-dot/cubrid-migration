@@ -117,39 +117,39 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
 
     private static final String SQL_GET_TABLE_COMMENT =
             "SELECT"
-            + "    CAST(ep.value AS NVARCHAR(MAX)) AS TableComment "
-            + "FROM"
-            + "    sys.extended_properties AS ep "
-            + "INNER JOIN"
-            + "    sys.objects AS obj ON ep.major_id = obj.object_id "
-            + "INNER JOIN"
-            + "    sys.schemas AS s ON obj.schema_id = s.schema_id "
-            + "WHERE"
-            + "    ep.minor_id = 0 "
-            + "    AND ep.name = 'MS_Description' "
-            + "    AND obj.type = 'U' "
-            + "    AND s.name = ? "
-            + "    AND obj.name = ?";
+                    + "    CAST(ep.value AS NVARCHAR(MAX)) AS TableComment "
+                    + "FROM"
+                    + "    sys.extended_properties AS ep "
+                    + "INNER JOIN"
+                    + "    sys.objects AS obj ON ep.major_id = obj.object_id "
+                    + "INNER JOIN"
+                    + "    sys.schemas AS s ON obj.schema_id = s.schema_id "
+                    + "WHERE"
+                    + "    ep.minor_id = 0 "
+                    + "    AND ep.name = 'MS_Description' "
+                    + "    AND obj.type = 'U' "
+                    + "    AND s.name = ? "
+                    + "    AND obj.name = ?";
 
     private static final String SQL_GET_TABLE_COLUMN_COMMENT =
             "SELECT"
-            + "    CAST(ep.value AS NVARCHAR(MAX)) AS ColumnComment "
-            + "FROM "
-            + "    sys.extended_properties AS ep "
-            + "INNER JOIN "
-            + "    sys.objects AS obj ON ep.major_id = obj.object_id "
-            + "INNER JOIN "
-            + "    sys.schemas AS s ON obj.schema_id = s.schema_id "
-            + "INNER JOIN "
-            + "    sys.columns AS col ON ep.major_id = col.object_id AND ep.minor_id = col.column_id "
-            + "WHERE "
-            + "    ep.name = 'MS_Description' "
-            + "    AND obj.type = 'U' "
-            + "    AND s.name = ? "
-            + "    AND obj.name = ? "
-            + "    AND col.name = ? "
-            + "ORDER BY "
-            + "    col.column_id; ";
+                    + "    CAST(ep.value AS NVARCHAR(MAX)) AS ColumnComment "
+                    + "FROM "
+                    + "    sys.extended_properties AS ep "
+                    + "INNER JOIN "
+                    + "    sys.objects AS obj ON ep.major_id = obj.object_id "
+                    + "INNER JOIN "
+                    + "    sys.schemas AS s ON obj.schema_id = s.schema_id "
+                    + "INNER JOIN "
+                    + "    sys.columns AS col ON ep.major_id = col.object_id AND ep.minor_id = col.column_id "
+                    + "WHERE "
+                    + "    ep.name = 'MS_Description' "
+                    + "    AND obj.type = 'U' "
+                    + "    AND s.name = ? "
+                    + "    AND obj.name = ? "
+                    + "    AND col.name = ? "
+                    + "ORDER BY "
+                    + "    col.column_id; ";
 
     private static final String SQL_GET_ALL_TABLE_COLUMN_COMMENTS =
             "SELECT"
@@ -175,30 +175,30 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
 
     private static final String SQL_GET_VIEW_COMMENT =
             "SELECT "
-            + "    ep.value                   AS view_comment "
-            + "FROM "
-            + "    sys.views v "
-            + "    LEFT JOIN sys.extended_properties ep "
-            + "        ON ep.major_id = v.object_id "
-            + "       AND ep.minor_id = 0 "
-            + "       AND ep.name = 'MS_Description'"
-            + "WHERE "
-            + "    SCHEMA_NAME(v.schema_id) = ? and"
-            + "    v.name = ?";
+                    + "    ep.value                   AS view_comment "
+                    + "FROM "
+                    + "    sys.views v "
+                    + "    LEFT JOIN sys.extended_properties ep "
+                    + "        ON ep.major_id = v.object_id "
+                    + "       AND ep.minor_id = 0 "
+                    + "       AND ep.name = 'MS_Description'"
+                    + "WHERE "
+                    + "    SCHEMA_NAME(v.schema_id) = ? and"
+                    + "    v.name = ?";
 
     private static final String SQL_GET_VIEW_COLUMN_COMMENT =
             "SELECT "
-            + "    value         AS Description "
-            + "FROM  "
-            + "    fn_listextendedproperty ( "
-            + "        default,        "
-            + "        'schema',       "
-            + "        ?,          "
-            + "        'VIEW',         "
-            + "        ?,  "
-            + "        'COLUMN',       "
-            + "        ?         "
-            + "    )";
+                    + "    value         AS Description "
+                    + "FROM  "
+                    + "    fn_listextendedproperty ( "
+                    + "        default,        "
+                    + "        'schema',       "
+                    + "        ?,          "
+                    + "        'VIEW',         "
+                    + "        ?,  "
+                    + "        'COLUMN',       "
+                    + "        ?         "
+                    + "    )";
 
     private static final String SQL_GET_ALL_VIEW_COLUMN_COMMENTS =
             "SELECT "
@@ -597,14 +597,13 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
         super.buildViewColumns(conn, catalog, schema, view);
 
         // Get all column comments in one query for optimization
-        Map<String, String> columnComments =
-                getAllViewColumnComments(conn, view.getName());
+        Map<String, String> columnComments = getAllViewColumnComments(conn, view.getName());
 
         MSSQLDataTypeHelper dtHelper = MSSQLDataTypeHelper.getInstance(null);
         for (Column column : view.getColumns()) {
             String shownDataType = dtHelper.getShownDataType(column);
             column.setShownDataType(shownDataType);
-            
+
             // Set column comment from the pre-fetched map
             String comment = columnComments.get(column.getName());
             column.setComment(comment);
@@ -1180,21 +1179,18 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
      * @return Map<String, String> column name to comment mapping
      * @throws SQLException e
      */
-    protected Map<String, String> getAllViewColumnComments(
-            Connection conn, String viewName) throws SQLException {
+    protected Map<String, String> getAllViewColumnComments(Connection conn, String viewName)
+            throws SQLException {
         if (StringUtils.isBlank(viewName)) {
             throw new IllegalArgumentException("The view name is null!");
         }
 
         Map<String, String> columnComments = new HashMap<String, String>();
-        
+
         try (PreparedStatement stmt = conn.prepareStatement(SQL_GET_ALL_VIEW_COLUMN_COMMENTS)) {
             stmt.setString(1, viewName);
-            LOG.debug(
-                    "[SQL]{} (1={})",
-                    SQL_GET_ALL_VIEW_COLUMN_COMMENTS,
-                    viewName);
-            
+            LOG.debug("[SQL]{} (1={})", SQL_GET_ALL_VIEW_COLUMN_COMMENTS, viewName);
+
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
                     String columnName = rs.getString("ColumnName");
