@@ -1294,4 +1294,27 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
 
         return editedComment;
     }
+    /**
+     * Get table comment abstract method
+     *
+     * @param conn Connection
+     * @param schemaName Schema name
+     * @param tableName Table name
+     * @return String table comment
+     * @throws SQLException e
+     */
+    protected abstract String getTableComment(Connection conn, String schemaName, String tableName)
+            throws SQLException;
+
+    /**
+     * Get view comment abstract method
+     *
+     * @param conn Connection
+     * @param schemaName Schema name
+     * @param viewName View name
+     * @return String view comment
+     * @throws SQLException e
+     */
+    protected abstract String getViewComment(Connection conn, String schemaName, String viewName)
+            throws SQLException;
 }

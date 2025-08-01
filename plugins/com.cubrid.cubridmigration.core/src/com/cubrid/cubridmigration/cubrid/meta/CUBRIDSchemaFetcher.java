@@ -626,7 +626,7 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
         String sql =
                 "SELECT a.class_name, a.owner_name, a.attr_name, a.attr_type, a.from_class_name,"
                         + " a.data_type, a.prec, a.scale, a.is_nullable,"
-                        + " a.domain_class_name, a.default_value, a.def_order,c.is_reuse_oid_class, c.comment"
+                        + " a.domain_class_name, a.default_value, a.def_order,c.is_reuse_oid_class, c.comment, a.comment as attr_comment"
                         + " FROM db_attribute a , db_class c"
                         + " WHERE c.class_name = a.class_name AND c.class_type='CLASS' AND c.is_system_class='NO' AND from_class_name is NULL"
                         + " AND c.owner_name = a.owner_name AND c.owner_name = ? "
@@ -641,6 +641,8 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 String tableName = rs.getString("class_name");
                 String comment = rs.getString("comment");
                 String owner = rs.getString("owner_name");
+
+                String columnComment = rs.getString("attr_comment");
 
                 if (tableName == null) {
                     continue;
@@ -680,6 +682,7 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 }
                 column.setPrecision(prec);
                 column.setScale(scale);
+                column.setComment(columnComment);
 
                 String isNull = rs.getString("is_nullable");
                 column.setNullable(isYes(isNull));
@@ -2505,5 +2508,19 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
             Closer.close(stmt);
         }
         return false;
+    }
+
+    @Override
+    protected String getTableComment(Connection conn, String schemaName, String tableName)
+            throws SQLException {
+        // cubrid schema fetcher have it's own table build method
+        return null;
+    }
+
+    @Override
+    protected String getViewComment(Connection conn, String schemaName, String viewName)
+            throws SQLException {
+        // cubrid schema fetcher have it's own view build method
+        return null;
     }
 }
