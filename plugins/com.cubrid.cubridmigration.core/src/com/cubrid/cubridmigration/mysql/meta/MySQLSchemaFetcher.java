@@ -1021,7 +1021,7 @@ public final class MySQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
      * @throws SQLException e
      */
     @Override
-    protected String getViewComment(Connection conn, String SchemaName, String viewName)
+    protected String getViewComment(Connection conn, String schemaName, String viewName)
             throws SQLException {
         return null;
     }

@@ -1042,7 +1042,7 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
      * @throws SQLException e
      */
     @Override
-    protected String getViewComment(Connection conn, String SchemaName, String viewName)
+    protected String getViewComment(Connection conn, String schemaName, String viewName)
             throws SQLException {
         // MariaDB does not support view comment feature
         return null;

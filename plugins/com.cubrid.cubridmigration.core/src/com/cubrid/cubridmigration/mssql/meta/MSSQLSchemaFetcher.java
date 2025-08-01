@@ -1048,49 +1048,6 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
     }
 
     /**
-     * Get table column comment
-     *
-     * @param conn Connection
-     * @param schemaName Schema name
-     * @param tableName Table name
-     * @param columnName Column name
-     */
-    protected String getTableColumnComment(
-            Connection conn, String schemaName, String tableName, String columnName)
-            throws SQLException {
-        if (StringUtils.isBlank(tableName)) {
-            throw new IllegalArgumentException("The table name is null!");
-        }
-
-        PreparedStatement stmt = null; // NOPMD
-        ResultSet rs = null; // NOPMD
-        try {
-            stmt = conn.prepareStatement(SQL_GET_TABLE_COLUMN_COMMENT);
-            stmt.setString(1, schemaName);
-            stmt.setString(2, tableName);
-            stmt.setString(3, columnName);
-            LOG.debug(
-                    "[SQL]{} (1={}, 2={}, 3={})",
-                    SQL_GET_TABLE_COLUMN_COMMENT,
-                    schemaName,
-                    tableName,
-                    columnName);
-            rs = stmt.executeQuery();
-
-            String comment = null;
-
-            while (rs.next()) {
-                comment = rs.getString(1);
-            }
-
-            return comment;
-        } finally {
-            Closer.close(rs);
-            Closer.close(stmt);
-        }
-    }
-
-    /**
      * Get all table column comments for a specific table
      *
      * @param conn Connection
@@ -1201,40 +1158,5 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
         }
 
         return columnComments;
-    }
-
-    protected String getViewColumnComment(
-            Connection conn, String schemaName, String viewName, String viewColumnName)
-            throws SQLException {
-        if (StringUtils.isBlank(viewName)) {
-            throw new IllegalArgumentException("The view name is null!");
-        }
-
-        PreparedStatement stmt = null; // NOPMD
-        ResultSet rs = null; // NOPMD
-        try {
-            stmt = conn.prepareStatement(SQL_GET_VIEW_COLUMN_COMMENT);
-            stmt.setString(1, schemaName);
-            stmt.setString(2, viewName);
-            stmt.setString(3, viewColumnName);
-            LOG.debug(
-                    "[SQL]{} (1={}, 2={}, 3={})",
-                    SQL_GET_VIEW_COLUMN_COMMENT,
-                    schemaName,
-                    viewName,
-                    viewColumnName);
-            rs = stmt.executeQuery();
-
-            String comment = null;
-
-            while (rs.next()) {
-                comment = rs.getString(1);
-            }
-
-            return comment;
-        } finally {
-            Closer.close(rs);
-            Closer.close(stmt);
-        }
     }
 }
