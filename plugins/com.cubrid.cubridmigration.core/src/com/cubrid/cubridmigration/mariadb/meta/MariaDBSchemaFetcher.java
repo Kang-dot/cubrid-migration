@@ -514,7 +514,7 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
 
                     if (column != null) {
                         if (charset != null) column.setCharset(charset);
-                        if (comment != null) column.setComment(comment);
+                        if (comment != null) column.setComment(commentEditor(comment));
                     }
                 }
             } finally {
@@ -1028,7 +1028,7 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 }
             }
 
-            return comment;
+            return commentEditor(comment);
         }
     }
 

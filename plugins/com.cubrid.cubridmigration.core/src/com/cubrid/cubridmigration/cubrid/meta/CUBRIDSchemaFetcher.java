@@ -655,7 +655,7 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 if (table == null) {
                     table = factory.createTable();
                     table.setName(tableName);
-                    table.setComment(comment);
+                    table.setComment(commentEditor(comment));
                     table.setOwner(owner);
                     table.setReuseOID(isYes(rs.getString("is_reuse_oid_class")));
                     schema.addTable(table);
@@ -682,7 +682,7 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 }
                 column.setPrecision(prec);
                 column.setScale(scale);
-                column.setComment(columnComment);
+                column.setComment(commentEditor(columnComment));
 
                 String isNull = rs.getString("is_nullable");
                 column.setNullable(isYes(isNull));
