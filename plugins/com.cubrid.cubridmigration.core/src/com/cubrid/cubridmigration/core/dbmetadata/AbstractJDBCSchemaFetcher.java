@@ -1288,10 +1288,10 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
     }
 
     protected String commentEditor(String comment) {
-    	if (comment == null) {
-    		return comment;
-    	}
-    	
+        if (comment == null) {
+            return comment;
+        }
+
         String editedComment;
 
         editedComment = comment.replaceAll("[\\']", "\\'\\'");
