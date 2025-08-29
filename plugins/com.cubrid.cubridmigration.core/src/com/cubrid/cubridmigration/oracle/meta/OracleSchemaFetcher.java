@@ -604,7 +604,7 @@ public final class OracleSchemaFetcher extends AbstractJDBCSchemaFetcher {
 
                     String shownDataType = dtHelper.getShownDataType(column);
                     column.setShownDataType(shownDataType);
-                    column.setComment(rs.getString("COMMENTS"));
+                    column.setComment(commentEditor(rs.getString("COMMENTS")));
 
                     table.addColumn(column);
                 } catch (Exception ex) {
@@ -1245,10 +1245,6 @@ public final class OracleSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 comment = rs.getString("COMMENTS");
             }
 
-            if (comment != null) {
-                comment = commentEditor(comment);
-            }
-
             return comment;
         } catch (Exception e) {
             e.printStackTrace();
@@ -1272,10 +1268,6 @@ public final class OracleSchemaFetcher extends AbstractJDBCSchemaFetcher {
             String comment = "";
             while (rs.next()) {
                 comment = rs.getString("COMMENTS");
-            }
-
-            if (comment != null) {
-                comment = commentEditor(comment);
             }
 
             return comment;
