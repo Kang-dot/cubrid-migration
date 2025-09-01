@@ -322,7 +322,7 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 String comment = null;
                 if (dbVersion >= COMMENT_SUPPORT_VERSION) {
                     comment = rs.getString("comment");
-                    comment = comment != null ? commentEditor(comment) : null;
+                    comment = commentEditor(comment);
                 }
 
                 String indexFindKey = tableName + "-" + indexName;
@@ -471,7 +471,7 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 String tableComment = null;
                 if (dbVersion >= COMMENT_SUPPORT_VERSION) {
                     tableComment = rs.getString("table_comment");
-                    tableComment = tableComment != null ? commentEditor(tableComment) : null;
+                    tableComment = commentEditor(tableComment);
                 }
 
                 if (tableComment != null) {
@@ -502,7 +502,7 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 String columnComment = null;
                 if (dbVersion >= COMMENT_SUPPORT_VERSION) {
                     columnComment = rs.getString("column_comment");
-                    columnComment = columnComment != null ? commentEditor(columnComment) : null;
+                    columnComment = commentEditor(columnComment);
                 }
 
                 Column column = factory.createColumn();
