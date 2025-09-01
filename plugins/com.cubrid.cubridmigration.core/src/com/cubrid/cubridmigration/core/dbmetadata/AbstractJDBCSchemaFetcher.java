@@ -1287,16 +1287,17 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
         return "YES".equalsIgnoreCase(value);
     }
 
+    /**
+     * Replace one small quotation mark inside the comment with two small quotation marks
+     *
+     * @param comment the comment to be processed
+     * @return processed comment or null if input is null
+     */
     protected String commentEditor(String comment) {
         if (comment == null) {
-            return comment;
+            return null;
         }
-
-        String editedComment;
-
-        editedComment = comment.replaceAll("[\\']", "\\'\\'");
-
-        return editedComment;
+        return comment.replaceAll("[\\']", "\\'\\'");
     }
     /**
      * Get table comment abstract method

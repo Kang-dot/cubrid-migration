@@ -604,7 +604,8 @@ public final class OracleSchemaFetcher extends AbstractJDBCSchemaFetcher {
 
                     String shownDataType = dtHelper.getShownDataType(column);
                     column.setShownDataType(shownDataType);
-                    column.setComment(commentEditor(rs.getString("COMMENTS")));
+                    String comment = rs.getString("COMMENTS");
+                    column.setComment(commentEditor(comment));
 
                     table.addColumn(column);
                 } catch (Exception ex) {
