@@ -1290,7 +1290,7 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
     /**
      * Replace one small quotation mark inside the comment with two small quotation marks
      *
-     * @param comment the comment to be processed
+     * @param comment to be processed
      * @return processed comment or null if input is null
      */
     protected String commentEditor(String comment) {

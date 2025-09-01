@@ -644,6 +644,9 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
 
                 String columnComment = rs.getString("attr_comment");
 
+                comment = commentEditor(comment);
+                columnComment = commentEditor(columnComment);
+
                 if (tableName == null) {
                     continue;
                 }
@@ -655,7 +658,7 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 if (table == null) {
                     table = factory.createTable();
                     table.setName(tableName);
-                    table.setComment(commentEditor(comment));
+                    table.setComment(comment);
                     table.setOwner(owner);
                     table.setReuseOID(isYes(rs.getString("is_reuse_oid_class")));
                     schema.addTable(table);
@@ -682,7 +685,7 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 }
                 column.setPrecision(prec);
                 column.setScale(scale);
-                column.setComment(commentEditor(columnComment));
+                column.setComment(columnComment);
 
                 String isNull = rs.getString("is_nullable");
                 column.setNullable(isYes(isNull));
@@ -1309,7 +1312,7 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 int cachedNum = rs.getInt("cached_num");
                 if (dbVersion >= COMMENT_SUPPORT_VERSION) {
                     comment = rs.getString("comment");
-                    comment = comment != null ? commentEditor(comment) : null;
+                    comment = commentEditor(comment);
                 }
 
                 String owner = null;
@@ -1519,7 +1522,7 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 String comment = null;
                 if (dbVersion >= COMMENT_SUPPORT_VERSION) {
                     comment = rs.getString("comment");
-                    comment = comment != null ? commentEditor(comment) : null;
+                    comment = commentEditor(comment);
                 }
 
                 Column column = factory.createColumn();
@@ -1798,7 +1801,7 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
                         String comment = null;
                         if (dbVersion >= COMMENT_SUPPORT_VERSION) {
                             comment = rs.getString("comment");
-                            comment = comment != null ? commentEditor(comment) : null;
+                            comment = commentEditor(comment);
                         }
 
                         view.setQuerySpec(querySpec);
