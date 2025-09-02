@@ -554,7 +554,7 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
 
                 // Set column comment from the pre-fetched map
                 String comment = columnComments.get(column.getName());
-                column.setComment(comment);
+                column.setComment(commentEditor(comment));
 
                 table.addColumn(column);
             }
@@ -606,7 +606,7 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
 
             // Set column comment from the pre-fetched map
             String comment = columnComments.get(column.getName());
-            column.setComment(comment);
+            column.setComment(commentEditor(comment));
         }
     }
 
@@ -1040,7 +1040,7 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 comment = rs.getString(1);
             }
 
-            return comment;
+            return commentEditor(comment);
         } finally {
             Closer.close(rs);
             Closer.close(stmt);
@@ -1120,7 +1120,7 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 comment = rs.getString(1);
             }
 
-            return comment;
+            return commentEditor(comment);
         } finally {
             Closer.close(rs);
             Closer.close(stmt);

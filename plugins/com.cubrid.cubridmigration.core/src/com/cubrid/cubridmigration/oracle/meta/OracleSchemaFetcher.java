@@ -242,11 +242,6 @@ public final class OracleSchemaFetcher extends AbstractJDBCSchemaFetcher {
             }
             for (Table table : tableList) {
                 String comment = getTableComment(conn, schema.getName(), table.getName());
-
-                if (comment != null) {
-                    comment = commentEditor(comment);
-                }
-
                 table.setComment(comment);
             }
             // get views
@@ -261,11 +256,6 @@ public final class OracleSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 view.setQuerySpec(getQueryText(conn, schema.getName(), view.getName(), view));
 
                 String comment = getViewComment(conn, schema.getName(), view.getName());
-
-                if (comment != null) {
-                    comment = commentEditor(comment);
-                }
-
                 view.setComment(comment);
             }
             buildPartitions(conn, catalog, schema);
@@ -604,7 +594,8 @@ public final class OracleSchemaFetcher extends AbstractJDBCSchemaFetcher {
 
                     String shownDataType = dtHelper.getShownDataType(column);
                     column.setShownDataType(shownDataType);
-                    column.setComment(rs.getString("COMMENTS"));
+                    String comment = rs.getString("COMMENTS");
+                    column.setComment(commentEditor(comment));
 
                     table.addColumn(column);
                 } catch (Exception ex) {
@@ -1227,8 +1218,9 @@ public final class OracleSchemaFetcher extends AbstractJDBCSchemaFetcher {
      * get TABLE comment
      *
      * @param conn Connection
+     * @param schemaName String
      * @param objectName String
-     * @return comment
+     * @return processed comment
      */
     protected String getTableComment(Connection conn, String schemaName, String objectName) {
         PreparedStatement pstmt = null;
@@ -1245,11 +1237,7 @@ public final class OracleSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 comment = rs.getString("COMMENTS");
             }
 
-            if (comment != null) {
-                comment = commentEditor(comment);
-            }
-
-            return comment;
+            return commentEditor(comment);
         } catch (Exception e) {
             e.printStackTrace();
             return null;
@@ -1274,11 +1262,7 @@ public final class OracleSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 comment = rs.getString("COMMENTS");
             }
 
-            if (comment != null) {
-                comment = commentEditor(comment);
-            }
-
-            return comment;
+            return commentEditor(comment);
         } catch (Exception e) {
             e.printStackTrace();
             return null;
