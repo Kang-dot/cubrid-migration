@@ -30,12 +30,8 @@
  */
 package com.cubrid.cubridmigration.command;
 
-import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.engine.IMigrationMonitor;
 import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
-import com.cubrid.cubridmigration.core.engine.config.SourceCSVConfig;
-import com.cubrid.cubridmigration.core.engine.config.SourceEntryTableConfig;
-import com.cubrid.cubridmigration.core.engine.config.SourceSQLTableConfig;
 import com.cubrid.cubridmigration.core.engine.event.CreateObjectEvent;
 import com.cubrid.cubridmigration.core.engine.event.ImportCSVEvent;
 import com.cubrid.cubridmigration.core.engine.event.ImportRecordsEvent;
@@ -44,9 +40,8 @@ import com.cubrid.cubridmigration.core.engine.event.MigrationEvent;
 import com.cubrid.cubridmigration.core.engine.event.MigrationFinishedEvent;
 import com.cubrid.cubridmigration.core.engine.event.MigrationStartEvent;
 import com.cubrid.cubridmigration.cubrid.CUBRIDTimeUtil;
-import java.io.File;
 import java.io.PrintStream;
-import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * CommandMigrationMonitor Description
@@ -54,60 +49,50 @@ import java.util.List;
  * @author Kevin Cao
  * @version 1.0 - 2012-2-2 created by Kevin Cao
  */
-public class CmdMigrationMonitor implements IMigrationMonitor {
-    private long totalProgress = 0;
-    private long currentProgress = 0;
-    private long progress = 0;
-    private MigrationFinishedEvent finalEvent = null;
-    // private int circle = 0;
-    private boolean hasError;
+public class CmdMigrationMonitor implements IMigrationMonitor, Runnable {
+
+    private static final long PROGRESS_UPDATE_INTERVAL_MS = 100;
+
+    private final MigrationProgressTracker progressTracker;
+    private final ProgressDisplayManager displayManager;
     private final int monitorMode;
-    private PrintStream outPrinter = System.out;
+    private final PrintStream outPrinter = System.out;
+
+    private final AtomicBoolean hasError = new AtomicBoolean(false);
+    private volatile MigrationFinishedEvent finalEvent = null;
+    private volatile boolean isNewLine = true;
+
+    private final Object startLock = new Object();
+    private volatile boolean stopRequested = false;
+    private Thread progressThread;
 
     public CmdMigrationMonitor(MigrationConfiguration config, int monitorMode) {
-        if (config.sourceIsOnline() || config.sourceIsXMLDump()) {
-            List<SourceEntryTableConfig> tables = config.getExpEntryTableCfg();
-            for (SourceEntryTableConfig tbl : tables) {
-                Table table = config.getSrcTableSchema(tbl.getOwner(), tbl.getName());
-                if (tbl.isCreatePK() && table.getPk() != null) {
-                    totalProgress++;
-                }
-                totalProgress = totalProgress + table.getTableRowCount();
-            }
-            List<SourceSQLTableConfig> sqlTables = config.getExpSQLCfg();
-            for (SourceSQLTableConfig tbl : sqlTables) {
-                Table table = config.getSrcTableSchema(tbl.getOwner(), tbl.getName());
-                totalProgress = totalProgress + (table == null ? 0 : table.getTableRowCount());
-            }
-            totalProgress = totalProgress + config.getExpObjCount();
-        } else if (config.sourceIsSQL()) {
-            for (String ss : config.getSqlFiles()) {
-                totalProgress = totalProgress + new File(ss).length();
-            }
-        } else if (config.sourceIsCSV()) {
-            for (SourceCSVConfig scc : config.getCSVConfigs()) {
-                totalProgress = totalProgress + new File(scc.getName()).length();
-            }
-        }
+        this.progressTracker = new MigrationProgressTracker();
+        this.displayManager = new ProgressDisplayManager(monitorMode);
         this.monitorMode = monitorMode;
-        hasError = false;
+
+        progressTracker.initialize(config);
     }
 
-    /** Print finished message. */
-    public void finished() {}
+    @Override
+    public void finished() {
+        requestStop();
+    }
 
-    /** Print started message. */
-    public void start() {}
-
-    /**
-     * Print event message.
-     *
-     * @param event MigrationEvent
-     */
-    public void addEvent(MigrationEvent event) {
-        if (finalEvent != null) {
-            return;
+    @Override
+    public void start() {
+        synchronized (startLock) {
+            if (progressThread != null && progressThread.isAlive()) {
+                return;
+            }
+            progressThread = new Thread(this, "MigrationProgressPrinter");
+            progressThread.setDaemon(true);
+            progressThread.start();
         }
+    }
+
+    public void addEvent(MigrationEvent event) {
+        if (finalEvent != null) return;
 
         if (event instanceof MigrationStartEvent) {
             outPrinter.println(event.toString());
@@ -116,62 +101,81 @@ public class CmdMigrationMonitor implements IMigrationMonitor {
 
         if (event instanceof MigrationFinishedEvent) {
             finalEvent = (MigrationFinishedEvent) event;
-            outPrinter.print("\rProgress:100%");
-            outPrinter.println();
-            if (hasError) {
-                outPrinter.println("Some errors occurred during migration.");
-                outPrinter.println("Please see the report for more.");
-            }
-            outPrinter.println(event.toString());
+            displayManager.printFinalProgress(progressTracker, hasError.get(), finalEvent);
+            requestStop();
             return;
         }
 
         boolean isError = false;
+
         if (event instanceof CreateObjectEvent) {
             CreateObjectEvent ev = (CreateObjectEvent) event;
             if (ev.isSuccess()) {
-                currentProgress++;
             } else {
                 isError = true;
             }
         } else if (event instanceof ImportRecordsEvent) {
-            final ImportRecordsEvent importRecordsEvent = (ImportRecordsEvent) event;
-            if (importRecordsEvent.isSuccess()) {
-                currentProgress = currentProgress + importRecordsEvent.getRecordCount();
+            ImportRecordsEvent ev = (ImportRecordsEvent) event;
+            if (ev.isSuccess()) {
+                progressTracker.addCompletedWorkUnits(ev.getRecordCount());
+                progressTracker.updateTableProgress(
+                        ev.getSourceTable().getOwner() + "." + ev.getSourceTable().getName(),
+                        ev.getRecordCount());
             } else {
                 isError = true;
             }
         } else if (event instanceof ImportSQLsEvent) {
             ImportSQLsEvent ev = (ImportSQLsEvent) event;
-            currentProgress = currentProgress + ev.getSize();
-            if (!ev.isSuccess()) {
-                isError = true;
-            }
+            progressTracker.addCompletedWorkUnits(ev.getSize());
+            if (!ev.isSuccess()) isError = true;
         } else if (event instanceof ImportCSVEvent) {
             ImportCSVEvent ev = (ImportCSVEvent) event;
-            currentProgress = currentProgress + ev.getSize();
-            if (!ev.isSuccess()) {
-                isError = true;
+            progressTracker.addCompletedWorkUnits(ev.getSize());
+            if (!ev.isSuccess()) isError = true;
+        }
+
+        if (isError) {
+            hasError.set(true);
+        }
+
+        logEventIfNeeded(event);
+    }
+
+    public void requestStop() {
+        stopRequested = true;
+        if (progressThread != null) {
+            progressThread.interrupt();
+        }
+    }
+
+    @Override
+    public void run() {
+        while (!stopRequested) {
+            displayManager.printProgressIfChanged(progressTracker);
+            isNewLine = false;
+
+            try {
+                Thread.sleep(PROGRESS_UPDATE_INTERVAL_MS);
+            } catch (InterruptedException e) {
+                break;
             }
         }
-        hasError = isError;
-        boolean isNewLine = false;
+        displayManager.printProgressIfChanged(progressTracker);
+        isNewLine = false;
+    }
+
+    private void logEventIfNeeded(MigrationEvent event) {
         if (event.getLevel() <= monitorMode) {
-            outPrinter.println(
-                    CUBRIDTimeUtil.defaultFormatMilin(event.getEventTime())
-                            + " "
-                            + event.toString());
-            isNewLine = true;
-        }
-        if (monitorMode <= MigrationConfiguration.RPT_LEVEL_ERROR && (totalProgress > 0)) {
-            // print progress
-            long tmpPro = currentProgress * 100 / totalProgress;
-            tmpPro = tmpPro == 0 ? 1 : tmpPro;
-            progress = tmpPro;
-            if (!isNewLine) {
-                outPrinter.print('\r');
+            synchronized (outPrinter) {
+                if (!isNewLine) {
+                    outPrinter.println();
+                }
+                outPrinter.println(
+                        CUBRIDTimeUtil.defaultFormatMilin(event.getEventTime())
+                                + " "
+                                + event.toString());
+                isNewLine = true;
             }
-            outPrinter.print("Progress:" + progress + "%");
         }
     }
 }
