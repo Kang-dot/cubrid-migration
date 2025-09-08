@@ -20,6 +20,12 @@ Export-Package: com.cubrid.common.ui.common.notice,
  com.cubrid.common.ui.handler,
  com.cubrid.cubridmigration.ui,
  com.cubrid.cubridmigration.ui.common,
+ com.cubrid.cubridmigration.ui.database,
+ com.cubrid.cubridmigration.ui.message,
  com.cubrid.cubridmigration.ui.preference,
  com.cubrid.cubridmigration.ui.product,
- com.cubrid.cubridmigration.ui.script
+ com.cubrid.cubridmigration.ui.script,
+ com.cubrid.cubridmigration.ui.wizard,
+ com.cubrid.cubridmigration.ui.wizard.dialog,
+ com.cubrid.cubridmigration.ui.wizard.page,
+ com.cubrid.cubridmigration.ui.wizard.utils

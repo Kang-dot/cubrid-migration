@@ -15,6 +15,7 @@ Require-Bundle: org.eclipse.core.runtime,
 Bundle-ActivationPolicy: lazy
 Bundle-ClassPath: .
 Export-Package: 
+ au.com.bytecode.opencsv,
  com.cubrid.cubridmigration.core;uses:="org.eclipse.core.runtime,org.osgi.framework",
  com.cubrid.cubridmigration.core.common;uses:="com.cubrid.cubridmigration.core.dbobject",
  com.cubrid.cubridmigration.core.common.xml,
@@ -60,10 +61,7 @@ Export-Package:
    com.cubrid.cubridmigration.core.engine,
    com.cubrid.cubridmigration.cubrid",
  com.cubrid.cubridmigration.core.engine.listener,
- com.cubrid.cubridmigration.core.engine.report;
-  uses:="com.cubrid.cubridmigration.core.engine.config,
-   com.cubrid.cubridmigration.core.dbobject,
-   com.cubrid.cubridmigration.core.engine.event",
+ com.cubrid.cubridmigration.core.engine.report;uses:="com.cubrid.cubridmigration.core.engine.config,com.cubrid.cubridmigration.core.dbobject,com.cubrid.cubridmigration.core.engine.event",
  com.cubrid.cubridmigration.core.engine.scheduler;uses:="com.cubrid.cubridmigration.core.engine.task,com.cubrid.cubridmigration.core.engine",
  com.cubrid.cubridmigration.core.engine.task;
   uses:="com.cubrid.cubridmigration.core.engine.task.imp,
@@ -81,10 +79,7 @@ Export-Package:
    com.cubrid.cubridmigration.core.engine.task,
    com.cubrid.cubridmigration.core.engine",
  com.cubrid.cubridmigration.core.engine.template;uses:="com.cubrid.cubridmigration.core.engine.config,org.xml.sax.helpers,org.xml.sax",
- com.cubrid.cubridmigration.core.export;
-  uses:="com.cubrid.cubridmigration.core.engine.config,
-   com.cubrid.cubridmigration.core.dbobject,
-   com.cubrid.cubridmigration.core.dbtype",
+ com.cubrid.cubridmigration.core.export;uses:="com.cubrid.cubridmigration.core.engine.config,com.cubrid.cubridmigration.core.dbobject,com.cubrid.cubridmigration.core.dbtype",
  com.cubrid.cubridmigration.core.hadoop;uses:="org.apache.hadoop.fs",
  com.cubrid.cubridmigration.core.io,
  com.cubrid.cubridmigration.core.mapping;uses:="com.cubrid.cubridmigration.core.mapping.model",
@@ -167,8 +162,8 @@ Export-Package:
    com.cubrid.cubridmigration.core.dbmetadata,
    com.cubrid.cubridmigration.core.connection,
    com.cubrid.cubridmigration.core.export",
-   com.cubrid.cubridmigration.oracle.parser,
-   com.cubrid.cubridmigration.oracle.trans;
+ com.cubrid.cubridmigration.oracle.parser,
+ com.cubrid.cubridmigration.oracle.trans;
   uses:="com.cubrid.cubridmigration.core.engine.config,
    com.cubrid.cubridmigration.core.dbobject,
    com.cubrid.cubridmigration.core.mapping,
