@@ -443,6 +443,14 @@ public class StartCommandHandler implements ConsoleCommandHandler {
 
         // print rename object report
         printRenameObjReport(migrationReporter);
+
+        // exit code
+        try {
+            MigrationReport mr = migrationReporter.getReport();
+            System.exit(mr != null && mr.hasError() ? 1 : 0);
+        } catch (Throwable t) {
+            System.exit(1);
+        }
     }
 
     /** Load db.conf configuration at the start up. */
@@ -467,6 +475,9 @@ public class StartCommandHandler implements ConsoleCommandHandler {
      */
     private void printReport(ConsoleMigrationReporter migrationReporter) {
         MigrationReport mr = migrationReporter.getReport();
+
+        outPrinter.println();
+        outPrinter.println("-------------------------------------------------------------");
         outPrinter.println("Migration Report summary:");
         outPrinter.print("    Time used: ");
         outPrinter.print(TimeZoneUtils.format(mr.getTotalEndTime() - mr.getTotalStartTime()));
@@ -499,6 +510,8 @@ public class StartCommandHandler implements ConsoleCommandHandler {
                 outPrinter.println();
             }
         }
+        outPrinter.println("-------------------------------------------------------------");
+        outPrinter.println();
         // Write report to a local text file
         String txtFile =
                 PathUtils.getReportDir()
@@ -579,6 +592,11 @@ public class StartCommandHandler implements ConsoleCommandHandler {
         } catch (IOException ex) {
             LOG.error("", ex);
         }
+
+        String finalResult = mr.hasError() ? "FAILED" : "SUCCESS";
+        outPrinter.println("=============================================================");
+        outPrinter.println("MIGRATION RESULT: " + finalResult);
+        outPrinter.println("=============================================================");
     }
 
     /**
