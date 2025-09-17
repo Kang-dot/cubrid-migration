@@ -40,6 +40,7 @@ import com.cubrid.cubridmigration.core.engine.MigrationDirAndFilesManager;
 import com.cubrid.cubridmigration.core.engine.MigrationStatusManager;
 import com.cubrid.cubridmigration.core.engine.config.SourceTableConfig;
 import com.cubrid.cubridmigration.core.engine.event.ImportRecordsEvent;
+import com.cubrid.cubridmigration.core.engine.exception.BreakMigrationException;
 import com.cubrid.cubridmigration.core.engine.exception.NormalMigrationException;
 import com.cubrid.cubridmigration.core.engine.task.FileMergeRunnable;
 import com.cubrid.cubridmigration.core.engine.task.RunnableResultHandler;
@@ -163,6 +164,26 @@ public class LoadFileImporter extends OfflineImporter {
                         isSchemaFile || !config.targetIsXLS()));
     }
 
+    /** Ensure header exists at the top of a target data file. */
+    private void ensureHeaderPresent(String fileFullName, SourceTableConfig stc) {
+        if (config.targetIsCSV() || config.targetIsXLS() || config.targetIsSQL()) {
+            return;
+        }
+        File target = new File(fileFullName);
+        try {
+            if (!target.exists()) {
+                PathUtils.createFile(target);
+            } else if (target.length() > 0L) {
+                return;
+            }
+            String header = getDataFileHeader(stc);
+            CUBRIDIOUtils.writeLines(
+                    target, new String[] {header}, config.getTargetCharSet(), false);
+        } catch (IOException ex) {
+            throw new BreakMigrationException(ex);
+        }
+    }
+
     /**
      * Send schema file and data file to server for loadDB command.
      *
@@ -202,6 +223,7 @@ public class LoadFileImporter extends OfflineImporter {
             }
             final String fileTableFullName = es.fileTableFullName;
             final String fileFullName = es.fileFullName;
+            ensureHeaderPresent(fileTableFullName, stc);
             mdfm.addDataFile(fileTableFullName, impCount);
             executeTask(
                     fileName,
@@ -212,11 +234,9 @@ public class LoadFileImporter extends OfflineImporter {
                             eventHandler.handleEvent(new ImportRecordsEvent(stc, impCount));
                             final MigrationStatusManager sm = mrManager.getStatusMgr();
                             sm.addImpCount(stc.getOwner(), stc.getName(), expCount);
-                            // CSV, XLS file will not be merged into one data file.
-                            if (config.targetIsCSV() || config.targetIsXLS()) {
-                                return;
-                            }
-                            if (config.isOneTableOneFile()) {
+                            if (config.targetIsCSV()
+                                    || config.targetIsXLS()
+                                    || config.isOneTableOneFile()) {
                                 return;
                             }
                             final Table st =
