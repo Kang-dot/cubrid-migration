@@ -30,4 +30,5 @@ Export-Package: com.cubrid.common.ui.common.notice,
  com.cubrid.cubridmigration.ui.wizard,
  com.cubrid.cubridmigration.ui.wizard.dialog,
  com.cubrid.cubridmigration.ui.wizard.page,
+ com.cubrid.cubridmigration.ui.wizard.page.view,
  com.cubrid.cubridmigration.ui.wizard.utils
