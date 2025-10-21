@@ -132,6 +132,8 @@ public class MigrationConfiguration {
     public static final int RPT_LEVEL_ERROR = 1;
     public static final int RPT_LEVEL_INFO = 2;
     public static final int RPT_LEVEL_DEBUG = 3;
+    
+    public static final String SQLTABLE = "__SQLTABLE__";
 
     // Previously, data files had the ".txt" extension attached, but deleted the ".txt" extension
     // when changing it to _object to match the unloaddb format
@@ -5531,6 +5533,20 @@ public class MigrationConfiguration {
                         mergePath(mergePath(getFileRepositroyPath(), getName()), sourceSchemaName),
                         isOneTableOneFile() ? "objects" : ""),
                 fileName.toString());
+    }
+    
+    public String buildSQLDataFileFullPath(String sourceSchemaName, String fileType) {
+        StringBuilder fileName = new StringBuilder();
+        fileName.append(File.separator)
+                .append(getTargetFilePrefix())
+                .append("_")
+                .append("__SQLTABLE__")
+                .append("_")
+                .append(fileType)
+                .append(getDataFileExt());
+
+        return mergePath(mergePath(mergePath(mergePath(getFileRepositroyPath(), getName()), sourceSchemaName), "__SQLTABLE__"), fileName.toString());
+               
     }
 
     public String buildPlcsqlProcedureFileFullPath(

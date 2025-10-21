@@ -38,6 +38,8 @@ import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.engine.MigrationContext;
 import com.cubrid.cubridmigration.core.engine.MigrationDirAndFilesManager;
 import com.cubrid.cubridmigration.core.engine.MigrationStatusManager;
+import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
+import com.cubrid.cubridmigration.core.engine.config.SourceSQLTableConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceTableConfig;
 import com.cubrid.cubridmigration.core.engine.event.ImportRecordsEvent;
 import com.cubrid.cubridmigration.core.engine.exception.BreakMigrationException;
@@ -48,7 +50,6 @@ import com.cubrid.cubridmigration.cubrid.Data2StrTranslator;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 import org.slf4j.Logger;
 
@@ -196,22 +197,41 @@ public class LoadFileImporter extends OfflineImporter {
             String fileName, final SourceTableConfig stc, final int impCount, final int expCount) {
         synchronized (lockObj) {
             MigrationDirAndFilesManager mdfm = mrManager.getDirAndFilesMgr();
-            String schemaName =
-                    config.getSrcCatalog().getDatabaseType().isSupportMultiSchema()
-                                    && stc.getOwner() != null
-                            ? stc.getOwner()
-                            : config.getSrcConnOwner();
-
-            if (!tableFiles.containsKey(schemaName + stc.getName())) {
-                tableFiles.put(
-                        schemaName + stc.getName(),
-                        new CurrentDataFileInfo(
-                                config.getTargetDataFileName(schemaName.toUpperCase(Locale.US)),
-                                mdfm.getMergeFilesDir(),
-                                config.getTargetFilePrefix(),
-                                schemaName,
-                                stc.getName(),
-                                config.getDataFileExt()));
+            String schemaName;
+            
+            if (stc instanceof SourceSQLTableConfig) {
+            	schemaName = MigrationConfiguration.SQLTABLE;
+            	
+                if (!tableFiles.containsKey(schemaName + stc.getName())) {
+                    tableFiles.put(
+                            schemaName + stc.getName(),
+                            new CurrentDataFileInfo(
+                                    config.getTargetDataFileName(schemaName),
+                                    mdfm.getMergeFilesDir() + File.separator + config.getSrcConnOwner(),
+                                    config.getTargetFilePrefix(),
+                                    schemaName,
+                                    stc.getName(),
+                                    config.getDataFileExt()));
+                }
+            	
+            } else {
+	            schemaName =
+	                    config.getSrcCatalog().getDatabaseType().isSupportMultiSchema()
+	                            ? stc.getOwner()
+	                            : config.getSrcConnOwner();
+            
+            
+	            if (!tableFiles.containsKey(schemaName + stc.getName())) {
+	                tableFiles.put(
+	                        schemaName + stc.getName(),
+	                        new CurrentDataFileInfo(
+	                                config.getTargetDataFileName(schemaName),
+	                                mdfm.getMergeFilesDir(),
+	                                config.getTargetFilePrefix(),
+	                                schemaName,
+	                                stc.getName(),
+	                                config.getDataFileExt()));
+	            }
             }
 
             CurrentDataFileInfo es = tableFiles.get(schemaName + stc.getName());

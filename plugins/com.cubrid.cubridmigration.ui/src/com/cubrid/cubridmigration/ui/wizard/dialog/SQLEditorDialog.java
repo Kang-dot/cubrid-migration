@@ -297,6 +297,13 @@ public class SQLEditorDialog extends TitleAreaDialog {
                     tableName = "table" + i;
                 }
                 SourceSQLTableConfig newSTC = new SourceSQLTableConfig();
+
+                String schemaName =
+                        config.getSrcCatalog().getDatabaseType().isSupportMultiSchema()
+                                ? config.getSrcConnOwner().toUpperCase()
+                                : config.getSrcConnOwner();
+
+                newSTC.setOwner(schemaName);
                 newSTC.setName(newName);
                 newSTC.setTarget(tableName);
                 newSTC.setSql(sql);
