@@ -198,40 +198,41 @@ public class LoadFileImporter extends OfflineImporter {
         synchronized (lockObj) {
             MigrationDirAndFilesManager mdfm = mrManager.getDirAndFilesMgr();
             String schemaName;
-            
+
             if (stc instanceof SourceSQLTableConfig) {
-            	schemaName = MigrationConfiguration.SQLTABLE;
-            	
+                schemaName = MigrationConfiguration.SQLTABLE;
+
                 if (!tableFiles.containsKey(schemaName + stc.getName())) {
                     tableFiles.put(
                             schemaName + stc.getName(),
                             new CurrentDataFileInfo(
                                     config.getTargetDataFileName(schemaName),
-                                    mdfm.getMergeFilesDir() + File.separator + config.getSrcConnOwner(),
+                                    mdfm.getMergeFilesDir()
+                                            + File.separator
+                                            + config.getSrcConnOwner(),
                                     config.getTargetFilePrefix(),
                                     schemaName,
                                     stc.getName(),
                                     config.getDataFileExt()));
                 }
-            	
+
             } else {
-	            schemaName =
-	                    config.getSrcCatalog().getDatabaseType().isSupportMultiSchema()
-	                            ? stc.getOwner()
-	                            : config.getSrcConnOwner();
-            
-            
-	            if (!tableFiles.containsKey(schemaName + stc.getName())) {
-	                tableFiles.put(
-	                        schemaName + stc.getName(),
-	                        new CurrentDataFileInfo(
-	                                config.getTargetDataFileName(schemaName),
-	                                mdfm.getMergeFilesDir(),
-	                                config.getTargetFilePrefix(),
-	                                schemaName,
-	                                stc.getName(),
-	                                config.getDataFileExt()));
-	            }
+                schemaName =
+                        config.getSrcCatalog().getDatabaseType().isSupportMultiSchema()
+                                ? stc.getOwner()
+                                : config.getSrcConnOwner();
+
+                if (!tableFiles.containsKey(schemaName + stc.getName())) {
+                    tableFiles.put(
+                            schemaName + stc.getName(),
+                            new CurrentDataFileInfo(
+                                    config.getTargetDataFileName(schemaName),
+                                    mdfm.getMergeFilesDir(),
+                                    config.getTargetFilePrefix(),
+                                    schemaName,
+                                    stc.getName(),
+                                    config.getDataFileExt()));
+                }
             }
 
             CurrentDataFileInfo es = tableFiles.get(schemaName + stc.getName());

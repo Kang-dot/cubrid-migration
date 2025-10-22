@@ -132,7 +132,7 @@ public class MigrationConfiguration {
     public static final int RPT_LEVEL_ERROR = 1;
     public static final int RPT_LEVEL_INFO = 2;
     public static final int RPT_LEVEL_DEBUG = 3;
-    
+
     public static final String SQLTABLE = "__SQLTABLE__";
 
     // Previously, data files had the ".txt" extension attached, but deleted the ".txt" extension
@@ -5534,19 +5534,30 @@ public class MigrationConfiguration {
                         isOneTableOneFile() ? "objects" : ""),
                 fileName.toString());
     }
-    
+
+    /**
+     * SQL migration records are created with their own path, so add a method to create a separate
+     * path for SQL migration records
+     *
+     * @param sourceSchemaName
+     * @param fileType
+     * @return
+     */
     public String buildSQLDataFileFullPath(String sourceSchemaName, String fileType) {
         StringBuilder fileName = new StringBuilder();
         fileName.append(File.separator)
                 .append(getTargetFilePrefix())
                 .append("_")
-                .append("__SQLTABLE__")
+                .append(MigrationConfiguration.SQLTABLE)
                 .append("_")
                 .append(fileType)
                 .append(getDataFileExt());
 
-        return mergePath(mergePath(mergePath(mergePath(getFileRepositroyPath(), getName()), sourceSchemaName), "__SQLTABLE__"), fileName.toString());
-               
+        return mergePath(
+                mergePath(
+                        mergePath(mergePath(getFileRepositroyPath(), getName()), sourceSchemaName),
+                        MigrationConfiguration.SQLTABLE),
+                fileName.toString());
     }
 
     public String buildPlcsqlProcedureFileFullPath(
