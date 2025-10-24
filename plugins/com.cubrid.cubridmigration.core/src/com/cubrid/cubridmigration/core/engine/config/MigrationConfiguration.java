@@ -1217,6 +1217,10 @@ public class MigrationConfiguration {
             }
         }
         this.addTargetDataFileName(schemaName, buildDataFileFullPath(schemaName, "object"));
+        this.addTargetDataFileName(
+                MigrationConfiguration.SQLTABLE,
+                buildSQLDataFileFullPath(getSrcConnOwner().toUpperCase(), "objects"));
+
         this.addTargetIndexFileName(
                 schemaName, buildLocalFileFullPath(schemaName, "indexes", null));
         this.addTargetUpdateStatisticFileName(
