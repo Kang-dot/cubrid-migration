@@ -1217,6 +1217,8 @@ public class MigrationConfiguration {
             }
         }
         this.addTargetDataFileName(schemaName, buildDataFileFullPath(schemaName, "object"));
+
+        //for sql tables
         this.addTargetDataFileName(
                 MigrationConfiguration.SQLTABLE,
                 buildSQLDataFileFullPath(getSrcConnOwner().toUpperCase(), "objects"));
