@@ -97,6 +97,32 @@ public class LoadFileImporter extends OfflineImporter {
                             + ext;
             this.fileFullName = fileFullName;
         }
+        
+        public CurrentDataFileInfo(
+                String fileFullName,
+                String header,
+                String prefix,
+                String owner,
+                String name,
+                String ext,
+                String sqlTable) {
+            this.fileHeader = header;
+            this.fileExt = ext;
+            this.fileTableFullName =
+                    header
+                            + File.separator
+                            + owner
+                            + File.separator
+                            + "objects"
+                            + File.separator
+                            + prefix
+                            + "_"
+                            + sqlTable
+                            + "_"
+                            + name
+                            + ext;
+            this.fileFullName = fileFullName;
+        }
 
         /** Create next file. */
         public void nextFile() {
@@ -200,27 +226,35 @@ public class LoadFileImporter extends OfflineImporter {
             String schemaName;
             String mergeDir;
 
-            if (stc instanceof SourceSQLTableConfig) {
-                schemaName = MigrationConfiguration.SQLTABLE;
-                mergeDir = mdfm.getMergeFilesDir() + File.separator + config.getSrcConnOwner();
-            } else {
-                schemaName =
-                        config.getSrcCatalog().getDatabaseType().isSupportMultiSchema()
-                                ? stc.getOwner()
-                                : config.getSrcConnOwner();
-                mergeDir = mdfm.getMergeFilesDir();
-            }
-
+            schemaName =
+		          config.getSrcCatalog().getDatabaseType().isSupportMultiSchema()
+		                  ? stc.getOwner()
+		                  : config.getSrcConnOwner();
+            mergeDir = mdfm.getMergeFilesDir();
+            
             if (!tableFiles.containsKey(schemaName + stc.getName())) {
-                tableFiles.put(
-                        schemaName + stc.getName(),
-                        new CurrentDataFileInfo(
-                                config.getTargetDataFileName(schemaName),
-                                mergeDir,
-                                config.getTargetFilePrefix(),
-                                schemaName,
-                                stc.getName(),
-                                config.getDataFileExt()));
+            	if (stc instanceof SourceSQLTableConfig) {
+                	tableFiles.put(
+                            schemaName + stc.getName(),
+                            new CurrentDataFileInfo(
+                                    config.getTargetDataFileName(schemaName),
+                                    mergeDir,
+                                    config.getTargetFilePrefix(),
+                                    schemaName,
+                                    stc.getName(),
+                                    config.getDataFileExt(), 
+                                    MigrationConfiguration.SQLTABLE));
+            	} else {
+                	tableFiles.put(
+                            schemaName + stc.getName(),
+                            new CurrentDataFileInfo(
+                                    config.getTargetDataFileName(schemaName),
+                                    mergeDir,
+                                    config.getTargetFilePrefix(),
+                                    schemaName,
+                                    stc.getName(),
+                                    config.getDataFileExt()));
+            	}
             }
 
             CurrentDataFileInfo es = tableFiles.get(schemaName + stc.getName());

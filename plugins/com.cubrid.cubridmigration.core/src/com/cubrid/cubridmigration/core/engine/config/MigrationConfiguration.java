@@ -133,6 +133,8 @@ public class MigrationConfiguration {
     public static final int RPT_LEVEL_INFO = 2;
     public static final int RPT_LEVEL_DEBUG = 3;
 
+    
+    // These variables are used for tables and data files that are created when user choose to transfer to SQL that you enter.
     public static final String SQLTABLE = "__SQLTABLE__";
 
     // Previously, data files had the ".txt" extension attached, but deleted the ".txt" extension
@@ -1217,11 +1219,6 @@ public class MigrationConfiguration {
             }
         }
         this.addTargetDataFileName(schemaName, buildDataFileFullPath(schemaName, "object"));
-
-        //for sql tables
-        this.addTargetDataFileName(
-                MigrationConfiguration.SQLTABLE,
-                buildSQLDataFileFullPath(getSrcConnOwner().toUpperCase(), "objects"));
 
         this.addTargetIndexFileName(
                 schemaName, buildLocalFileFullPath(schemaName, "indexes", null));
