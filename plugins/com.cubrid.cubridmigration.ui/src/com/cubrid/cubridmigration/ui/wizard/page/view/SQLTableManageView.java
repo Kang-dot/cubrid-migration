@@ -618,7 +618,9 @@ public class SQLTableManageView extends AbstractMappingView {
 
             if (catalog != null && catalog.getSchemas() != null) {
                 tarSchemaList =
-                        catalog.getSchemas().stream().map(Schema::getName).toArray(String[]::new);
+                        catalog.getSchemas().stream()
+                                .map(Schema::getTargetSchemaName)
+                                .toArray(String[]::new);
             }
         }
 
