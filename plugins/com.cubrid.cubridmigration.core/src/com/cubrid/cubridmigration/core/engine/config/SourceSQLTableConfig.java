@@ -59,4 +59,9 @@ public class SourceSQLTableConfig extends SourceTableConfig {
         }
         this.sql = cleanSQL;
     }
+
+    @Override
+    public String getPathID() {
+        return MigrationConfiguration.SQLTABLE;
+    }
 }

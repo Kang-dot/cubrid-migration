@@ -38,8 +38,6 @@ import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.engine.MigrationContext;
 import com.cubrid.cubridmigration.core.engine.MigrationDirAndFilesManager;
 import com.cubrid.cubridmigration.core.engine.MigrationStatusManager;
-import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
-import com.cubrid.cubridmigration.core.engine.config.SourceSQLTableConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceTableConfig;
 import com.cubrid.cubridmigration.core.engine.event.ImportRecordsEvent;
 import com.cubrid.cubridmigration.core.engine.exception.BreakMigrationException;
@@ -81,33 +79,8 @@ public class LoadFileImporter extends OfflineImporter {
                 String prefix,
                 String owner,
                 String name,
-                String ext) {
-            this.fileHeader = header;
-            this.fileExt = ext;
-            this.fileTableFullName =
-                    header
-                            + File.separator
-                            + owner
-                            + File.separator
-                            + "objects"
-                            + File.separator
-                            + prefix
-                            + "_"
-                            + owner
-                            + "_"
-                            + name
-                            + ext;
-            this.fileFullName = fileFullName;
-        }
-        
-        public CurrentDataFileInfo(
-                String fileFullName,
-                String header,
-                String prefix,
-                String owner,
-                String name,
                 String ext,
-                String sqlTable) {
+                String pathID) {
             this.fileHeader = header;
             this.fileExt = ext;
             this.fileTableFullName =
@@ -119,7 +92,7 @@ public class LoadFileImporter extends OfflineImporter {
                             + File.separator
                             + prefix
                             + "_"
-                            + sqlTable
+                            + pathID
                             + "_"
                             + name
                             + ext;
@@ -229,35 +202,22 @@ public class LoadFileImporter extends OfflineImporter {
             String mergeDir;
 
             schemaName =
-		          config.getSrcCatalog().getDatabaseType().isSupportMultiSchema()
-		                  ? stc.getOwner()
-		                  : config.getSrcConnOwner();
+                    config.getSrcCatalog().getDatabaseType().isSupportMultiSchema()
+                            ? stc.getOwner()
+                            : config.getSrcConnOwner();
             mergeDir = mdfm.getMergeFilesDir();
-            
-            if (!tableFiles.containsKey(schemaName + stc.getName())) {
-            	if (stc instanceof SourceSQLTableConfig) {
-                	tableFiles.put(
-                            schemaName + stc.getName(),
+
+            tableFiles.computeIfAbsent(
+                    schemaName + stc.getName(),
+                    key ->
                             new CurrentDataFileInfo(
                                     config.getTargetDataFileName(schemaName),
                                     mergeDir,
                                     config.getTargetFilePrefix(),
                                     schemaName,
                                     stc.getName(),
-                                    config.getDataFileExt(), 
-                                    MigrationConfiguration.SQLTABLE));
-            	} else {
-                	tableFiles.put(
-                            schemaName + stc.getName(),
-                            new CurrentDataFileInfo(
-                                    config.getTargetDataFileName(schemaName),
-                                    mergeDir,
-                                    config.getTargetFilePrefix(),
-                                    schemaName,
-                                    stc.getName(),
-                                    config.getDataFileExt()));
-            	}
-            }
+                                    config.getDataFileExt(),
+                                    stc.getPathID()));
 
             CurrentDataFileInfo es = tableFiles.get(schemaName + stc.getName());
 

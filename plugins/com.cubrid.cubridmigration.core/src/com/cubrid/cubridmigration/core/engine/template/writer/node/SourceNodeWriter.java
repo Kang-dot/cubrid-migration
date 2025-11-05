@@ -375,6 +375,7 @@ public class SourceNodeWriter {
         writer.writeStartElement(TAG_SQLTABLES);
         for (SourceSQLTableConfig sstc : exportSQLTables) {
             writer.writeStartElement(TAG_SQLTABLE);
+            writer.writeAttribute(ATTR_OWNER, sstc.getOwner());
             writer.writeAttribute(ATTR_TARGET_SCHEMA, sstc.getTargetOwner());
             writer.writeAttribute(ATTR_NAME, sstc.getName());
             writer.writeAttribute(ATTR_CREATE, getBooleanString(sstc.isCreateNewTable()));

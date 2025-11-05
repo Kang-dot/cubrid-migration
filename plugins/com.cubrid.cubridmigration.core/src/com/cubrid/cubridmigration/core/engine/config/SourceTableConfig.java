@@ -161,6 +161,10 @@ public class SourceTableConfig {
         return owner;
     }
 
+    public String getPathID() {
+        return getOwner();
+    }
+
     public String getComment() {
         return comment;
     }
