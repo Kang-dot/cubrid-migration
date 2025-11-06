@@ -613,6 +613,7 @@ public class MigrationReport implements Serializable {
                 continue;
             }
             RecordMigrationResult result = new RecordMigrationResult();
+            result.setSrcSchema(sstc.getOwner());
             result.setSource(sstc.getName());
             result.setTarget(sstc.getTarget());
             result.setDataMigrationSelected(sstc.isMigrateData());
