@@ -137,6 +137,9 @@ public class MigrationConfiguration {
     public static final int RPT_LEVEL_INFO = 2;
     public static final int RPT_LEVEL_DEBUG = 3;
 
+    // Used to set the name of the data file extracted by SQL.
+    public static final String SQLTABLE = "__SQLTABLE__";
+
     // Previously, data files had the ".txt" extension attached, but deleted the ".txt" extension
     // when changing it to _object to match the unloaddb format
     private static final String[] DATA_FORMAT_EXT =
@@ -1219,6 +1222,7 @@ public class MigrationConfiguration {
             }
         }
         this.addTargetDataFileName(schemaName, buildDataFileFullPath(schemaName, "object"));
+
         this.addTargetIndexFileName(
                 schemaName, buildLocalFileFullPath(schemaName, "indexes", null));
         this.addTargetUpdateStatisticFileName(
@@ -5583,6 +5587,31 @@ public class MigrationConfiguration {
                 mergePath(
                         mergePath(mergePath(getFileRepositroyPath(), getName()), sourceSchemaName),
                         isOneTableOneFile() ? "objects" : ""),
+                fileName.toString());
+    }
+
+    /**
+     * SQL migration records are created with their own path, so add a method to create a separate
+     * path for SQL migration records
+     *
+     * @param sourceSchemaName
+     * @param fileType
+     * @return
+     */
+    public String buildSQLDataFileFullPath(String sourceSchemaName, String fileType) {
+        StringBuilder fileName = new StringBuilder();
+        fileName.append(File.separator)
+                .append(getTargetFilePrefix())
+                .append("_")
+                .append(MigrationConfiguration.SQLTABLE)
+                .append("_")
+                .append(fileType)
+                .append(getDataFileExt());
+
+        return mergePath(
+                mergePath(
+                        mergePath(mergePath(getFileRepositroyPath(), getName()), sourceSchemaName),
+                        MigrationConfiguration.SQLTABLE),
                 fileName.toString());
     }
 

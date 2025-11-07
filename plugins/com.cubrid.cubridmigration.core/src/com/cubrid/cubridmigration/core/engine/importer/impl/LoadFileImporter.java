@@ -51,7 +51,6 @@ import org.slf4j.Logger;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -80,7 +79,8 @@ public class LoadFileImporter extends OfflineImporter {
                 String prefix,
                 String owner,
                 String name,
-                String ext) {
+                String ext,
+                String pathID) {
             this.fileHeader = header;
             this.fileExt = ext;
             this.fileTableFullName =
@@ -92,7 +92,7 @@ public class LoadFileImporter extends OfflineImporter {
                             + File.separator
                             + prefix
                             + "_"
-                            + owner
+                            + pathID
                             + "_"
                             + name
                             + ext;
@@ -198,23 +198,26 @@ public class LoadFileImporter extends OfflineImporter {
             String fileName, final SourceTableConfig stc, final int impCount, final int expCount) {
         synchronized (lockObj) {
             MigrationDirAndFilesManager mdfm = mrManager.getDirAndFilesMgr();
-            String schemaName =
+            String schemaName;
+            String mergeDir;
+
+            schemaName =
                     config.getSrcCatalog().getDatabaseType().isSupportMultiSchema()
-                                    && stc.getOwner() != null
                             ? stc.getOwner()
                             : config.getSrcConnOwner();
+            mergeDir = mdfm.getMergeFilesDir();
 
-            if (!tableFiles.containsKey(schemaName + stc.getName())) {
-                tableFiles.put(
-                        schemaName + stc.getName(),
-                        new CurrentDataFileInfo(
-                                config.getTargetDataFileName(schemaName.toUpperCase(Locale.US)),
-                                mdfm.getMergeFilesDir(),
-                                config.getTargetFilePrefix(),
-                                schemaName,
-                                stc.getName(),
-                                config.getDataFileExt()));
-            }
+            tableFiles.computeIfAbsent(
+                    schemaName + stc.getName(),
+                    key ->
+                            new CurrentDataFileInfo(
+                                    config.getTargetDataFileName(schemaName),
+                                    mergeDir,
+                                    config.getTargetFilePrefix(),
+                                    schemaName,
+                                    stc.getName(),
+                                    config.getDataFileExt(),
+                                    stc.getPathID()));
 
             CurrentDataFileInfo es = tableFiles.get(schemaName + stc.getName());
 

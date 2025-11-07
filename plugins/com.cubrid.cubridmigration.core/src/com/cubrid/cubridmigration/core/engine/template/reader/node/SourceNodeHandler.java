@@ -246,6 +246,7 @@ public class SourceNodeHandler extends DefaultHandler {
     private void parseSourceSQLTable(Attributes attributes) {
         srcTableCfg = new SourceSQLTableConfig();
         srcTableCfg.setName(attributes.getValue(ATTR_NAME));
+        srcTableCfg.setOwner(attributes.getValue(ATTR_OWNER));
         srcTableCfg.setCreateNewTable(getBoolean(attributes.getValue(ATTR_CREATE), true));
         srcTableCfg.setMigrateData(getBoolean(attributes.getValue(ATTR_MIGRATE_DATA), true));
         srcTableCfg.setReplace(getBoolean(attributes.getValue(ATTR_REPLACE), false));
