@@ -217,7 +217,7 @@ public class LoadFileImporter extends OfflineImporter {
                                     schemaName,
                                     stc.getName(),
                                     config.getDataFileExt(),
-                                    stc.getPathID()));
+                                    stc.getPathID(schemaName)));
 
             CurrentDataFileInfo es = tableFiles.get(schemaName + stc.getName());
 
