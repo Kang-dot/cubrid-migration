@@ -37,7 +37,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.cubrid.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.common.PathUtils;
 import com.cubrid.cubridmigration.core.common.TextFileUtils;
-import com.cubrid.cubridmigration.core.connection.ConnParameters;
 import com.cubrid.cubridmigration.core.dbobject.Catalog;
 import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Table;
@@ -99,13 +98,10 @@ public class SourceNodeWriter {
     private void writeOnlineSource(
             XMLStreamWriter writer, MigrationConfiguration config, boolean saveSchema)
             throws XMLStreamException, IOException {
-        writeSourceJDBCNode(writer, config);
-
         if (saveSchema) {
             writeSourceSchemaNode(writer, config);
         }
 
-        writeSourceSchemaMapping(writer, config);
         writeSourceTables(writer, config);
         writeSourceSQLTables(writer, config);
         writeSourceSequences(writer, config);
@@ -202,24 +198,6 @@ public class SourceNodeWriter {
         writer.writeEndElement(); // </csv>
     }
 
-    private void writeSourceJDBCNode(XMLStreamWriter writer, MigrationConfiguration config)
-            throws XMLStreamException {
-        ConnParameters scp = config.getSourceConParams();
-        if (scp == null) {
-            return;
-        }
-        writer.writeEmptyElement(TAG_JDBC);
-        writer.writeAttribute(ATTR_HOST, scp.getHost());
-        writer.writeAttribute(ATTR_PORT, String.valueOf(scp.getPort()));
-        writer.writeAttribute(ATTR_DRIVER, scp.getDriverFileName());
-        writer.writeAttribute(ATTR_NAME, scp.getDbName());
-        writer.writeAttribute(ATTR_USER, scp.getConUser());
-        writer.writeAttribute(ATTR_PASSWORD, scp.getConPassword());
-        writer.writeAttribute(ATTR_CHARSET, scp.getCharset());
-        writer.writeAttribute(ATTR_TIMEZONE, scp.getTimeZone());
-        writer.writeAttribute(ATTR_USER_JDBC_URL, scp.getUserJDBCURL());
-    }
-
     private void writeSourceSchemaNode(XMLStreamWriter writer, MigrationConfiguration config)
             throws XMLStreamException, IOException {
         Catalog srcCatalog = config.getSrcCatalog();
@@ -262,26 +240,6 @@ public class SourceNodeWriter {
             }
             writer.writeEndElement(); // </sql_schema>
         }
-    }
-
-    private void writeSourceSchemaMapping(XMLStreamWriter writer, MigrationConfiguration config)
-            throws XMLStreamException {
-        writer.writeStartElement(TAG_SCHEMAS);
-        Catalog srcCatalog = config.getSrcCatalog();
-        if (srcCatalog != null) {
-            for (Schema schema : srcCatalog.getSchemas()) {
-                writer.writeEmptyElement(TAG_SCHEMA_INFO);
-                writer.writeAttribute(ATTR_SCHEMA_NAME, schema.getName());
-                writer.writeAttribute(ATTR_TARGET_SCHEMA, schema.getTargetSchemaName());
-            }
-        } else {
-            for (Schema schema : config.getScriptSchemaMapping().values()) {
-                writer.writeEmptyElement(TAG_SCHEMA_INFO);
-                writer.writeAttribute(ATTR_SCHEMA_NAME, schema.getName());
-                writer.writeAttribute(ATTR_TARGET_SCHEMA, schema.getTargetSchemaName());
-            }
-        }
-        writer.writeEndElement(); // </schemas>
     }
 
     private void writeSourceTables(XMLStreamWriter writer, MigrationConfiguration config)

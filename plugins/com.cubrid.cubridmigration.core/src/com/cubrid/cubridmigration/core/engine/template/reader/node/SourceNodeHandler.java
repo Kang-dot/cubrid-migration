@@ -85,10 +85,8 @@ public class SourceNodeHandler extends DefaultHandler {
     }
 
     private void initializeStartTagHandlers() {
-        startTagHandlers.put(TAG_JDBC, this::parseSourceJDBC);
         startTagHandlers.put(TAG_SCHEMA, attr -> schemaCache = new StringBuffer());
         startTagHandlers.put(TAG_SQL_SCHEMA, attr -> schemaCache = new StringBuffer());
-        startTagHandlers.put(TAG_SCHEMA_INFO, this::parseSourceSchemaInfo);
         startTagHandlers.put(TAG_FILE, this::parseSourceFile);
         startTagHandlers.put(TAG_TABLE, this::parseSourceTable);
         startTagHandlers.put(TAG_COLUMN, this::parseSourceColumn);
@@ -164,32 +162,6 @@ public class SourceNodeHandler extends DefaultHandler {
     }
 
     // startElement
-
-    private void parseSourceJDBC(Attributes attributes) {
-        ConnParameters scp =
-                ConnParameters.getConParam(
-                        null,
-                        attributes.getValue(ATTR_HOST),
-                        Integer.parseInt(attributes.getValue(ATTR_PORT)),
-                        attributes.getValue(ATTR_NAME),
-                        config.getSourceDBType(),
-                        attributes.getValue(ATTR_CHARSET),
-                        attributes.getValue(ATTR_USER),
-                        attributes.getValue(ATTR_PASSWORD),
-                        attributes.getValue(ATTR_DRIVER),
-                        attributes.getValue(ATTR_SCHEMA));
-        scp.setUserJDBCURL(attributes.getValue(ATTR_USER_JDBC_URL));
-        scp.setTimeZone(attributes.getValue(ATTR_TIMEZONE));
-        config.setSourceConParams(scp);
-    }
-
-    private void parseSourceSchemaInfo(Attributes attributes) {
-        Schema schema = new Schema();
-        schema.setName(attributes.getValue(ATTR_SCHEMA_NAME));
-        schema.setTargetSchemaName(attributes.getValue(ATTR_TARGET_SCHEMA));
-        schema.setMigration(true);
-        config.addScriptSchemaMapping(attributes.getValue(ATTR_SCHEMA_NAME), schema);
-    }
 
     private void parseSourceFile(Attributes attributes) {
         config.setSourceFileName(attributes.getValue(ATTR_LOCATION));

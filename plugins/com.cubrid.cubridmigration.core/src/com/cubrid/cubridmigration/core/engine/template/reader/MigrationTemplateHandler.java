@@ -33,8 +33,11 @@ import static com.cubrid.cubridmigration.core.engine.template.MigrationTemplateU
 import static com.cubrid.cubridmigration.core.engine.template.TemplateTags.*;
 
 import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
+import com.cubrid.cubridmigration.core.engine.template.reader.node.ConnectionsNodeHandler;
 import com.cubrid.cubridmigration.core.engine.template.reader.node.ParametersNodeHandler;
+import com.cubrid.cubridmigration.core.engine.template.reader.node.SchemasNodeHandler;
 import com.cubrid.cubridmigration.core.engine.template.reader.node.SourceNodeHandler;
+import com.cubrid.cubridmigration.core.engine.template.reader.node.TargetFileRepositoryNodeHandler;
 import com.cubrid.cubridmigration.core.engine.template.reader.node.TargetNodeHandler;
 
 import org.xml.sax.Attributes;
@@ -68,6 +71,15 @@ public final class MigrationTemplateHandler extends DefaultHandler {
         }
 
         switch (qName) {
+            case TAG_CONNECTIONS:
+                handleConnections(attributes);
+                break;
+            case TAG_SCHEMAS:
+                handleSchemas(attributes);
+                break;
+            case TAG_FILE_REPOSITORY:
+                handleTargetFileRepository(attributes);
+                break;
             case TAG_SOURCE:
                 handleSource(attributes);
                 break;
@@ -89,7 +101,10 @@ public final class MigrationTemplateHandler extends DefaultHandler {
     public void endElement(String uri, String localName, String qName) throws SAXException {
         if (delegatingHandler != null) {
             delegatingHandler.endElement(uri, localName, qName);
-            if (TAG_SOURCE.equals(qName) || TAG_TARGET.equals(qName)) {
+            if (TAG_CONNECTIONS.equals(qName)
+                    || TAG_SCHEMAS.equals(qName)
+                    || TAG_SOURCE.equals(qName)
+                    || TAG_TARGET.equals(qName)) {
                 delegatingHandler = null;
             }
             return;
@@ -106,6 +121,19 @@ public final class MigrationTemplateHandler extends DefaultHandler {
 
     public MigrationConfiguration getResult() {
         return config;
+    }
+
+    private void handleSchemas(Attributes attributes) {
+        delegatingHandler = new SchemasNodeHandler(config);
+    }
+
+    private void handleTargetFileRepository(Attributes attributes) {
+        TargetFileRepositoryNodeHandler handler = new TargetFileRepositoryNodeHandler(config);
+        handler.processAttributes(attributes);
+    }
+
+    private void handleConnections(Attributes attributes) {
+        delegatingHandler = new ConnectionsNodeHandler(config);
     }
 
     private void handleSource(Attributes attributes) {

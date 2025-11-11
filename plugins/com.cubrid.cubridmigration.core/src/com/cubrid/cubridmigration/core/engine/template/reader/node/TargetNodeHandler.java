@@ -33,7 +33,6 @@ import static com.cubrid.cubridmigration.core.engine.template.MigrationTemplateU
 import static com.cubrid.cubridmigration.core.engine.template.TemplateTags.*;
 
 import com.cubrid.common.log.LogUtil;
-import com.cubrid.cubridmigration.core.connection.ConnParameters;
 import com.cubrid.cubridmigration.core.dbobject.Column;
 import com.cubrid.cubridmigration.core.dbobject.FK;
 import com.cubrid.cubridmigration.core.dbobject.Grant;
@@ -43,12 +42,10 @@ import com.cubrid.cubridmigration.core.dbobject.PartitionInfo;
 import com.cubrid.cubridmigration.core.dbobject.PartitionTable;
 import com.cubrid.cubridmigration.core.dbobject.PlcsqlFunction;
 import com.cubrid.cubridmigration.core.dbobject.PlcsqlProcedure;
-import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
 import com.cubrid.cubridmigration.core.dbobject.Synonym;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.View;
-import com.cubrid.cubridmigration.core.dbtype.DatabaseType;
 import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
 import com.cubrid.cubridmigration.cubrid.CUBRIDDataTypeHelper;
 
@@ -92,10 +89,7 @@ public class TargetNodeHandler extends DefaultHandler {
     }
 
     private void initializeStartTagHandlers() {
-        startTagHandlers.put(TAG_JDBC, this::parseTargetJDBC);
-        startTagHandlers.put(TAG_FILE_REPOSITORY, this::parseTargetFileRepository);
         startTagHandlers.put(TAG_SCHEMA, attr -> schemaCache = new StringBuffer());
-        startTagHandlers.put(TAG_SCHEMA_INFO, this::parseTargetSchemaInfo);
         startTagHandlers.put(TAG_TABLE, this::parseTargetTable);
         startTagHandlers.put(TAG_COLUMN, this::parseTargetColumn);
         startTagHandlers.put(TAG_PK, this::parseTargetPK);
@@ -165,78 +159,6 @@ public class TargetNodeHandler extends DefaultHandler {
     }
 
     // startElement
-
-    /**
-     * @param attributes of node
-     */
-    private void parseTargetJDBC(Attributes attributes) {
-        ConnParameters cp =
-                ConnParameters.getConParam(
-                        null,
-                        attributes.getValue(ATTR_HOST),
-                        Integer.parseInt(attributes.getValue(ATTR_PORT)),
-                        attributes.getValue(ATTR_NAME),
-                        DatabaseType.CUBRID,
-                        attributes.getValue(ATTR_CHARSET),
-                        attributes.getValue(ATTR_USER),
-                        attributes.getValue(ATTR_PASSWORD),
-                        attributes.getValue(ATTR_DRIVER),
-                        attributes.getValue(ATTR_SCHEMA));
-        cp.setUserJDBCURL(attributes.getValue(ATTR_USER_JDBC_URL));
-        cp.setTimeZone(attributes.getValue(ATTR_TIMEZONE));
-
-        config.setTargetConParams(cp);
-        config.setCreateConstrainsBeforeData(
-                getBoolean(attributes.getValue(ATTR_CREATE_CONSTRAINT_NOW), false));
-        config.setWriteErrorRecords(
-                getBoolean(attributes.getValue(ATTR_WRITE_ERROR_RECORDS), false));
-        config.setAddUserSchema(getBoolean(attributes.getValue(ATTR_ADD_SCHEMA), false));
-    }
-
-    private void parseTargetFileRepository(Attributes attributes) {
-        config.setFileRepositroyPath(attributes.getValue(ATTR_DIR));
-        config.setTargetFileTimeZone(attributes.getValue(ATTR_TIMEZONE));
-        config.setOneTableOneFile(getBoolean(attributes.getValue(ATTR_ONETABLEONEFILE), false));
-        final String fileMaxSize = attributes.getValue(ATTR_FILE_MAX_SIZE);
-        config.setMaxCountPerFile(fileMaxSize == null ? 0 : Integer.parseInt(fileMaxSize));
-        config.setTargetFilePrefix(attributes.getValue(ATTR_OUTPUT_FILE_PREFIX));
-        try {
-            config.setDestType(Integer.parseInt(attributes.getValue(ATTR_DATA_FILE_FORMAT)));
-        } catch (Exception ex) {
-            config.setDestType(MigrationConfiguration.DEST_DB_UNLOAD);
-        }
-        config.setTargetCharSet(attributes.getValue(ATTR_CHARSET));
-        if (config.targetIsCSV()) {
-            String value = attributes.getValue(ATTR_CSV_SEPARATE);
-            config.getCsvSettings()
-                    .setSeparateChar(StringUtils.isEmpty(value) ? ',' : value.charAt(0));
-            value = attributes.getValue(ATTR_CSV_QUOTE);
-            config.getCsvSettings()
-                    .setQuoteChar(
-                            StringUtils.isEmpty(value)
-                                    ? MigrationConfiguration.CSV_NO_CHAR
-                                    : value.charAt(0));
-            value = attributes.getValue(ATTR_CSV_ESCAPE);
-            config.getCsvSettings()
-                    .setEscapeChar(
-                            StringUtils.isEmpty(value)
-                                    ? MigrationConfiguration.CSV_NO_CHAR
-                                    : value.charAt(0));
-        }
-        config.setTargetLOBRootPath(attributes.getValue(ATTR_LOB_ROOT_DIR));
-        config.setAddUserSchema(getBoolean(attributes.getValue(ATTR_ADD_SCHEMA), false));
-        config.setSplitSchema(getBoolean(attributes.getValue(ATTR_SPLIT_SCHEMA), false));
-        config.setCreateUserSQL(getBoolean(attributes.getValue(ATTR_CREATE_USER_SQL), false));
-        config.createDumpfile(config.isSplitSchema(), config.isOneTableOneFile());
-    }
-
-    private void parseTargetSchemaInfo(Attributes attributes) {
-        Schema schema = new Schema();
-        schema.setName(attributes.getValue(ATTR_SCHEMA_NAME));
-        schema.setTargetSchemaName(attributes.getValue(ATTR_TARGET_SCHEMA));
-        schema.setMigration(true);
-        config.addTargetSchemaList(schema);
-    }
 
     private void parseTargetTable(Attributes attributes) {
         targetTable = new Table();
