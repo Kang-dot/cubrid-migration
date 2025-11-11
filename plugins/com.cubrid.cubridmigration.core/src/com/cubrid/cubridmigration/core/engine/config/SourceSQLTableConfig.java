@@ -61,11 +61,6 @@ public class SourceSQLTableConfig extends SourceTableConfig {
     }
 
     @Override
-    public String getPathID() {
-        return MigrationConfiguration.SQLTABLE;
-    }
-
-    @Override
     public String getPathID(String schemaName) {
         return MigrationConfiguration.SQLTABLE;
     }
