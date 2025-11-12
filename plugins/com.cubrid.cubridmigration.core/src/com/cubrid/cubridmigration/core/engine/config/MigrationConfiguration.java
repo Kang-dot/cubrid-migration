@@ -3413,7 +3413,11 @@ public class MigrationConfiguration {
                 return null;
             }
             final Schema sc;
-            sc = srcCatalog.getSchemaByName(schema);
+            if (schema == null) {
+                sc = srcCatalog.getSchemas().get(0);
+            } else {
+                sc = srcCatalog.getSchemaByName(schema);
+            }
             if (sc == null) {
                 return null;
             }
