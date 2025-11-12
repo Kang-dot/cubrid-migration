@@ -90,6 +90,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 
 /**
@@ -619,10 +620,12 @@ public class SQLTableManageView extends AbstractMappingView {
             Catalog catalog = config.getTarCatalog().orElse(config.getSrcCatalog());
 
             if (catalog != null && catalog.getSchemas() != null) {
+                Function<Schema, String> schemaNameMapper =
+                        config.isTargetOfflineMode()
+                                ? Schema::getTargetSchemaName
+                                : Schema::getName;
                 tarSchemaList =
-                        catalog.getSchemas().stream()
-                                .map(Schema::getTargetSchemaName)
-                                .toArray(String[]::new);
+                        catalog.getSchemas().stream().map(schemaNameMapper).toArray(String[]::new);
             }
         }
 
