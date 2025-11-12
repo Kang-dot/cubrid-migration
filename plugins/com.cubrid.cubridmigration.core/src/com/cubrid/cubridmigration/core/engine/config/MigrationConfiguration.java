@@ -3403,27 +3403,26 @@ public class MigrationConfiguration {
      * @return source table
      */
     public Table getSrcTableSchema(String schema, String name) {
-        if (srcCatalog == null) {
-            return null;
-        }
-        if (srcCatalog.getSchemas().isEmpty()) {
-            return null;
-        }
-        final Schema sc;
-        if (schema == null) {
-            // retrieves default schema.
-            sc = srcCatalog.getSchemas().get(0);
+        if (schema != null && schema.equals(MigrationConfiguration.SQLTABLE)) {
+            return getSrcSQLSchema(name);
         } else {
+            if (srcCatalog == null) {
+                return null;
+            }
+            if (srcCatalog.getSchemas().isEmpty()) {
+                return null;
+            }
+            final Schema sc;
             sc = srcCatalog.getSchemaByName(schema);
+            if (sc == null) {
+                return null;
+            }
+            Table table = sc.getTableByName(name);
+            if (table == null) {
+                table = getSrcSQLSchema(name);
+            }
+            return table;
         }
-        if (sc == null) {
-            return null;
-        }
-        Table table = sc.getTableByName(name);
-        if (table == null) {
-            table = getSrcSQLSchema(name);
-        }
-        return table;
     }
 
     /**
@@ -5611,7 +5610,7 @@ public class MigrationConfiguration {
         return mergePath(
                 mergePath(
                         mergePath(mergePath(getFileRepositroyPath(), getName()), sourceSchemaName),
-                        MigrationConfiguration.SQLTABLE),
+                        isOneTableOneFile() ? MigrationConfiguration.SQLTABLE : ""),
                 fileName.toString());
     }
 

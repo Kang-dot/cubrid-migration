@@ -901,6 +901,13 @@ public class SchemaMappingPage extends MigrationWizardPage {
                     schemaName, config.buildLocalFileFullPath(schemaName, "updatestatistic", null));
         }
 
+        tableFullName.put(
+                MigrationConfiguration.SQLTABLE,
+                config.buildLocalFileFullPath(MigrationConfiguration.SQLTABLE, "class", null));
+        dataFullName.put(
+                MigrationConfiguration.SQLTABLE,
+                config.buildSQLDataFileFullPath(MigrationConfiguration.SQLTABLE, "objects"));
+
         if (!checkFileRepository()) {
             return false;
         }
