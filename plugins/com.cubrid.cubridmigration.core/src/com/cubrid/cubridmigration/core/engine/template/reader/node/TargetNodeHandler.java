@@ -33,7 +33,6 @@ import static com.cubrid.cubridmigration.core.engine.template.MigrationTemplateU
 import static com.cubrid.cubridmigration.core.engine.template.TemplateTags.*;
 
 import com.cubrid.common.log.LogUtil;
-import com.cubrid.cubridmigration.core.connection.ConnParameters;
 import com.cubrid.cubridmigration.core.dbobject.Column;
 import com.cubrid.cubridmigration.core.dbobject.FK;
 import com.cubrid.cubridmigration.core.dbobject.Grant;
@@ -43,12 +42,10 @@ import com.cubrid.cubridmigration.core.dbobject.PartitionInfo;
 import com.cubrid.cubridmigration.core.dbobject.PartitionTable;
 import com.cubrid.cubridmigration.core.dbobject.PlcsqlFunction;
 import com.cubrid.cubridmigration.core.dbobject.PlcsqlProcedure;
-import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
 import com.cubrid.cubridmigration.core.dbobject.Synonym;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.View;
-import com.cubrid.cubridmigration.core.dbtype.DatabaseType;
 import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
 import com.cubrid.cubridmigration.cubrid.CUBRIDDataTypeHelper;
 
@@ -92,10 +89,7 @@ public class TargetNodeHandler extends DefaultHandler {
     }
 
     private void initializeStartTagHandlers() {
-        startTagHandlers.put(TAG_JDBC, this::parseTargetJDBC);
-        startTagHandlers.put(TAG_FILE_REPOSITORY, this::parseTargetFileRepository);
         startTagHandlers.put(TAG_SCHEMA, attr -> schemaCache = new StringBuffer());
-        startTagHandlers.put(TAG_SCHEMA_INFO, this::parseTargetSchemaInfo);
         startTagHandlers.put(TAG_TABLE, this::parseTargetTable);
         startTagHandlers.put(TAG_COLUMN, this::parseTargetColumn);
         startTagHandlers.put(TAG_PK, this::parseTargetPK);
@@ -106,22 +100,22 @@ public class TargetNodeHandler extends DefaultHandler {
         startTagHandlers.put(TAG_LIST, this::parseTargetRangePartition);
         startTagHandlers.put(TAG_HASH, this::parseTargetHashPartition);
         startTagHandlers.put(TAG_VIEW, this::parseTargetView);
-        startTagHandlers.put(TAG_VIEWCOLUMN, this::parseTargetViewColumn);
+        startTagHandlers.put(TAG_VIEW_COLUMN, this::parseTargetViewColumn);
         startTagHandlers.put(TAG_SEQUENCE, this::parseTargetSequence);
         startTagHandlers.put(TAG_SYNONYM, this::parseTargetSynonym);
         startTagHandlers.put(TAG_GRANT, this::parseTargetGrant);
         startTagHandlers.put(TAG_PLCSQL_PROCEDURE, this::parseTargetPlcsqlProcedure);
         startTagHandlers.put(TAG_PLCSQL_FUNCTION, this::parseTargetPlcsqlFunction);
-        startTagHandlers.put(TAG_VIEWQUERYSQL, attr -> sqlStatement = new StringBuffer());
-        startTagHandlers.put(TAG_CREATEVIEWSQL, attr -> sqlStatement = new StringBuffer());
+        startTagHandlers.put(TAG_VIEW_QUERY_SQL, attr -> sqlStatement = new StringBuffer());
+        startTagHandlers.put(TAG_CREATE_VIEW_SQL, attr -> sqlStatement = new StringBuffer());
         startTagHandlers.put(TAG_PARTITION_DDL, attr -> sqlStatement = new StringBuffer());
     }
 
     private void initializeEndTagHandlers() {
         endTagHandlers.put(TAG_TABLE, this::handleEndTable);
         endTagHandlers.put(TAG_VIEW, this::handleEndView);
-        endTagHandlers.put(TAG_VIEWQUERYSQL, this::handleEndViewQuerySql);
-        endTagHandlers.put(TAG_CREATEVIEWSQL, this::handleEndCreateViewSql);
+        endTagHandlers.put(TAG_VIEW_QUERY_SQL, this::handleEndViewQuerySql);
+        endTagHandlers.put(TAG_CREATE_VIEW_SQL, this::handleEndCreateViewSql);
         endTagHandlers.put(TAG_PARTITION_DDL, this::handleEndPartitionDdl);
     }
 
@@ -166,84 +160,12 @@ public class TargetNodeHandler extends DefaultHandler {
 
     // startElement
 
-    /**
-     * @param attributes of node
-     */
-    private void parseTargetJDBC(Attributes attributes) {
-        ConnParameters cp =
-                ConnParameters.getConParam(
-                        null,
-                        attributes.getValue(ATTR_HOST),
-                        Integer.parseInt(attributes.getValue(ATTR_PORT)),
-                        attributes.getValue(ATTR_NAME),
-                        DatabaseType.CUBRID,
-                        attributes.getValue(ATTR_CHARSET),
-                        attributes.getValue(ATTR_USER),
-                        attributes.getValue(ATTR_PASSWORD),
-                        attributes.getValue(ATTR_DRIVER),
-                        attributes.getValue(ATTR_SCHEMA));
-        cp.setUserJDBCURL(attributes.getValue(ATTR_USER_JDBC_URL));
-        cp.setTimeZone(attributes.getValue(ATTR_TIMEZONE));
-
-        config.setTargetConParams(cp);
-        config.setCreateConstrainsBeforeData(
-                getBoolean(attributes.getValue(ATTR_CREATE_CONSTRAINT_NOW), false));
-        config.setWriteErrorRecords(
-                getBoolean(attributes.getValue(ATTR_WRITE_ERROR_RECORDS), false));
-        config.setAddUserSchema(getBoolean(attributes.getValue(ATTR_ADD_SCHEMA), false));
-    }
-
-    private void parseTargetFileRepository(Attributes attributes) {
-        config.setFileRepositroyPath(attributes.getValue(ATTR_DIR));
-        config.setTargetFileTimeZone(attributes.getValue(ATTR_TIMEZONE));
-        config.setOneTableOneFile(getBoolean(attributes.getValue(ATTR_ONETABLEONEFILE), false));
-        final String fileMaxSize = attributes.getValue(ATTR_FILE_MAX_SIZE);
-        config.setMaxCountPerFile(fileMaxSize == null ? 0 : Integer.parseInt(fileMaxSize));
-        config.setTargetFilePrefix(attributes.getValue(ATTR_OUTPUT_FILE_PREFIX));
-        try {
-            config.setDestType(Integer.parseInt(attributes.getValue(ATTR_DATA_FILE_FORMAT)));
-        } catch (Exception ex) {
-            config.setDestType(MigrationConfiguration.DEST_DB_UNLOAD);
-        }
-        config.setTargetCharSet(attributes.getValue(ATTR_CHARSET));
-        if (config.targetIsCSV()) {
-            String value = attributes.getValue(ATTR_CSV_SEPARATE);
-            config.getCsvSettings()
-                    .setSeparateChar(StringUtils.isEmpty(value) ? ',' : value.charAt(0));
-            value = attributes.getValue(ATTR_CSV_QUOTE);
-            config.getCsvSettings()
-                    .setQuoteChar(
-                            StringUtils.isEmpty(value)
-                                    ? MigrationConfiguration.CSV_NO_CHAR
-                                    : value.charAt(0));
-            value = attributes.getValue(ATTR_CSV_ESCAPE);
-            config.getCsvSettings()
-                    .setEscapeChar(
-                            StringUtils.isEmpty(value)
-                                    ? MigrationConfiguration.CSV_NO_CHAR
-                                    : value.charAt(0));
-        }
-        config.setTargetLOBRootPath(attributes.getValue(ATTR_LOB_ROOT_DIR));
-        config.setAddUserSchema(getBoolean(attributes.getValue(ATTR_ADD_SCHEMA), false));
-        config.setSplitSchema(getBoolean(attributes.getValue(ATTR_SPLIT_SCHEMA), false));
-        config.setCreateUserSQL(getBoolean(attributes.getValue(ATTR_CREATE_USER_SQL), false));
-        config.createDumpfile(config.isSplitSchema(), config.isOneTableOneFile());
-    }
-
-    private void parseTargetSchemaInfo(Attributes attributes) {
-        Schema schema = new Schema();
-        schema.setName(attributes.getValue(ATTR_SCHEMA_NAME));
-        schema.setTargetSchemaName(attributes.getValue(ATTR_TARGET_SCHEMA));
-        schema.setMigration(true);
-        config.addTargetSchemaList(schema);
-    }
-
     private void parseTargetTable(Attributes attributes) {
         targetTable = new Table();
         targetTable.setName(attributes.getValue(ATTR_NAME));
         targetTable.setReuseOID(getBoolean(attributes.getValue(ATTR_REUSE_OID), false));
-        targetTable.setOwner(attributes.getValue(ATTR_OWNER));
-        targetTable.setSourceOwner(attributes.getValue(ATTR_SOURCE_OWNER));
+        targetTable.setOwner(attributes.getValue(ATTR_SCHEMA));
+        targetTable.setSourceOwner(attributes.getValue(ATTR_SOURCE_SCHEMA));
         if (targetTable.getOwner() != null && targetTable.getOwner().isEmpty()) {
             targetTable.setOwner(null);
         }
@@ -345,10 +267,10 @@ public class TargetNodeHandler extends DefaultHandler {
 
     private void parseTargetView(Attributes attributes) {
         targetView = new View();
-        targetView.setOwner(attributes.getValue(ATTR_OWNER));
-        targetView.setTargetOwner(attributes.getValue(ATTR_TARGET_OWNER));
+        targetView.setOwner(attributes.getValue(ATTR_SCHEMA));
+        targetView.setTargetOwner(attributes.getValue(ATTR_SCHEMA));
         targetView.setName(attributes.getValue(ATTR_NAME));
-        targetView.setSourceOwner(attributes.getValue(ATTR_SOURCE_OWNER));
+        targetView.setSourceOwner(attributes.getValue(ATTR_SOURCE_SCHEMA));
         targetView.setComment(attributes.getValue(ATTR_COMMENT));
         config.addTargetViewSchema(targetView);
     }
@@ -369,8 +291,8 @@ public class TargetNodeHandler extends DefaultHandler {
         seq.setCurrentValue(new BigInteger(attributes.getValue(ATTR_START)));
         seq.setCycleFlag(getBoolean(attributes.getValue(ATTR_CYCLE), false));
         seq.setNoCache(!getBoolean(attributes.getValue(ATTR_CACHE), true));
-        seq.setOwner(attributes.getValue(ATTR_OWNER));
-        seq.setTargetOwner(attributes.getValue(ATTR_OWNER));
+        seq.setOwner(attributes.getValue(ATTR_SCHEMA));
+        seq.setTargetOwner(attributes.getValue(ATTR_SCHEMA));
         if (!seq.isNoCache()) {
             final String cs = attributes.getValue(ATTR_CACHE_SIZE);
             seq.setCacheSize(cs == null ? 2 : Integer.parseInt(cs));
@@ -383,43 +305,44 @@ public class TargetNodeHandler extends DefaultHandler {
         if (!seq.isNoMinValue()) {
             seq.setMinValue(new BigInteger(attributes.getValue(ATTR_MIN)));
         }
-        seq.setSourceOwner(attributes.getValue(ATTR_SOURCE_OWNER));
+        seq.setSourceOwner(attributes.getValue(ATTR_SOURCE_SCHEMA));
         config.addTargetSerialSchema(seq);
     }
 
     private void parseTargetSynonym(Attributes attributes) {
         Synonym syn = new Synonym();
         syn.setName(attributes.getValue(ATTR_NAME));
-        syn.setOwner(attributes.getValue(ATTR_OWNER));
-        syn.setObjectName(attributes.getValue(ATTR_SYNONYM_OBJECT));
-        syn.setObjectOwner(attributes.getValue(ATTR_SYNONYM_OBJECT_OWNER));
-        syn.setSourceOwner(attributes.getValue(ATTR_SOURCE_OWNER));
+        syn.setOwner(attributes.getValue(ATTR_SCHEMA));
+        syn.setObjectName(attributes.getValue(ATTR_OBJECT_NAME));
+        syn.setObjectOwner(attributes.getValue(ATTR_OBJECT_SCHEMA));
+        syn.setSourceOwner(attributes.getValue(ATTR_SOURCE_SCHEMA));
         syn.setPublic(false);
         config.addTargetSynonymSchema(syn);
     }
 
     private void parseTargetGrant(Attributes attributes) {
         Grant grn = new Grant();
-        grn.setOwner(attributes.getValue(ATTR_OWNER));
+        grn.setOwner(attributes.getValue(ATTR_SCHEMA));
         grn.setName(attributes.getValue(ATTR_NAME));
         grn.setGrantorName(attributes.getValue(ATTR_GRANTOR));
         grn.setGranteeName(attributes.getValue(ATTR_GRANTEE));
-        grn.setClassOwner(attributes.getValue(ATTR_OBJECT_OWNER));
+        grn.setClassOwner(attributes.getValue(ATTR_OBJECT_SCHEMA));
         grn.setClassName(attributes.getValue(ATTR_OBJECT_NAME));
-        grn.setAuthType(attributes.getValue(ATTR_AUTH_TYPE));
-        grn.setGrantable(getBoolean(attributes.getValue(ATTR_GRANTABLE), false));
-        grn.setSourceOwner(attributes.getValue(ATTR_OWNER));
-        grn.setSourceObjectOwner(attributes.getValue(ATTR_SOURCE_OBJECT_OWNER));
+        grn.setAuthType(attributes.getValue(ATTR_PRIVILEGE));
+        grn.setGrantable(getBoolean(attributes.getValue(ATTR_WITH_GRANT_OPTION), false));
+        grn.setSourceOwner(attributes.getValue(ATTR_SOURCE_SCHEMA));
+        grn.setSourceObjectOwner(attributes.getValue(ATTR_SOURCE_OBJECT_SCHEMA));
         config.addTargetGrantSchema(grn);
     }
 
     private void parseTargetPlcsqlProcedure(Attributes attributes) {
         PlcsqlProcedure proc = new PlcsqlProcedure();
-        proc.setOwner(attributes.getValue(ATTR_OWNER));
-        proc.setTargetOwner(attributes.getValue(ATTR_TARGET_OWNER));
-        proc.setName(attributes.getValue(ATTR_NAME));
-        proc.setTargetName(attributes.getValue(ATTR_TARGET_NAME));
+        proc.setTargetOwner(attributes.getValue(ATTR_SCHEMA));
+        proc.setTargetName(attributes.getValue(ATTR_NAME));
+        proc.setOwner(attributes.getValue(ATTR_SOURCE_SCHEMA));
+        proc.setName(attributes.getValue(ATTR_SOURCE_NAME));
         proc.setAuthid(attributes.getValue(ATTR_AUTH_ID));
+        proc.setAuthidChanged(getBoolean(attributes.getValue(ATTR_AUTH_ID_CHANGED), false));
         proc.setSourceDDL(attributes.getValue(ATTR_SOURCE_DDL));
         proc.setHeaderDDL(attributes.getValue(ATTR_HEADER_DDL));
         proc.setBodyDDL(attributes.getValue(ATTR_BODY_DDL));
@@ -429,11 +352,12 @@ public class TargetNodeHandler extends DefaultHandler {
 
     private void parseTargetPlcsqlFunction(Attributes attributes) {
         PlcsqlFunction func = new PlcsqlFunction();
-        func.setOwner(attributes.getValue(ATTR_OWNER));
-        func.setTargetOwner(attributes.getValue(ATTR_TARGET_OWNER));
-        func.setName(attributes.getValue(ATTR_NAME));
-        func.setTargetName(attributes.getValue(ATTR_TARGET_NAME));
+        func.setTargetOwner(attributes.getValue(ATTR_SCHEMA));
+        func.setTargetName(attributes.getValue(ATTR_NAME));
+        func.setOwner(attributes.getValue(ATTR_SOURCE_SCHEMA));
+        func.setName(attributes.getValue(ATTR_SOURCE_NAME));
         func.setAuthid(attributes.getValue(ATTR_AUTH_ID));
+        func.setAuthidChanged(getBoolean(attributes.getValue(ATTR_AUTH_ID_CHANGED), false));
         func.setSourceDDL(attributes.getValue(ATTR_SOURCE_DDL));
         func.setHeaderDDL(attributes.getValue(ATTR_HEADER_DDL));
         func.setBodyDDL(attributes.getValue(ATTR_BODY_DDL));
