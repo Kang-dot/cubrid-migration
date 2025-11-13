@@ -5446,7 +5446,7 @@ public class MigrationConfiguration {
      * @return Retrieves true If source is a JDBC connection and can't be connected
      */
     public boolean isSourceOfflineMode() {
-        if (sourceIsOnline()) {
+        if (!sourceIsOnline()) {
             return false;
         }
         try {
@@ -5461,7 +5461,7 @@ public class MigrationConfiguration {
      * @return Retrieves true If target is a JDBC connection and can't be connected
      */
     public boolean isTargetOfflineMode() {
-        if (targetIsOnline()) {
+        if (!targetIsOnline()) {
             return false;
         }
         try {
