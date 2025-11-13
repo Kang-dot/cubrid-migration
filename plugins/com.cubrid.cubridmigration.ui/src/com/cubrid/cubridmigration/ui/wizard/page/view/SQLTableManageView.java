@@ -621,9 +621,7 @@ public class SQLTableManageView extends AbstractMappingView {
 
             if (catalog != null && catalog.getSchemas() != null) {
                 Function<Schema, String> schemaNameMapper =
-                        config.targetIsOnline()
-                                ? Schema::getName
-                                : Schema::getTargetSchemaName;
+                        config.targetIsOnline() ? Schema::getName : Schema::getTargetSchemaName;
                 tarSchemaList =
                         catalog.getSchemas().stream().map(schemaNameMapper).toArray(String[]::new);
             }
