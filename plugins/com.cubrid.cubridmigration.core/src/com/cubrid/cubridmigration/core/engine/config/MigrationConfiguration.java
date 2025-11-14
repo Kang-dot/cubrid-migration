@@ -1223,6 +1223,16 @@ public class MigrationConfiguration {
         }
         this.addTargetDataFileName(schemaName, buildDataFileFullPath(schemaName, "object"));
 
+        if (!this.targetDataFileName.containsKey(this.getSrcConnOwner())) {
+            this.addTargetDataFileName(
+                    this.getSrcConnOwner().toUpperCase(),
+                    this.buildSQLDataFileFullPath(this.getSrcConnOwner().toUpperCase(), "objects"));
+        }
+
+        this.addTargetTableFileName(
+                this.getSrcConnOwner().toUpperCase(),
+                this.buildLocalFileFullPath(this.getSrcConnOwner().toUpperCase(), "class", null));
+
         this.addTargetIndexFileName(
                 schemaName, buildLocalFileFullPath(schemaName, "indexes", null));
         this.addTargetUpdateStatisticFileName(
@@ -5611,7 +5621,7 @@ public class MigrationConfiguration {
         return mergePath(
                 mergePath(
                         mergePath(mergePath(getFileRepositroyPath(), getName()), sourceSchemaName),
-                        MigrationConfiguration.SQLTABLE),
+                        isOneTableOneFile() ? "objects" : ""),
                 fileName.toString());
     }
 

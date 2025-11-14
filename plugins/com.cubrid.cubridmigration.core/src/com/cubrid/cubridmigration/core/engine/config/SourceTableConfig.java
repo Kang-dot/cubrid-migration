@@ -165,6 +165,17 @@ public class SourceTableConfig {
         return getOwner();
     }
 
+    /**
+     * Get path ID for file naming. If class type is SourceSQLTableConfig, return SQLTABLE,
+     * otherwise return schemaName.
+     *
+     * @param schemaName the schema name to use when class type is not SourceSQLTableConfig
+     * @return path ID string
+     */
+    public String getPathID(String schemaName) {
+        return schemaName;
+    }
+
     public String getComment() {
         return comment;
     }
