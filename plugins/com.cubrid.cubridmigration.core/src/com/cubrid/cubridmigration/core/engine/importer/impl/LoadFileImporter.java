@@ -38,6 +38,7 @@ import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.engine.MigrationContext;
 import com.cubrid.cubridmigration.core.engine.MigrationDirAndFilesManager;
 import com.cubrid.cubridmigration.core.engine.MigrationStatusManager;
+import com.cubrid.cubridmigration.core.engine.config.SourceSQLTableConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceTableConfig;
 import com.cubrid.cubridmigration.core.engine.event.ImportRecordsEvent;
 import com.cubrid.cubridmigration.core.engine.exception.BreakMigrationException;
@@ -244,8 +245,13 @@ public class LoadFileImporter extends OfflineImporter {
                                     || config.isOneTableOneFile()) {
                                 return;
                             }
-                            final Table st =
-                                    config.getSrcTableSchema(stc.getOwner(), stc.getName());
+                            final Table st;
+                            if (stc instanceof SourceSQLTableConfig) {
+                                st = config.getSrcSQLSchema(stc.getName());
+                            } else {
+                                st = config.getSrcTableSchema(stc.getOwner(), stc.getName());
+                            }
+
                             if (null == st) {
                                 return;
                             }

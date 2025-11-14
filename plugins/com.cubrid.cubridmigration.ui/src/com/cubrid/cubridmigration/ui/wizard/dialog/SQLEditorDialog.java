@@ -305,7 +305,7 @@ public class SQLEditorDialog extends TitleAreaDialog {
                                 ? config.getSrcConnOwner().toUpperCase()
                                 : config.getSrcConnOwner();
 
-                newSTC.setOwner(MigrationConfiguration.SQLTABLE);
+                newSTC.setOwner(schemaName);
                 newSTC.setName(newName);
                 newSTC.setTarget(tableName);
                 newSTC.setSql(sql);
