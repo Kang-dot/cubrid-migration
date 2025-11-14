@@ -32,7 +32,6 @@ package com.cubrid.cubridmigration.core.engine.template.writer.node;
 import static com.cubrid.cubridmigration.core.engine.template.MigrationTemplateUtils.*;
 import static com.cubrid.cubridmigration.core.engine.template.TemplateTags.*;
 
-import com.cubrid.cubridmigration.core.connection.ConnParameters;
 import com.cubrid.cubridmigration.core.dbobject.Column;
 import com.cubrid.cubridmigration.core.dbobject.FK;
 import com.cubrid.cubridmigration.core.dbobject.Index;
@@ -41,7 +40,6 @@ import com.cubrid.cubridmigration.core.dbobject.PartitionInfo;
 import com.cubrid.cubridmigration.core.dbobject.PartitionTable;
 import com.cubrid.cubridmigration.core.dbobject.PlcsqlFunction;
 import com.cubrid.cubridmigration.core.dbobject.PlcsqlProcedure;
-import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
 import com.cubrid.cubridmigration.core.dbobject.Synonym;
 import com.cubrid.cubridmigration.core.dbobject.Table;
@@ -71,9 +69,6 @@ public class TargetNodeWriter {
         }
         writer.writeAttribute(ATTR_DB_TYPE, "cubrid");
 
-        writeTargetConInfoNode(writer, config);
-
-        writeTargetSchemaNodes(writer, config);
         writeTargetTableNodes(writer, config);
         writeTargetSequenceNodes(writer, config);
         writeTargetViewNodes(writer, config);
@@ -81,86 +76,6 @@ public class TargetNodeWriter {
         writeTargetPlcsqlProcedureNodes(writer, config);
         writeTargetPlcsqlFunctionNodes(writer, config);
         writer.writeEndElement(); // </target>
-    }
-
-    private void writeTargetConInfoNode(XMLStreamWriter writer, MigrationConfiguration config)
-            throws XMLStreamException {
-        if (config.targetIsOnline()) {
-            writeJdbcNode(writer, config);
-        } else if (config.targetIsFile()) {
-            writeFileRepositoryNode(writer, config);
-        }
-    }
-
-    private void writeJdbcNode(XMLStreamWriter writer, MigrationConfiguration config)
-            throws XMLStreamException {
-        writer.writeEmptyElement(TAG_JDBC);
-        ConnParameters tcp = config.getTargetConParams();
-        writer.writeAttribute(ATTR_HOST, tcp.getHost());
-        writer.writeAttribute(ATTR_PORT, String.valueOf(tcp.getPort()));
-        writer.writeAttribute(ATTR_DRIVER, tcp.getDriverFileName());
-        writer.writeAttribute(ATTR_NAME, tcp.getDbName());
-        writer.writeAttribute(ATTR_USER, tcp.getConUser());
-        writer.writeAttribute(ATTR_PASSWORD, tcp.getConPassword());
-        writer.writeAttribute(ATTR_CHARSET, tcp.getCharset());
-        writer.writeAttribute(ATTR_TIMEZONE, tcp.getTimeZone());
-        writer.writeAttribute(ATTR_USER_JDBC_URL, tcp.getUserJDBCURL());
-        writer.writeAttribute(
-                ATTR_CREATE_CONSTRAINT_NOW,
-                getBooleanString(config.isCreateConstrainsBeforeData()));
-        writer.writeAttribute(
-                ATTR_WRITE_ERROR_RECORDS, getBooleanString(config.isWriteErrorRecords()));
-        writer.writeAttribute(ATTR_ADD_SCHEMA, getBooleanString(config.isAddUserSchema()));
-    }
-
-    private void writeFileRepositoryNode(XMLStreamWriter writer, MigrationConfiguration config)
-            throws XMLStreamException {
-        writer.writeEmptyElement(TAG_FILE_REPOSITORY);
-        writer.writeAttribute(ATTR_DIR, config.getFileRepositroyPath());
-        writer.writeAttribute(ATTR_TIMEZONE, config.getTargetFileTimeZone());
-        writer.writeAttribute(ATTR_CHARSET, config.getTargetCharSet());
-        writer.writeAttribute(ATTR_ADD_SCHEMA, getBooleanString(config.isAddUserSchema()));
-        writer.writeAttribute(ATTR_SPLIT_SCHEMA, getBooleanString(config.isSplitSchema()));
-        writer.writeAttribute(ATTR_CREATE_USER_SQL, getBooleanString(config.isCreateUserSQL()));
-        writer.writeAttribute(ATTR_ONETABLEONEFILE, getBooleanString(config.isOneTableOneFile()));
-        writer.writeAttribute(ATTR_DATA_FILE_FORMAT, String.valueOf(config.getDestType()));
-        writer.writeAttribute(ATTR_OUTPUT_FILE_PREFIX, config.getTargetFilePrefix());
-        writer.writeAttribute(ATTR_FILE_MAX_SIZE, String.valueOf(config.getMaxCountPerFile()));
-        if (config.targetIsCSV()) {
-            writer.writeAttribute(
-                    ATTR_CSV_SEPARATE,
-                    config.getCsvSettings().getSeparateChar() == MigrationConfiguration.CSV_NO_CHAR
-                            ? ""
-                            : String.valueOf(config.getCsvSettings().getSeparateChar()));
-            writer.writeAttribute(
-                    ATTR_CSV_QUOTE,
-                    config.getCsvSettings().getQuoteChar() == MigrationConfiguration.CSV_NO_CHAR
-                            ? ""
-                            : String.valueOf(config.getCsvSettings().getQuoteChar()));
-            writer.writeAttribute(
-                    ATTR_CSV_ESCAPE,
-                    config.getCsvSettings().getEscapeChar() == MigrationConfiguration.CSV_NO_CHAR
-                            ? ""
-                            : String.valueOf(config.getCsvSettings().getEscapeChar()));
-        }
-        if (config.targetIsDBDump()) {
-            writer.writeAttribute(ATTR_LOB_ROOT_DIR, config.getTargetLOBRootPath());
-        }
-    }
-
-    private void writeTargetSchemaNodes(XMLStreamWriter writer, MigrationConfiguration config)
-            throws XMLStreamException {
-        List<Schema> schemaList = config.getTargetSchemaList();
-        if (schemaList.isEmpty()) {
-            return;
-        }
-        writer.writeStartElement(TAG_SCHEMAS);
-        for (Schema schema : schemaList) {
-            writer.writeEmptyElement(TAG_SCHEMA_INFO);
-            writer.writeAttribute(ATTR_SCHEMA_NAME, schema.getName());
-            writer.writeAttribute(ATTR_TARGET_SCHEMA, schema.getTargetSchemaName());
-        }
-        writer.writeEndElement(); // </schemas>
     }
 
     private void writeTargetTableNodes(XMLStreamWriter writer, MigrationConfiguration config)
@@ -188,9 +103,9 @@ public class TargetNodeWriter {
 
     private void writeTargetTableAttributes(XMLStreamWriter writer, Table table)
             throws XMLStreamException {
+        writer.writeAttribute(ATTR_SCHEMA, table.getOwner());
         writer.writeAttribute(ATTR_NAME, table.getName());
-        writer.writeAttribute(ATTR_OWNER, table.getOwner());
-        writer.writeAttribute(ATTR_SOURCE_OWNER, table.getSourceOwner());
+        writer.writeAttribute(ATTR_SOURCE_SCHEMA, table.getSourceOwner());
         writer.writeAttribute(ATTR_REUSE_OID, getBooleanString(table.isReuseOID()));
         writer.writeAttribute(ATTR_COMMENT, table.getComment());
     }
@@ -289,9 +204,9 @@ public class TargetNodeWriter {
         writer.writeStartElement(TAG_SEQUENCES);
         for (Sequence sc : targetSerials) {
             writer.writeEmptyElement(TAG_SEQUENCE);
+            writer.writeAttribute(ATTR_SCHEMA, sc.getOwner());
             writer.writeAttribute(ATTR_NAME, sc.getName());
-            writer.writeAttribute(ATTR_OWNER, sc.getOwner());
-            writer.writeAttribute(ATTR_SOURCE_OWNER, sc.getSourceOwner());
+            writer.writeAttribute(ATTR_SOURCE_SCHEMA, sc.getSourceOwner());
             writer.writeAttribute(ATTR_START, String.valueOf(sc.getCurrentValue()));
             writer.writeAttribute(ATTR_INCREMENT, String.valueOf(sc.getIncrementBy()));
             writer.writeAttribute(
@@ -317,17 +232,13 @@ public class TargetNodeWriter {
         writer.writeStartElement(TAG_VIEWS);
         for (View view : targetViews) {
             writer.writeStartElement(TAG_VIEW);
+            writer.writeAttribute(ATTR_SCHEMA, view.getOwner());
             writer.writeAttribute(ATTR_NAME, view.getName());
-            writer.writeAttribute(ATTR_OWNER, view.getOwner());
-            writer.writeAttribute(ATTR_TARGET_OWNER, view.getOwner());
-            writer.writeAttribute(ATTR_SOURCE_OWNER, view.getSourceOwner());
+            writer.writeAttribute(ATTR_SOURCE_SCHEMA, view.getSourceOwner());
             writer.writeAttribute(ATTR_COMMENT, view.getComment());
-            writer.writeStartElement(TAG_VIEWQUERYSQL);
-            writer.writeCData(view.getQuerySpec());
-            writer.writeEndElement(); // </viewquerysql>
-            writer.writeStartElement(TAG_VIEWCOLUMNS);
+            writer.writeStartElement(TAG_VIEW_COLUMNS);
             for (Column col : view.getColumns()) {
-                writer.writeEmptyElement(TAG_VIEWCOLUMN);
+                writer.writeEmptyElement(TAG_VIEW_COLUMN);
                 writer.writeAttribute(ATTR_NAME, col.getName());
                 writer.writeAttribute(ATTR_TYPE, col.getShownDataType());
                 writer.writeAttribute(ATTR_BASE_TYPE, col.getDataType());
@@ -339,7 +250,10 @@ public class TargetNodeWriter {
                 }
                 writer.writeAttribute(ATTR_COMMENT, col.getComment());
             }
-            writer.writeEndElement(); // </viewcolumns>
+            writer.writeEndElement(); // </view_columns>
+            writer.writeStartElement(TAG_VIEW_QUERY_SQL);
+            writer.writeCData(view.getQuerySpec());
+            writer.writeEndElement(); // </viewquerysql>
             writer.writeEndElement(); // </view>
         }
         writer.writeEndElement(); // </views>
@@ -354,11 +268,11 @@ public class TargetNodeWriter {
         writer.writeStartElement(TAG_SYNONYMS);
         for (Synonym sc : targetSynonyms) {
             writer.writeEmptyElement(TAG_SYNONYM);
+            writer.writeAttribute(ATTR_SCHEMA, sc.getOwner());
             writer.writeAttribute(ATTR_NAME, sc.getName());
-            writer.writeAttribute(ATTR_OWNER, sc.getOwner());
-            writer.writeAttribute(ATTR_SYNONYM_OBJECT_OWNER, sc.getObjectOwner());
-            writer.writeAttribute(ATTR_SYNONYM_OBJECT, sc.getObjectName());
-            writer.writeAttribute(ATTR_SOURCE_OWNER, sc.getSourceOwner());
+            writer.writeAttribute(ATTR_OBJECT_SCHEMA, sc.getObjectOwner());
+            writer.writeAttribute(ATTR_OBJECT_NAME, sc.getObjectName());
+            writer.writeAttribute(ATTR_SOURCE_SCHEMA, sc.getSourceOwner());
         }
         writer.writeEndElement(); // </synonyms>
     }
@@ -372,10 +286,10 @@ public class TargetNodeWriter {
         writer.writeStartElement(TAG_PLCSQL_PROCEDURES);
         for (PlcsqlProcedure proc : procedures) {
             writer.writeEmptyElement(TAG_PLCSQL_PROCEDURE);
-            writer.writeAttribute(ATTR_NAME, proc.getName());
-            writer.writeAttribute(ATTR_OWNER, proc.getOwner());
-            writer.writeAttribute(ATTR_TARGET_NAME, proc.getTargetName());
-            writer.writeAttribute(ATTR_TARGET_OWNER, proc.getTargetOwner());
+            writer.writeAttribute(ATTR_SCHEMA, proc.getTargetOwner());
+            writer.writeAttribute(ATTR_NAME, proc.getTargetName());
+            writer.writeAttribute(ATTR_SOURCE_SCHEMA, proc.getOwner());
+            writer.writeAttribute(ATTR_SOURCE_NAME, proc.getName());
             writer.writeAttribute(ATTR_AUTH_ID, proc.getAuthid());
             writer.writeAttribute(ATTR_AUTH_ID_CHANGED, getBooleanString(proc.isAuthidChanged()));
             writer.writeAttribute(ATTR_SOURCE_DDL, proc.getSourceDDL());
@@ -395,10 +309,10 @@ public class TargetNodeWriter {
         writer.writeStartElement(TAG_PLCSQL_FUNCTIONS);
         for (PlcsqlFunction func : functions) {
             writer.writeEmptyElement(TAG_PLCSQL_FUNCTION);
-            writer.writeAttribute(ATTR_NAME, func.getName());
-            writer.writeAttribute(ATTR_OWNER, func.getOwner());
-            writer.writeAttribute(ATTR_TARGET_NAME, func.getTargetName());
-            writer.writeAttribute(ATTR_TARGET_OWNER, func.getTargetOwner());
+            writer.writeAttribute(ATTR_SCHEMA, func.getTargetOwner());
+            writer.writeAttribute(ATTR_NAME, func.getTargetName());
+            writer.writeAttribute(ATTR_SOURCE_SCHEMA, func.getOwner());
+            writer.writeAttribute(ATTR_SOURCE_NAME, func.getName());
             writer.writeAttribute(ATTR_AUTH_ID, func.getAuthid());
             writer.writeAttribute(ATTR_AUTH_ID_CHANGED, getBooleanString(func.isAuthidChanged()));
             writer.writeAttribute(ATTR_SOURCE_DDL, func.getSourceDDL());
