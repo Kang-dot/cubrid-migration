@@ -901,17 +901,14 @@ public class SchemaMappingPage extends MigrationWizardPage {
                     schemaName, config.buildLocalFileFullPath(schemaName, "updatestatistic", null));
         }
 
-        String connUserUpperCase = config.getSrcConnOwner().toUpperCase();
-
-        if (!dataFullName.containsKey(config.getSrcConnOwner())) {
-            dataFullName.put(
-                    config.getSrcConnOwner().toUpperCase(),
-                    config.buildSQLDataFileFullPath(
-                            config.getSrcConnOwner().toUpperCase(), "objects"));
-        }
+        dataFullName.put(
+        		MigrationConfiguration.SQLTABLE,
+                config.buildSQLDataFileFullPath(
+                        MigrationConfiguration.SQLTABLE, "objects"));
 
         tableFullName.put(
-                connUserUpperCase, config.buildLocalFileFullPath(connUserUpperCase, "class", null));
+        		MigrationConfiguration.SQLTABLE, 
+        		config.buildLocalFileFullPath(MigrationConfiguration.SQLTABLE, "class", null));
 
         if (!checkFileRepository()) {
             return false;

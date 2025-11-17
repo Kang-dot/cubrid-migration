@@ -1229,10 +1229,6 @@ public class MigrationConfiguration {
                     this.buildSQLDataFileFullPath(this.getSrcConnOwner().toUpperCase(), "objects"));
         }
 
-        this.addTargetTableFileName(
-                this.getSrcConnOwner().toUpperCase(),
-                this.buildLocalFileFullPath(this.getSrcConnOwner().toUpperCase(), "class", null));
-
         this.addTargetIndexFileName(
                 schemaName, buildLocalFileFullPath(schemaName, "indexes", null));
         this.addTargetUpdateStatisticFileName(
@@ -3413,27 +3409,30 @@ public class MigrationConfiguration {
      * @return source table
      */
     public Table getSrcTableSchema(String schema, String name) {
-        if (srcCatalog == null) {
-            return null;
-        }
-        if (srcCatalog.getSchemas().isEmpty()) {
-            return null;
-        }
-        final Schema sc;
-        if (schema == null) {
-            // retrieves default schema.
-            sc = srcCatalog.getSchemas().get(0);
+        if (schema != null && schema.equals(MigrationConfiguration.SQLTABLE)) {
+            return getSrcSQLSchema(name);
         } else {
-            sc = srcCatalog.getSchemaByName(schema);
+            if (srcCatalog == null) {
+                return null;
+            }
+            if (srcCatalog.getSchemas().isEmpty()) {
+                return null;
+            }
+            final Schema sc;
+            if (schema == null) {
+                sc = srcCatalog.getSchemas().get(0);
+            } else {
+                sc = srcCatalog.getSchemaByName(schema);
+            }
+            if (sc == null) {
+                return null;
+            }
+            Table table = sc.getTableByName(name);
+            if (table == null) {
+                table = getSrcSQLSchema(name);
+            }
+            return table;
         }
-        if (sc == null) {
-            return null;
-        }
-        Table table = sc.getTableByName(name);
-        if (table == null) {
-            table = getSrcSQLSchema(name);
-        }
-        return table;
     }
 
     /**
@@ -5621,7 +5620,7 @@ public class MigrationConfiguration {
         return mergePath(
                 mergePath(
                         mergePath(mergePath(getFileRepositroyPath(), getName()), sourceSchemaName),
-                        isOneTableOneFile() ? "objects" : ""),
+                        isOneTableOneFile() ? "" : ""),
                 fileName.toString());
     }
 
