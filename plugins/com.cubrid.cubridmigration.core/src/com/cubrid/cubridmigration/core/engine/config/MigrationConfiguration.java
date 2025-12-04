@@ -5624,7 +5624,7 @@ public class MigrationConfiguration {
         return mergePath(
                 mergePath(
                         mergePath(mergePath(getFileRepositroyPath(), getName()), sourceSchemaName),
-                        isOneTableOneFile() ? "" : ""),
+                        isOneTableOneFile() ? "objects" : ""),
                 fileName.toString());
     }
 
