@@ -373,13 +373,12 @@ public class SchemaMappingPage extends MigrationWizardPage {
         }
 
         pathContext.dataFullName.put(
-        		MigrationConfiguration.SQLTABLE,
-                config.buildSQLDataFileFullPath(
-                        MigrationConfiguration.SQLTABLE, "objects"));
+                MigrationConfiguration.SQLTABLE,
+                config.buildSQLDataFileFullPath(MigrationConfiguration.SQLTABLE, "objects"));
 
         pathContext.tableFullName.put(
-        		MigrationConfiguration.SQLTABLE, 
-        		config.buildLocalFileFullPath(MigrationConfiguration.SQLTABLE, "class", null));
+                MigrationConfiguration.SQLTABLE,
+                config.buildLocalFileFullPath(MigrationConfiguration.SQLTABLE, "class", null));
 
         populateDataAndIndexPaths(schema, schemaName, pathContext);
     }
