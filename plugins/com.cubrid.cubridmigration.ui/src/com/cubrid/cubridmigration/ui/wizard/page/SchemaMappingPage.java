@@ -370,15 +370,15 @@ public class SchemaMappingPage extends MigrationWizardPage {
         } else {
             pathContext.schemaFullName.put(
                     schemaName, config.buildLocalFileFullPath(schemaName, "schema", null));
+
+            pathContext.schemaFullName.put(
+                    MigrationConfiguration.SQLTABLE,
+                    config.buildLocalFileFullPath(MigrationConfiguration.SQLTABLE, "schema", null));
         }
 
         pathContext.dataFullName.put(
                 MigrationConfiguration.SQLTABLE,
                 config.buildSQLDataFileFullPath(MigrationConfiguration.SQLTABLE, "objects"));
-
-        pathContext.tableFullName.put(
-                MigrationConfiguration.SQLTABLE,
-                config.buildLocalFileFullPath(MigrationConfiguration.SQLTABLE, "class", null));
 
         populateDataAndIndexPaths(schema, schemaName, pathContext);
     }
@@ -403,6 +403,9 @@ public class SchemaMappingPage extends MigrationWizardPage {
                 schemaName, config.buildLocalFileFullPath(schemaName, "info", null));
         pathContext.synonymFileListFullName.put(
                 schemaName, config.buildLocalFileFullPath(schemaName, "synonym", null));
+        pathContext.tableFullName.put(
+                MigrationConfiguration.SQLTABLE,
+                config.buildLocalFileFullPath(MigrationConfiguration.SQLTABLE, "class", null));
 
         for (Grant grant : schema.getGrantList()) {
             pathContext.grantFileListFullName.putIfAbsent(schemaName, new HashMap<>());
