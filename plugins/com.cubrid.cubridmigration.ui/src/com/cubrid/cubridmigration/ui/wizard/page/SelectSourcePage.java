@@ -34,12 +34,9 @@ import com.cubrid.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.common.TimeZoneUtils;
 import com.cubrid.cubridmigration.core.connection.ConnParameters;
 import com.cubrid.cubridmigration.core.dbobject.Catalog;
-import com.cubrid.cubridmigration.core.dbobject.Grant;
-import com.cubrid.cubridmigration.core.dbobject.Schema;
-import com.cubrid.cubridmigration.core.dbobject.Sequence;
-import com.cubrid.cubridmigration.core.dbobject.Synonym;
-import com.cubrid.cubridmigration.core.dbobject.Table;
-import com.cubrid.cubridmigration.core.dbobject.View;
+import com.cubrid.cubridmigration.core.dbobject.SchemaCatalog;
+import com.cubrid.cubridmigration.core.dbobject.SchemaEntry;
+import com.cubrid.cubridmigration.core.dbobject.mapper.SchemaCatalogMapper;
 import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
 import com.cubrid.cubridmigration.mysql.MysqlXmlDumpSource;
 import com.cubrid.cubridmigration.ui.common.UIConstant;
@@ -83,6 +80,93 @@ import java.util.Map;
  * @version 1.0 - 2011-09-21
  */
 public class SelectSourcePage extends MigrationWizardPage {
+
+    private static final Logger LOG = LogUtil.getLogger(SelectSourcePage.class);
+    private AbstractSourceView onlineView = new SelectOnlineSrcView();
+    private AbstractSourceView mysqlDumpView = new SelectMySQLDumpSrcView();
+
+    private Composite container;
+
+    public SelectSourcePage(String pageName) {
+        super(pageName);
+    }
+
+    /**
+     * When migration wizard displayed current page.
+     *
+     * @param event PageChangedEvent
+     */
+    protected void afterShowCurrentPage(PageChangedEvent event) {
+        try {
+            final MigrationWizard wzd = getMigrationWizard();
+            if (wzd.getMigrationConfig().sourceIsOnline()) {
+                onlineView.createControls(container);
+                mysqlDumpView.hide();
+                onlineView.show();
+            } else if (wzd.getMigrationConfig().sourceIsXMLDump()) {
+                mysqlDumpView.createControls(container);
+                onlineView.hide();
+                mysqlDumpView.show();
+            }
+            container.layout(true);
+            getCurrentView().init();
+        } catch (Exception ex) {
+            LOG.error("", ex);
+            MessageDialog.openError(getShell(), Messages.msgError, ex.getMessage());
+        }
+    }
+
+    /**
+     * Create contents of the wizard
+     *
+     * @param parent Composite
+     */
+    public void createControl(Composite parent) {
+        container = new Composite(parent, SWT.NONE);
+        final GridLayout gridLayoutRoot = new GridLayout();
+        container.setLayout(gridLayoutRoot);
+        setControl(container);
+    }
+
+    /**
+     * Retrieves the current view for selection data source.
+     *
+     * @return AbstractView
+     */
+    private AbstractSourceView getCurrentView() {
+        final MigrationConfiguration cfg = getMigrationWizard().getMigrationConfig();
+        if (cfg.sourceIsOnline()) {
+            return onlineView;
+        } else if (cfg.sourceIsXMLDump()) {
+            return mysqlDumpView;
+        }
+        throw new RuntimeException("Can't support source type :" + cfg.getSourceType());
+    }
+
+    /**
+     * When migration wizard will show next page or previous page.
+     *
+     * @param event PageChangingEvent
+     */
+    protected void handlePageLeaving(PageChangingEvent event) {
+        // If page is not complete, it should be go to previous page.
+        if (!isPageComplete()) {
+            return;
+        }
+        if (!isGotoNextPage(event)) {
+            return;
+        }
+        event.doit = updateMigrationConfig();
+    }
+
+    /**
+     * Save user input (source database connection information) to export options.
+     *
+     * @return true if update success.
+     */
+    protected boolean updateMigrationConfig() {
+        return getCurrentView().save();
+    }
 
     /**
      * AbstractSourceView
@@ -401,12 +485,13 @@ public class SelectSourcePage extends MigrationWizardPage {
             if (null == catalog) {
                 return false;
             }
+            SchemaCatalog sc = SchemaCatalogMapper.toSchemaCatalog(catalog);
             final MigrationWizard wzd = getMigrationWizard();
             if (isInputChanged()) {
                 // If it is a new migration, initialize the configuration
                 wzd.resetBySourceDBChanged();
             }
-            wzd.setOriginalSourceCatalog(catalog);
+            wzd.setSourceSchemaCatalog(sc);
             MigrationConfiguration cfg = wzd.getMigrationConfig();
 
             if (cfg.getName() == null) {
@@ -425,6 +510,7 @@ public class SelectSourcePage extends MigrationWizardPage {
             xmlCatalog.setCharset(cboFileCharset.getItem(cboFileCharset.getSelectionIndex()));
             xmlCatalog.setTimezone(cobTimezone.getItem(cobTimezone.getSelectionIndex()));
             cfg.setSrcCatalog(catalog, isInputChanged());
+            cfg.setOfflineFullSrcCatalog(catalog);
             return true;
         }
 
@@ -531,32 +617,28 @@ public class SelectSourcePage extends MigrationWizardPage {
                 return false;
             }
             final MigrationWizard wzd = getMigrationWizard();
-            Catalog catalog = getCatalog();
-            if (catalog == null) {
+            SchemaCatalog sc = conMgrView.getSourceSchemaCatalog();
+            if (sc == null) {
                 return false;
-            }
-
-            if (catalog.getDatabaseType().getID() == 1) {
-                removeEmptySchema(catalog);
             }
 
             List<String> errorSchemas = new ArrayList<String>();
             Map<String, String> old2NewSchemaMapping = new HashMap<String, String>();
             MigrationConfiguration cfg = wzd.getMigrationConfig();
             cfg.resetSchemaInfo();
-            if (catalog.getDatabaseType().isSupportMultiSchema()
+            if (sc.getDatabaseType().isSupportMultiSchema()
                     && !cfg.getExpEntryTableCfg().isEmpty()) {
                 List<String> expSchemas = cfg.getExpSchemaNames();
                 for (String schema : expSchemas) {
-                    if (catalog.getSchemaByName(schema) != null) {
+                    if (sc.getSchemaByName(schema) != null) {
                         continue;
                     }
                     errorSchemas.add(schema);
                 }
                 if (!errorSchemas.isEmpty()) {
                     List<String> newSchemas = new ArrayList<String>();
-                    for (Schema newSchema : catalog.getSchemas()) {
-                        newSchemas.add(newSchema.getName());
+                    for (SchemaEntry newSchema : sc.getSchemas()) {
+                        newSchemas.add(newSchema.name());
                     }
                     old2NewSchemaMapping =
                             RenameSchemaDialog.renameSchemas(errorSchemas, newSchemas);
@@ -570,18 +652,16 @@ public class SelectSourcePage extends MigrationWizardPage {
             // create configuration name
             if (cfg.getName() == null) {
                 cfg.setName(
-                        catalog.getDatabaseType().getName(),
-                        catalog.getName(),
-                        cfg.getWizardStartDateTime());
+                        sc.getDatabaseType().getName(), sc.getName(), cfg.getWizardStartDateTime());
             }
 
-            if (isInputChanged() || wzd.getOriginalSourceCatalog() != catalog) {
+            if (isInputChanged()) {
                 // If it is a new migration, initialize the configuration
                 wzd.resetBySourceDBChanged();
                 cfg = wzd.getMigrationConfig();
             }
-            wzd.setOriginalSourceCatalog(catalog);
-            cfg.setSourceConParams(catalog.getConnectionParameters());
+            wzd.setSourceSchemaCatalog(sc);
+            cfg.setSourceConParams(sc.getConnectionParameters());
             // Set the invalid schema to right schema or remove them.
             for (String es : errorSchemas) {
                 String newSchema = old2NewSchemaMapping.get(es);
@@ -594,124 +674,9 @@ public class SelectSourcePage extends MigrationWizardPage {
             return true;
         }
 
-        /**
-         * Remove empty Schema
-         *
-         * @param catalog Catalog
-         */
-        private void removeEmptySchema(Catalog catalog) {
-            List<Schema> schemaList = catalog.getSchemas();
-            List<Schema> removeSchema = new ArrayList<Schema>();
-
-            for (Schema schema : schemaList) {
-                List<Table> tableList = schema.getTables();
-                List<View> viewList = schema.getViews();
-                List<Sequence> sequenceList = schema.getSequenceList();
-                List<Synonym> synonymList = schema.getSynonymList();
-                List<Grant> grantList = schema.getGrantList();
-
-                if (tableList.isEmpty()
-                        && viewList.isEmpty()
-                        && sequenceList.isEmpty()
-                        && synonymList.isEmpty()
-                        && grantList.isEmpty()) {
-                    removeSchema.add(schema);
-                }
-            }
-
-            catalog.removeSchema(removeSchema);
-        }
-
         /** Show */
         public void show() {
             conMgrView.show();
         }
-    }
-
-    private static final Logger LOG = LogUtil.getLogger(SelectSourcePage.class);
-    private AbstractSourceView onlineView = new SelectOnlineSrcView();
-    private AbstractSourceView mysqlDumpView = new SelectMySQLDumpSrcView();
-
-    private Composite container;
-
-    public SelectSourcePage(String pageName) {
-        super(pageName);
-    }
-
-    /**
-     * When migration wizard displayed current page.
-     *
-     * @param event PageChangedEvent
-     */
-    protected void afterShowCurrentPage(PageChangedEvent event) {
-        try {
-            final MigrationWizard wzd = getMigrationWizard();
-            if (wzd.getMigrationConfig().sourceIsOnline()) {
-                onlineView.createControls(container);
-                mysqlDumpView.hide();
-                onlineView.show();
-            } else if (wzd.getMigrationConfig().sourceIsXMLDump()) {
-                mysqlDumpView.createControls(container);
-                onlineView.hide();
-                mysqlDumpView.show();
-            }
-            container.layout(true);
-            getCurrentView().init();
-        } catch (Exception ex) {
-            LOG.error("", ex);
-            MessageDialog.openError(getShell(), Messages.msgError, ex.getMessage());
-        }
-    }
-
-    /**
-     * Create contents of the wizard
-     *
-     * @param parent Composite
-     */
-    public void createControl(Composite parent) {
-        container = new Composite(parent, SWT.NONE);
-        final GridLayout gridLayoutRoot = new GridLayout();
-        container.setLayout(gridLayoutRoot);
-        setControl(container);
-    }
-
-    /**
-     * Retrieves the current view for selection data source.
-     *
-     * @return AbstractView
-     */
-    private AbstractSourceView getCurrentView() {
-        final MigrationConfiguration cfg = getMigrationWizard().getMigrationConfig();
-        if (cfg.sourceIsOnline()) {
-            return onlineView;
-        } else if (cfg.sourceIsXMLDump()) {
-            return mysqlDumpView;
-        }
-        throw new RuntimeException("Can't support source type :" + cfg.getSourceType());
-    }
-
-    /**
-     * When migration wizard will show next page or previous page.
-     *
-     * @param event PageChangingEvent
-     */
-    protected void handlePageLeaving(PageChangingEvent event) {
-        // If page is not complete, it should be go to previous page.
-        if (!isPageComplete()) {
-            return;
-        }
-        if (!isGotoNextPage(event)) {
-            return;
-        }
-        event.doit = updateMigrationConfig();
-    }
-
-    /**
-     * Save user input (source database connection information) to export options.
-     *
-     * @return true if update success.
-     */
-    protected boolean updateMigrationConfig() {
-        return getCurrentView().save();
     }
 }

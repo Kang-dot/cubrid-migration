@@ -41,9 +41,12 @@ import com.cubrid.cubridmigration.core.dbobject.FK;
 import com.cubrid.cubridmigration.core.dbobject.Index;
 import com.cubrid.cubridmigration.core.dbobject.PK;
 import com.cubrid.cubridmigration.core.dbobject.Schema;
+import com.cubrid.cubridmigration.core.dbobject.SchemaCatalog;
+import com.cubrid.cubridmigration.core.dbobject.SchemaEntry;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.Version;
 import com.cubrid.cubridmigration.core.dbobject.View;
+import com.cubrid.cubridmigration.core.dbobject.mapper.SchemaCatalogMapper;
 import com.cubrid.cubridmigration.core.dbtype.DatabaseType;
 import com.cubrid.cubridmigration.core.dbtype.IDependOnDatabaseType;
 import com.cubrid.cubridmigration.core.engine.exception.JDBCConnectErrorException;
@@ -76,6 +79,25 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
     private static final Logger LOG = LogUtil.getLogger(AbstractJDBCSchemaFetcher.class);
 
     protected DBObjectFactory factory = null;
+
+    @FunctionalInterface
+    private interface SchemaTask {
+        void run() throws Exception;
+    }
+
+    private void runSchemaTask(String label, boolean fatalOnSQLException, SchemaTask task)
+            throws SQLException {
+        try {
+            task.run();
+        } catch (SQLException e) {
+            if (fatalOnSQLException) {
+                throw e;
+            }
+            LOG.error(label, e);
+        } catch (Exception e) {
+            LOG.error(label, e);
+        }
+    }
 
     /**
      * buildCatalog
@@ -122,6 +144,67 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
         return catalog;
     }
 
+    /** Builds SchemaCatalog (DB info + schema names) from JDBC metadata. */
+    public SchemaCatalog buildSchemaCatalog(final Connection conn, ConnParameters cp)
+            throws SQLException {
+        String dbName = cp.getDbName();
+        String catalogName;
+        DatabaseType databaseType = cp.getDatabaseType();
+        if (DatabaseType.ORACLE == databaseType) {
+            // If DB name is SID/schemaName pattern
+            if (dbName.startsWith("/")) {
+                dbName = dbName.substring(1, dbName.length());
+            }
+            String[] strs = dbName.toUpperCase(Locale.ENGLISH).split("/");
+            catalogName = strs[0];
+        } else {
+            catalogName = cp.getDbName();
+        }
+        Version version = getVersion(conn);
+        Map<String, List<DataType>> supportedDataType = getSupportedSqlTypes(conn);
+        SchemaCatalog schemaCatalog =
+                new SchemaCatalog(catalogName, databaseType, cp, version, supportedDataType);
+        List<String> schemas = getSchemaNames(conn, cp);
+        if (schemas.isEmpty()) {
+            throw new IllegalArgumentException("Invalid schema or no schema specified.");
+        }
+        boolean hasUserSchema = databaseType.isSupportMultiSchema();
+        String conUser = cp.getConUser();
+        for (String schemaName : schemas) {
+            boolean grantorSchema;
+            if (hasUserSchema) {
+                grantorSchema = !schemaName.equalsIgnoreCase(conUser);
+            } else {
+                grantorSchema = false;
+            }
+            schemaCatalog.getSchemas().add(new SchemaEntry(schemaName, grantorSchema));
+        }
+        return schemaCatalog;
+    }
+
+    /** Builds a Catalog with objects only for the given schemas using the given SchemaCatalog. */
+    public Catalog buildSchemaObjects(
+            final Connection conn, final SchemaCatalog sc, List<String> schemaNames)
+            throws SQLException {
+        Catalog catalog = SchemaCatalogMapper.createEmptyCatalogFromSchemaCatalog(sc, schemaNames);
+        for (String schemaName : schemaNames) {
+            Schema schema = catalog.getSchemaByName(schemaName);
+            if (schema == null) {
+                continue;
+            }
+
+            runSchemaTask("buildTables", true, () -> buildTables(conn, catalog, schema, null));
+            runSchemaTask("buildViews", false, () -> buildViews(conn, catalog, schema, null));
+            runSchemaTask(
+                    "buildProcedures", false, () -> buildProcedures(conn, catalog, schema, null));
+            runSchemaTask("buildTriggers", false, () -> buildTriggers(conn, catalog, schema, null));
+            runSchemaTask("buildSequence", false, () -> buildSequence(conn, catalog, schema, null));
+            runSchemaTask("buildSynonym", false, () -> buildSynonym(conn, catalog, schema, null));
+            runSchemaTask("buildGrant", false, () -> buildGrant(conn, catalog, schema, null));
+        }
+        return catalog;
+    }
+
     /**
      * return schema names
      *
@@ -133,11 +216,6 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
     protected List<String> getSchemaNames(final Connection conn, ConnParameters cp)
             throws SQLException {
         List<String> result = new ArrayList<String>();
-        //		if (StringUtils.isNotBlank(cp.getSchema())) {
-        //			result.add(cp.getSchema());
-        //		} else {
-        //			result.add(cp.getDbName());
-        //		}
         result.add(cp.getConUser().toUpperCase(Locale.US));
         return result;
     }
@@ -214,52 +292,14 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
             schema.setGrantorSchema(false);
         }
 
-        // Get Tables
-        try {
-            buildTables(conn, catalog, schema, filter);
-        } catch (SQLException e) {
-            throw e;
-        } catch (Exception e) {
-            LOG.error("buildTables", e);
-        }
-
-        try {
-            buildViews(conn, catalog, schema, filter);
-        } catch (Exception e) {
-            LOG.error("buildViews", e);
-        }
-
-        // get procedures
-        try {
-            buildProcedures(conn, catalog, schema, filter);
-        } catch (Exception e) {
-            LOG.error("buildProcedures", e);
-        }
-
-        // get triggers
-        try {
-            buildTriggers(conn, catalog, schema, filter);
-        } catch (Exception e) {
-            LOG.error("buildTriggers", e);
-        }
-
-        try {
-            buildSequence(conn, catalog, schema, filter);
-        } catch (Exception e) {
-            LOG.error("buildSequence", e);
-        }
-
-        try {
-            buildSynonym(conn, catalog, schema, filter);
-        } catch (Exception e) {
-            LOG.error("buildSynonym", e);
-        }
-
-        try {
-            buildGrant(conn, catalog, schema, filter);
-        } catch (Exception e) {
-            LOG.error("buildGrant", e);
-        }
+        runSchemaTask("buildTables", true, () -> buildTables(conn, catalog, schema, filter));
+        runSchemaTask("buildViews", false, () -> buildViews(conn, catalog, schema, filter));
+        runSchemaTask(
+                "buildProcedures", false, () -> buildProcedures(conn, catalog, schema, filter));
+        runSchemaTask("buildTriggers", false, () -> buildTriggers(conn, catalog, schema, filter));
+        runSchemaTask("buildSequence", false, () -> buildSequence(conn, catalog, schema, filter));
+        runSchemaTask("buildSynonym", false, () -> buildSynonym(conn, catalog, schema, filter));
+        runSchemaTask("buildGrant", false, () -> buildGrant(conn, catalog, schema, filter));
     }
 
     protected void buildGrant(
@@ -323,10 +363,6 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
                 columnName = resultSetMeta.getColumnName(i);
             }
             column.setName(columnName);
-            //			int charLength = resultSetMeta.getColumnDisplaySize(i);
-            //			if (charLength <= 0) {
-            //				charLength = 1;
-            //			}
             column.setJdbcIDOfDataType(resultSetMeta.getColumnType(i));
 
             int precision = resultSetMeta.getPrecision(i);
@@ -524,8 +560,6 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
                     }
 
                     foreignKey.setReferencedTableName(fkTableName);
-
-                    // foreignKey.setDeferability(rs.getInt("DEFERRABILITY"));
 
                     switch (rs.getShort("DELETE_RULE")) {
                         case DatabaseMetaData.importedKeyCascade:
@@ -860,26 +894,10 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
                 column.setPrecision(column.getCharLength());
                 column.setScale(rs.getInt("DECIMAL_DIGITS"));
                 // make sure precision is greater than scale
-                //				if (column.getScale() != null
-                //						&& column.getPrecision() < column.getScale()) {
-                //					column.setPrecision(16);
-                //
-                //					if (column.getPrecision() < column.getScale()) {
-                //						column.setPrecision(column.getScale() + 1);
-                //					}
-                //				}
                 column.setNullable(
                         rs.getInt("NULLABLE") == java.sql.DatabaseMetaData.columnNullable);
-                // prevent VARCHAR(0) columns
-                //				if (column.getDataType().equalsIgnoreCase("VARCHAR")
-                //						&& column.getCharLength() == 0) {
-                //					column.setCharLength(255);
-                //				}
                 // set column default value
                 column.setDefaultValue(rs.getString("COLUMN_DEF"));
-                //				LOG.debug("Column Name:" + column.getName() + "  Column Type "
-                //						+ column.getDataType() + "  Column Length:"
-                //						+ column.getByteLength());
             }
         } finally {
             Closer.close(rs);
@@ -1010,35 +1028,6 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
         return catalog == null ? null : catalog.getName();
     }
 
-    //	/**
-    //	 * Get Catalogs
-    //	 *
-    //	 * @param conn Connection
-    //	 * @return List<String> @ e
-    //	 */
-    //	public List<String> getCatalogs(final Connection conn) {
-    //		if (LOG.isDebugEnabled()) {
-    //			LOG.debug("[IN]getCatalogs()");
-    //		}
-    //		final List<String> list = new ArrayList<String>();
-    //		ResultSet rs = null; //NOPMD
-    //		try {
-    //			final DatabaseMetaData metadata = conn.getMetaData();
-    //			rs = metadata.getCatalogs();
-    //			if (rs != null) {
-    //				while (rs.next()) {
-    //					list.add(rs.getString("TABLE_CAT"));
-    //				}
-    //			}
-    //			return list;
-    //		} catch (SQLException e) {
-    //			LOG.error("getCatalogs err:", e);
-    //			throw new RuntimeException(e);
-    //		} finally {
-    //			Closer.close(rs);
-    //		}
-    //	}
-
     /**
      * ORACLE ----------select name,value$ from props$ where name like 'NLS_CHAR%'; MYSQL
      * ----------SHOW VARIABLES where variable_name='character_set_database'
@@ -1066,40 +1055,6 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
     protected String getSchemaName(final Schema schema) {
         return schema == null ? null : schema.getName();
     }
-
-    //	/**
-    //	 * Returns a list of all schemata from the given JDBC connection
-    //	 *
-    //	 * @param conn Connection
-    //	 * @return List<String> @ e
-    //	 */
-    //	public List<String> getSchemata(final Connection conn) {
-    //		if (LOG.isDebugEnabled()) {
-    //			LOG.debug("[IN]getSchemata()");
-    //		}
-    //		ResultSet rs = null; //NOPMD
-    //		try {
-    //			final List<String> schemataList = new ArrayList<String>();
-    //
-    //			rs = conn.getMetaData().getSchemas();
-    //			while (rs.next()) {
-    //				final String schemaName = rs.getString("TABLE_SCHEM");
-    //				if (schemaName != null) {
-    //					schemataList.add(schemaName);
-    //				}
-    //			}
-    //			if (schemataList.isEmpty()) {
-    //				schemataList.add("DEFAULT");
-    //			}
-    //
-    //			return schemataList;
-    //		} catch (SQLException e) {
-    //			LOG.error("getSchemata err:", e);
-    //			throw new RuntimeException(e);
-    //		} finally {
-    //			Closer.close(rs);
-    //		}
-    //	}
 
     /**
      * Get Source Partition DDL
@@ -1224,19 +1179,6 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
                 || "NULL".equalsIgnoreCase(dataType)
                 || "UNKNOWN".equalsIgnoreCase(dataType);
     }
-
-    //	/**
-    //	 * build Partitions
-    //	 *
-    //	 * @param conn Connection
-    //	 * @param catalog Catalog
-    //	 * @param schema Schema
-    //	 * @throws SQLException e
-    //	 */
-    //	protected void buildPartitions(final Connection conn,
-    //			final Catalog catalog, final Schema schema) throws SQLException {
-    //		//do nothing
-    //	}
 
     /**
      * Return whether a view name is accepted.

@@ -48,6 +48,7 @@ import com.cubrid.cubridmigration.core.dbobject.PartitionInfo;
 import com.cubrid.cubridmigration.core.dbobject.PartitionTable;
 import com.cubrid.cubridmigration.core.dbobject.Procedure;
 import com.cubrid.cubridmigration.core.dbobject.Schema;
+import com.cubrid.cubridmigration.core.dbobject.SchemaCatalog;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.Trigger;
 import com.cubrid.cubridmigration.core.dbobject.Version;
@@ -103,8 +104,6 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
                     + "from information_schema.tables "
                     + "where table_schema = ? and table_name = ?";
 
-    // private static final String SCHEMA_SELECT = "SHOW DATABASES";
-
     /**
      * get db prop info
      *
@@ -144,68 +143,6 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 };
     }
 
-    //	/**
-    //	 * Returns a list of all schemata from the given JDBC connection
-    //	 *
-    //	 * @param conn Connection
-    //	 * @return returns a GRT XML string containing a list of schemata names @ e
-    //	 */
-    //	public List<String> getSchemata(final Connection conn) {
-    //		Statement stmt = null; // NOPMD
-    //		ResultSet rs = null; // NOPMD
-    //		try {
-    //			final List<String> schemataList = new ArrayList<String>();
-    //
-    //			stmt = conn.createStatement();
-    //			rs = stmt.executeQuery(SCHEMA_SELECT);
-    //
-    //			while (rs.next()) {
-    //				schemataList.add(rs.getString(1));
-    //			}
-    //
-    //			return schemataList;
-    //		} catch (SQLException e) {
-    //			throw new RuntimeException(e);
-    //		} finally {
-    //			Closer.close(rs);
-    //			Closer.close(stmt);
-    //		}
-    //	}
-
-    //	/**
-    //	 * get db char set
-    //	 *
-    //	 * @param conn Connection
-    //	 * @param dbName String
-    //	 * @return db charSet
-    //	 * @throws SQLException e
-    //	 */
-    //	public String getCharSet(final Connection conn, final String dbName) throws SQLException {
-    //		if (dbName == null || dbName.trim().equals("")) {
-    //			throw new IllegalArgumentException("The database name is null!");
-    //		}
-    //
-    //		PreparedStatement stmt = null; // NOPMD
-    //		ResultSet rs = null; // NOPMD
-    //		try {
-    //			final String sqlStr = SHOW_DB + getQuoteStr(dbName);
-    //			stmt = conn.prepareStatement(sqlStr);
-    //			rs = stmt.executeQuery();
-    //
-    //			String databaseDDL = null;
-    //
-    //			if (rs.next()) {
-    //				databaseDDL = rs.getString(2);
-    //			}
-    //
-    //			return getCharset(databaseDDL);
-    //
-    //		} finally {
-    //			Closer.close(rs);
-    //			Closer.close(stmt);
-    //		}
-    //	}
-
     /**
      * buildCatalog
      *
@@ -218,60 +155,46 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
     public Catalog buildCatalog(final Connection conn, ConnParameters cp, IBuildSchemaFilter filter)
             throws SQLException {
         final Catalog catalog = super.buildCatalog(conn, cp, filter);
+        final SQLHelper sqlHelper = cp.getDatabaseType().getSQLHelper(null);
+        loadMariaDBCatalogDetails(conn, catalog, sqlHelper);
+        return catalog;
+    }
 
-        final String charset = getCharSetByDBVariables(conn);
+    @Override
+    public Catalog buildSchemaObjects(Connection conn, SchemaCatalog sc, List<String> schemaNames)
+            throws SQLException {
+        Catalog catalog = super.buildSchemaObjects(conn, sc, schemaNames);
+        SQLHelper sqlHelper = sc.getDatabaseType().getSQLHelper(null);
+        loadMariaDBCatalogDetails(conn, catalog, sqlHelper);
+        return catalog;
+    }
+
+    private void loadMariaDBCatalogDetails(Connection conn, Catalog catalog, SQLHelper sqlHelper)
+            throws SQLException {
+        String charset = getCharSetByDBVariables(conn);
         catalog.setCharset(charset);
         catalog.setDatabaseType(DatabaseType.MARIADB);
 
-        final String dbDDL = getDBDDL(conn, catalog.getName());
+        String dbDDL = getDBDDL(conn, catalog.getName());
         catalog.setCreateSql(dbDDL);
 
-        final List<Schema> schemaList = catalog.getSchemas();
-        final SQLHelper sqlHelper = cp.getDatabaseType().getSQLHelper(null);
+        List<Schema> schemaList = catalog.getSchemas();
         for (Schema schema : schemaList) {
-            // get tables
-            final List<Table> tableList = schema.getTables();
-
+            List<Table> tableList = schema.getTables();
             for (Table table : tableList) {
                 table.setDDL(getTableDDL(conn, table.getName()));
                 table.setComment(getTableComment(conn, catalog.getName(), table.getName()));
             }
 
-            // get views
-            final List<View> viewList = schema.getViews();
-
+            List<View> viewList = schema.getViews();
             for (View view : viewList) {
                 view.setDDL(getViewDDL(conn, view.getName()));
                 view.setQuerySpec(sqlHelper.getViewQuerySpec(view.getDDL()));
             }
         }
-
         catalog.setTimezone(getTimezone(conn));
-
-        // get partitions
         buildPartitions(conn, catalog, catalog.getSchemas().get(0));
-
-        return catalog;
     }
-
-    //	/**
-    //	 * getCharset
-    //	 *
-    //	 * @param databaseDDL String
-    //	 * @return database Charset
-    //	 */
-    //	public static String getCharset(String databaseDDL) {
-    //		String patternCharset = "CREATE DATABASE .* DEFAULT CHARACTER SET (.*) ..";
-    //		Pattern pattern = Pattern.compile(patternCharset);
-    //		Matcher matcher = pattern.matcher(databaseDDL);
-    //		boolean matchFound = matcher.find();
-    //
-    //		if (matchFound) {
-    //			return matcher.group(1);
-    //		}
-    //
-    //		return null;
-    //	}
 
     /**
      * build Partitions MariadB support Partition
@@ -561,7 +484,6 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
 
             while (rs.next()) {
                 String indexName = rs.getString("KEY_NAME");
-                // String indexType = rs.getString("INDEX_TYPE");
                 // filter duplicate key_name
                 FK fk = table.getFKByName(indexName);
                 if (fk != null) {
@@ -1050,40 +972,6 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
         return null;
     }
 
-    //	/**
-    //	 * get table's row count by schema name
-    //	 *
-    //	 * @param conn Connection
-    //	 * @param schemaName String
-    //	 * @return Map<String, String> @ e
-    //	 */
-    //	protected Map<String, String> getTableRowCntBySchemaName(
-    //			final Connection conn, final String schemaName) {
-    //		final Map<String, String> map = new HashMap<String, String>();
-    //		ResultSet rs = null; // NOPMD
-    //		PreparedStatement stmt = null; // NOPMD
-    //		try {
-    //			final String tableType = "BASE TABLE";
-    //			final String sqlStr = "SELECT TABLE_NAME,TABLE_ROWS FROM INFORMATION_SCHEMA.TABLES WHERE
-    // TABLE_TYPE=? AND TABLE_SCHEMA=?";
-    //			stmt = conn.prepareStatement(sqlStr);
-    //			stmt.setString(1, tableType);
-    //			stmt.setString(2, schemaName);
-    //			rs = stmt.executeQuery();
-    //
-    //			while (rs.next()) {
-    //				map.put(rs.getString(1), rs.getString(2));
-    //			}
-    //
-    //			return map;
-    //		} catch (SQLException e) {
-    //			throw new RuntimeException(e);
-    //		} finally {
-    //			Closer.close(rs);
-    //			Closer.close(stmt);
-    //		}
-    //	}
-
     /**
      * get time zone
      *
@@ -1173,18 +1061,4 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
     public DatabaseType getDBType() {
         return DatabaseType.MARIADB;
     }
-
-    //	/**
-    //	 *
-    //	 * buildAllSchemas
-    //	 *
-    //	 * @param conn Connection
-    //	 * @param catalog Catalog
-    //	 * @param schema Schema
-    //	 * @param tables Map<String, Table>
-    //	 * @throws SQLException ex
-    //	 */
-    //	protected void buildAllSchemas(Connection conn, Catalog catalog,
-    //			Schema schema, Map<String, Table> tables) throws SQLException {
-    //	}
 }
