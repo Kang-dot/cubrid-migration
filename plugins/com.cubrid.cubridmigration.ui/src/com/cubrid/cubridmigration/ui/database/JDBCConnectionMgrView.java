@@ -35,6 +35,8 @@ import com.cubrid.common.ui.swt.table.TableViewerBuilder;
 import com.cubrid.cubridmigration.core.connection.CMTConParamManager;
 import com.cubrid.cubridmigration.core.connection.ConnParameters;
 import com.cubrid.cubridmigration.core.dbobject.Catalog;
+import com.cubrid.cubridmigration.core.dbobject.SchemaCatalog;
+import com.cubrid.cubridmigration.core.dbobject.mapper.SchemaCatalogMapper;
 import com.cubrid.cubridmigration.core.dbtype.DatabaseType;
 import com.cubrid.cubridmigration.ui.MigrationUIPlugin;
 import com.cubrid.cubridmigration.ui.common.dialog.DetailMessageDialog;
@@ -75,49 +77,6 @@ import java.util.List;
  * @version 1.0 - 2013-4-22 created by Kevin Cao
  */
 public class JDBCConnectionMgrView {
-
-    /**
-     * @author fulei
-     */
-    private class DeleteAction extends Action {
-        public DeleteAction() {
-            setText(Messages.removeButtonLabel);
-            setImageDescriptor(MigrationUIPlugin.getImageDescriptor("icon/deleteDB.png"));
-        }
-
-        /** run */
-        public void run() {
-            removeDBConInfo();
-        }
-    }
-
-    /**
-     * @author fulei
-     */
-    private class RefreshAction extends Action {
-        /** constructor */
-        public RefreshAction() {
-            setText(Messages.refreshButtonLabel);
-            setToolTipText(Messages.refreshButtonDescription);
-            setImageDescriptor(MigrationUIPlugin.getImageDescriptor("icon/refresh.gif"));
-        }
-
-        /** run */
-        public void run() {
-            refreshCon();
-        }
-    }
-
-    private class CopyAction extends Action {
-        public CopyAction() {
-            setText(Messages.copyButtonLabel);
-            setImageDescriptor(MigrationUIPlugin.getImageDescriptor("icon/copy.png"));
-        }
-
-        public void run() {
-            copyDBConInfo();
-        }
-    }
 
     private static final Logger LOG = LogUtil.getLogger(JDBCConnectionMgrView.class);
 
@@ -338,8 +297,8 @@ public class JDBCConnectionMgrView {
 
         Button btnRefresh = new Button(buttonContainer, SWT.NONE);
         btnRefresh.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
-        btnRefresh.setText(Messages.refreshButtonLabel);
-        btnRefresh.setToolTipText(Messages.refreshButtonDescription);
+        btnRefresh.setText(Messages.schemaMappingRefreshLabel);
+        btnRefresh.setToolTipText(Messages.schemaMappingPageDescription);
         btnRefresh.addSelectionListener(
                 new SelectionAdapter() {
 
@@ -369,12 +328,7 @@ public class JDBCConnectionMgrView {
         // Use old name to update the connection
         CMTConParamManager cpm = CMTConParamManager.getInstance();
         cpm.updateConnection(dbID, cp, false);
-        // Specify new connection name and update catalog cache.
         dbID = cp.getConName();
-        // If parameter changed, reset the catalog cache.
-        if (!cp.isSameDB(oldcp)) {
-            cpm.updateCatalog(dbID, null);
-        }
 
         dbTableViewer.update(selDci, null);
         dbTableViewer.refresh();
@@ -420,19 +374,21 @@ public class JDBCConnectionMgrView {
             Catalog catalog = instance.getCatalog(dbID);
             // If no cached
             if (null == catalog) {
-                updateConParamCatalog(cp);
-                catalog = instance.getCatalog(dbID);
-            } else {
-                // Cache found, newer catalog information should replace the old catalog.
-                if (scriptCatalog != null
-                        && cp.isSameDB(scriptCatalog.getConnectionParameters())
-                        && scriptCatalog.getCreateTime() > catalog.getCreateTime()) {
-                    if (MessageDialog.openQuestion(
-                            getActiveShell(),
-                            Messages.msgConfirmation,
-                            Messages.msgIsUseNewerScriptCatalog)) {
-                        instance.updateCatalog(dbID, scriptCatalog);
-                    }
+                SchemaFetcherWithProgress fetcher = SchemaFetcherWithProgress.getInstance(cp);
+                catalog = fetcher.fetch();
+                if (catalog == null) {
+                    return null;
+                }
+                instance.updateCatalog(dbID, catalog);
+            } else if (scriptCatalog != null
+                    && cp.isSameDB(scriptCatalog.getConnectionParameters())
+                    && scriptCatalog.getCreateTime() > catalog.getCreateTime()) {
+                if (MessageDialog.openQuestion(
+                        getActiveShell(),
+                        Messages.msgConfirmation,
+                        Messages.msgIsUseNewerScriptCatalog)) {
+                    instance.updateCatalog(dbID, scriptCatalog);
+                    catalog = scriptCatalog;
                 }
             }
             if (catalog != null) {
@@ -441,8 +397,43 @@ public class JDBCConnectionMgrView {
             return catalog;
         } catch (Exception ignored) {
             LOG.error(LogUtil.getExceptionString(ignored));
+            return null;
         }
-        return null;
+    }
+
+    /** Returns SchemaCatalog for the current connection, loading it lazily if needed. */
+    public SchemaCatalog getSourceSchemaCatalog() {
+        if (StringUtils.isBlank(dbID)) {
+            return null;
+        }
+        CMTConParamManager instance = CMTConParamManager.getInstance();
+        final ConnParameters cp = instance.getConnection(dbID);
+        if (cp == null) {
+            return null;
+        }
+        try {
+            SchemaCatalog sc = instance.getSourceSchemaCatalog(cp);
+            if (sc == null) {
+                updateConParamCatalog(cp);
+                sc = instance.getSourceSchemaCatalog(cp);
+            } else {
+                if (scriptCatalog != null && cp.isSameDB(scriptCatalog.getConnectionParameters())) {
+                    if (MessageDialog.openQuestion(
+                            getActiveShell(),
+                            Messages.msgConfirmation,
+                            Messages.msgIsUseNewerScriptCatalog)) {
+                        instance.updateCatalog(dbID, scriptCatalog);
+                        SchemaCatalog scriptSC = SchemaCatalogMapper.toSchemaCatalog(scriptCatalog);
+                        instance.updateSourceSchemaCatalog(cp, scriptSC);
+                        sc = scriptSC;
+                    }
+                }
+            }
+            return sc;
+        } catch (Exception ignored) {
+            LOG.error(LogUtil.getExceptionString(ignored));
+            return null;
+        }
     }
 
     /**
@@ -532,7 +523,9 @@ public class JDBCConnectionMgrView {
             return;
         }
         if (!MessageDialog.openConfirm(
-                getActiveShell(), Messages.msgConfirmation, Messages.refreshDBConnActionMessage)) {
+                getActiveShell(),
+                Messages.msgConfirmation,
+                Messages.schemaMappingRefreshActionMessage)) {
             return;
         }
         updateConParamCatalog(dci.getConnParameters());
@@ -683,37 +676,42 @@ public class JDBCConnectionMgrView {
     }
 
     /**
-     * Update the catalog cache of connection parameters.
+     * Refreshes SchemaCatalog (schema names) for the given connection and clears detailed cache.
      *
      * @param cp connection parameters.
      */
     private void updateConParamCatalog(ConnParameters cp) {
         final CMTConParamManager cpm = CMTConParamManager.getInstance();
         SchemaFetcherWithProgress fetcher = SchemaFetcherWithProgress.getInstance(cp);
-        Catalog catalog = fetcher.fetch();
+        SchemaCatalog sc = fetcher.fetchNames();
 
-        // If fetch catalog successfully, update cache and return.
-        if (catalog != null) {
-            cpm.updateCatalog(dbID, catalog);
+        if (fetcher.isCanceled()) {
             return;
         }
-        // Cache catalog for mapping
-        final Catalog oldCatalog;
+
+        // If fetch schema catalog successfully, update cache and return.
+        if (sc != null) {
+            cpm.updateSourceSchemaCatalog(cp, sc);
+            cpm.clearSelectedSourceCatalog(cp);
+            return;
+        }
+        // Cache schema catalog for mapping
+        final SchemaCatalog oldSchemaCatalog;
         String errorMsg =
                 fetcher.getErrorMessage() == null ? "" : (fetcher.getErrorMessage() + "\r\n");
         if (scriptCatalog == null) {
-            oldCatalog = cpm.getCatalog(cp.getConName());
+            oldSchemaCatalog = cpm.getSourceSchemaCatalog(cp);
             errorMsg = errorMsg + Messages.msgIsUseCachedCatalog;
         } else if (cp.isSameDB(scriptCatalog.getConnectionParameters())) {
             // The script's connection parameter should be as same as the input connection
             // parameters.
-            oldCatalog = scriptCatalog;
+            oldSchemaCatalog = SchemaCatalogMapper.toSchemaCatalog(scriptCatalog);
             errorMsg = errorMsg + Messages.msgIsUseScriptCatalog;
         } else {
-            oldCatalog = null;
+            oldSchemaCatalog = null;
         }
-        // If fetch catalog failed, and there is no old catalog
-        if (oldCatalog == null) {
+        // If fetch catalog failed, and there is no old schema catalog
+        if (oldSchemaCatalog == null) {
             errorMsg = fetcher.getErrorMessage() == null ? "" : fetcher.getErrorMessage();
             DetailMessageDialog.openError(
                     getActiveShell(),
@@ -724,7 +722,7 @@ public class JDBCConnectionMgrView {
                             : fetcher.getError().getMessage()));
             return;
         }
-        // Query user if use old catalog
+        // Query user if use old schema catalog
         if (!DetailMessageDialog.openConfirm(
                 getActiveShell(),
                 Messages.msgError,
@@ -733,9 +731,54 @@ public class JDBCConnectionMgrView {
                         ? fetcher.getErrorMessage()
                         : fetcher.getError().getMessage()))) {
             cpm.updateCatalog(dbID, null);
+            cpm.updateSourceSchemaCatalog(cp, null);
             return;
         }
-        // Update cached catalog with old catalog.
-        cpm.updateCatalog(dbID, oldCatalog);
+        // Update cached catalog with old schema catalog.
+        cpm.updateSourceSchemaCatalog(cp, oldSchemaCatalog);
+        cpm.clearSelectedSourceCatalog(cp);
+    }
+
+    /**
+     * @author fulei
+     */
+    private class DeleteAction extends Action {
+        public DeleteAction() {
+            setText(Messages.removeButtonLabel);
+            setImageDescriptor(MigrationUIPlugin.getImageDescriptor("icon/deleteDB.png"));
+        }
+
+        /** run */
+        public void run() {
+            removeDBConInfo();
+        }
+    }
+
+    /**
+     * @author fulei
+     */
+    private class RefreshAction extends Action {
+        /** constructor */
+        public RefreshAction() {
+            setText(Messages.schemaMappingRefreshLabel);
+            setToolTipText(Messages.schemaMappingRefreshDescription);
+            setImageDescriptor(MigrationUIPlugin.getImageDescriptor("icon/refresh.gif"));
+        }
+
+        /** run */
+        public void run() {
+            refreshCon();
+        }
+    }
+
+    private class CopyAction extends Action {
+        public CopyAction() {
+            setText(Messages.copyButtonLabel);
+            setImageDescriptor(MigrationUIPlugin.getImageDescriptor("icon/copy.png"));
+        }
+
+        public void run() {
+            copyDBConInfo();
+        }
     }
 }

@@ -85,6 +85,7 @@ import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -92,6 +93,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.TreeMap;
 
@@ -219,6 +221,12 @@ public class MigrationConfiguration {
     private int tarSchemaSize;
     private Catalog offlineSrcCatalog;
 
+    /**
+     * Full/original offline source catalog snapshot used for Step4/Step5 back navigation and re
+     * selection.
+     */
+    private Catalog offlineFullSrcCatalog;
+
     private final List<Table> srcSQLSchemas = new ArrayList<Table>();
 
     private boolean createConstrainsBeforeData = false;
@@ -231,6 +239,7 @@ public class MigrationConfiguration {
     private int destType;
     private ConnParameters targetConParams;
 
+    private SchemaSelection selectedSrcSchemas = SchemaSelection.empty();
     private List<String> newTargetSchema = new ArrayList<String>();
     private List<Schema> targetSchemaList = new ArrayList<Schema>();
 
@@ -1602,9 +1611,7 @@ public class MigrationConfiguration {
                             StringUtils.lowerCase(entry.getValue()));
                 }
 
-                // tfk.setDeferability(fk.getDeferability());
                 tfk.setDeleteRule(fk.getDeleteRule());
-                // tfk.setOnCacheObject(fk.getOnCacheObject());
                 tfk.setUpdateRule(fk.getUpdateRule());
             }
             tfks.add(tfk);
@@ -2545,6 +2552,49 @@ public class MigrationConfiguration {
         return DATA_FORMAT_EXT[destType];
     }
 
+    public Set<String> getSelectedSrcSchemas() {
+        return selectedSrcSchemas.asSet();
+    }
+
+    public void setSelectedSrcSchemas(Collection<String> schemas) {
+        this.selectedSrcSchemas = SchemaSelection.of(schemas);
+    }
+
+    public void addSelectedSrcSchema(String schemaName) {
+        if (schemaName == null || schemaName.trim().isEmpty()) {
+            return;
+        }
+        List<String> merged = new ArrayList<String>(selectedSrcSchemas.asSet());
+        merged.add(schemaName.trim());
+        this.selectedSrcSchemas = SchemaSelection.of(merged);
+    }
+
+    public void removeSelectedSrcSchema(String schemaName) {
+        if (schemaName == null || selectedSrcSchemas.isEmpty()) {
+            return;
+        }
+        String trimmed = schemaName.trim();
+        List<String> remaining = new ArrayList<String>();
+        for (String s : selectedSrcSchemas.asSet()) {
+            if (!s.equals(trimmed)) {
+                remaining.add(s);
+            }
+        }
+        this.selectedSrcSchemas = SchemaSelection.of(remaining);
+    }
+
+    public boolean isSrcSchemaSelected(String schemaName) {
+        return selectedSrcSchemas.contains(schemaName);
+    }
+
+    public boolean hasSelectedSrcSchemas() {
+        return !selectedSrcSchemas.isEmpty();
+    }
+
+    public void clearSelectedSrcSchemas() {
+        this.selectedSrcSchemas = SchemaSelection.empty();
+    }
+
     /**
      * If source is online, JDBC parameter will be returned; if source is XML, <MYSQLXMLDumpSource>
      * will be returned; Other (SQL or CSV) will return a IDBSource object.
@@ -3091,6 +3141,10 @@ public class MigrationConfiguration {
         return offlineSrcCatalog;
     }
 
+    public Catalog getOfflineFullSrcCatalog() {
+        return offlineFullSrcCatalog;
+    }
+
     /**
      * Get other parameter from configuration
      *
@@ -3128,13 +3182,6 @@ public class MigrationConfiguration {
         }
         return charset;
     }
-
-    //	/**
-    //	 * @return the sourceDBSchema
-    //	 */
-    //	public Schema getSourceDBSchema() {
-    //		return sourceDBSchema;
-    //	}
 
     /**
      * @return the sourceConParams
@@ -3953,8 +4000,6 @@ public class MigrationConfiguration {
             return getTargetTableSchema(name);
         }
 
-        //		Schema targetSchema = verUtil.getSchemaMapping().get(owner);
-
         for (Table tt : this.targetTables) {
             if (tt.getName().equalsIgnoreCase(name) && tt.getOwner().equalsIgnoreCase(owner)) {
                 return tt;
@@ -4227,11 +4272,6 @@ public class MigrationConfiguration {
                 return sc.isCreate();
             }
         }
-        //		for (SourceConfig sc : expSerials) {
-        //			if (name.equalsIgnoreCase(sc.getTarget())) {
-        //				return true;
-        //			}
-        //		}
         return false;
     }
 
@@ -4282,7 +4322,6 @@ public class MigrationConfiguration {
     public void parsingCSVFile(SourceCSVConfig sc) {
         BufferedReader reader;
         try {
-            // new FileInputStream(sc.getName())
             reader =
                     new BufferedReader(
                             new InputStreamReader(
@@ -4637,12 +4676,6 @@ public class MigrationConfiguration {
                 sc.setCreate(value);
             }
         }
-
-        // Don't clear sqls
-        //		if (!value) {
-        //			expSQLTables.clear();
-        //			srcSQLSchemas.clear();
-        //		}
     }
 
     /**
@@ -4880,25 +4913,6 @@ public class MigrationConfiguration {
         this.fileRepositroyPath = fileRepositroyPath;
     }
 
-    //	/**
-    //	 * Change migration configuration's source database schema, and the
-    //	 * configuration and target schemas will auto build according to the source
-    //	 * database schema. Note that this method may cost much time.
-    //	 *
-    //	 * @param sourceDBSchema the sourceDBSchema to set
-    //	 * @param reset reset the configuration or not
-    //	 */
-    //	public void setSourceDBSchema(Schema sourceDBSchema, boolean reset) {
-    //		if (sourceDBSchema == null) {
-    //			throw new IllegalArgumentException("Schema can't not be null.");
-    //		}
-    //		this.sourceDBSchema = sourceDBSchema;
-    //		if (reset) {
-    //			clearAll();
-    //		}
-    //		this.buildConfigAndTargetSchema(reset);
-    //	}
-
     /**
      * Set a true if didn't use to count total records before a migration for showing correct
      * progress.
@@ -4944,6 +4958,10 @@ public class MigrationConfiguration {
 
     public void setOfflineSrcCatalog(Catalog offlineSrcCatalog) {
         this.offlineSrcCatalog = offlineSrcCatalog;
+    }
+
+    public void setOfflineFullSrcCatalog(Catalog offlineFullSrcCatalog) {
+        this.offlineFullSrcCatalog = offlineFullSrcCatalog;
     }
 
     public void setOneTableOneFile(boolean oneTableOneFile) {
