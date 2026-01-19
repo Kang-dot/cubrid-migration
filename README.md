@@ -1,64 +1,72 @@
-CUBRID Migration Toolkit (CMT) is a software tool that allows migrating data from MySQL/Oracle/CUBRID to CUBRID Database Server.
+# ![Migration Icon](docs/migration_icon.svg) CUBRID Migration Toolkit (CMT)
 
-The data and schema in the source database can be as sophisticated as possible. CMT provides the default settings to cast native MySQL and other DBMS data types to native CUBRID data types. However, most of them will overlap as CUBRID provides over 90% MySQL compatibility. If it is necessary to have the destination column data type different from the default settings, it can be easily customized before the migration process starts.
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](plugins/com.cubrid.cubridmigration.app/src/com/cubrid/cubridmigration/app/copyright.txt)  [![Release](https://img.shields.io/github/v/release/CUBRID/cubrid-migration)](https://github.com/CUBRID/cubrid-migration/releases)
 
----
-__Note__: When you want to use this tool, you need to download JDBC files first from their official site.
+**CUBRID Migration Toolkit (CMT)** is a comprehensive software tool designed to migrate data and schemas from various source databases to the CUBRID Database Server.
 
- - MYSQL: https://dev.mysql.com/downloads/connector/j/
- - ORACLE: http://www.oracle.com/technetwork/database/features/jdbc/index-091264.html
- - SQL SERVER: https://msdn.microsoft.com/en-us/sqlserver/aa937724.aspx
+The tool automatically maps complex schemas and data from source databases to CUBRID-compatible formats. It also allows for detailed customization before the migration process starts, enabling users to manually adjust data types and column attributes to fit their specific needs.
 
-## Prepare 3rd party libraries for CMT
+## Key Features
 
-### prepare dependency libs
+*   **Supported Source Databases**
+    * CUBRID (Supports version-to-version migration)
+    * Oracle
+    * MySQL
+    * MS SQL Server (MSSQL)
+    * MariaDB
+    * Informix
+*   **Schema & Data Migration**
+	* Converts table structures, indexes, and views to CUBRID-compatible formats.
+	* Automatically converts data types based on predefined CUBRID type mappings.
+*   **Execution Modes**
+    *   **GUI Mode(Desktop)**: Provides an intuitive user interface based on Eclipse RCP for easy configuration and monitoring.
+    *   **CLI Mode(Console)**: Executes migrations using pre-configured scripts, enabling lightweight and fast operation without a GUI.
 
-```
-cd cubridmigration/com.cubrid.cubridmigration.build/
-wget http://ftp.cubrid.org/CUBRID_Docs/CMT/cmt-build-3rdparty-libs.tgz
-tar -xvf cmt-build-3rdparty-libs.tgz
-```
+## Downloads
+You can download the latest binaries from the following links:
+- **Official Downloads**: [http://www.cubrid.org/downloads](http://www.cubrid.org/downloads)
+- **FTP Server**: [http://ftp.cubrid.org](http://ftp.cubrid.org/CUBRID_Tools/CUBRID_Migration_Toolkit/)
 
-### prepare dependency files for test
+## Build from Source
 
-```
-cd cubridmigration/com.cubrid.cubridmigration.build/
-wget http://ftp.cubrid.org/CUBRID_Docs/CMT/cmt-build-3rdparty-test.zip
-unzip cmt-build-3rdparty-test.zip
-```
+### 1. Prerequisites
+Ensure you have the following installed before building:
+-  **Java Development Kit (JDK)**: Version 21 or higher
+*   **Apache Maven**: Version 3.9.0 or higher
+### 2. How to Build
+Use the `build.sh` script in the root directory to build the project.
+> **Note**: For Windows users, you can use the `build.ps1` script.
 
-### prepare dependency drivers for testfragments
+*   **Build All**
+    ```bash
+    sh build.sh
+    ```
 
-```
-cd cubridmigration/com.cubrid.cubridmigration.core.testfragment/
-wget http://ftp.cubrid.org/CUBRID_Docs/CMT/cmt-test-3rdparty-drivers.zip
-unzip cmt-test-3rdparty-drivers.zip -d jdbc
+*   **Build Desktop (GUI) Version**
+    ```bash
+    sh build.sh -profile desktop
+    ```
 
-cd cubridmigration/com.cubrid.cubridmigration.ui.testfragment/
-wget http://ftp.cubrid.org/CUBRID_Docs/CMT/cmt-test-3rdparty-drivers.zip
-unzip cmt-test-3rdparty-drivers.zip -d jdbc
-```
+*   **Build Console (CLI) Version**
+    ```bash
+    sh build.sh -profile console
+    ```
 
-## Build from sources
+ The build artifacts(`.zip`, `tar.gz`) are generated in the `target` directory at the project root.
 
-### Prerequisites
-1. [OpenJDK 8](https://adoptium.net/temurin/releases/?version=8)
-2. [Apache Maven 3.9.6](https://maven.apache.org/download.cgi)
-3. git
-4. Internet access
+### 3. Build Options
 
-### Build
+| Option | Values                         | Description           |
+| ------ | ------------------------------ | --------------------- |
+| `-p`   | all(default), desktop, console | Set the build profile |
+| `-X`   | N/A                            | Enable debug logging  |
 
-```
-git clone -b release/eclipse_upgrade --single-branch https://github.com/CUBRID/cubrid-migration.git eclipse_upgrade
-cd eclipse_upgrade
+## License
+This project is open source. The CUBRID Migration Toolkit is distributed under the BSD License.  
+For more information about CUBRID Tools license policy, please visit https://www.cubrid.org/license
 
-// all build
-sh build -X
+## Getting Help
+If you encounter any difficulties, have questions, find bugs, or want to share suggestions, please visit our community:
+- Reddit: [https://www.reddit.com/r/CUBRID/](https://www.reddit.com/r/CUBRID/)
+- Jira: http://jira.cubrid.org/projects/TOOLS/issues
 
-// desktop build
-sh build -profile desktop -X
-
-// console build
-sh build -profile console -X
-```
