@@ -65,9 +65,11 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * AbstractJDBCSchemaFetcher
@@ -182,10 +184,102 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
         return schemaCatalog;
     }
 
+    /**
+     * Builds a SchemaCatalog using JDBC metadata and the given schema names, without querying the
+     * full schema list from the database.
+     *
+     * @param conn JDBC connection
+     * @param cp connection parameters
+     * @param schemaNames schema names provided by caller (required)
+     * @return SchemaCatalog
+     * @throws SQLException if JDBC metadata access fails
+     */
+    public SchemaCatalog buildSchemaCatalogForSchemas(
+            final Connection conn, final ConnParameters cp, final List<String> schemaNames)
+            throws SQLException {
+
+        List<String> normalizedSchemaNames = normalizeSchemaNames(schemaNames);
+        DatabaseType databaseType = cp.getDatabaseType();
+        String catalogName = resolveCatalogName(cp);
+        Version version = getVersion(conn);
+        Map<String, List<DataType>> supportedDataType = getSupportedSqlTypes(conn);
+        SchemaCatalog schemaCatalog =
+                new SchemaCatalog(catalogName, databaseType, cp, version, supportedDataType);
+        addSchemaEntries(schemaCatalog, normalizedSchemaNames, databaseType, cp.getConUser());
+        return schemaCatalog;
+    }
+
+    private List<String> normalizeSchemaNames(List<String> schemaNames) {
+        if (schemaNames == null || schemaNames.isEmpty()) {
+            throw new IllegalArgumentException("Invalid schema or no schema specified.");
+        }
+        Set<String> normalizedSchemaNames = new LinkedHashSet<String>();
+        for (String raw : schemaNames) {
+            if (raw == null) {
+                continue;
+            }
+            final String trimmed = raw.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            normalizedSchemaNames.add(trimmed.toUpperCase(Locale.ENGLISH));
+        }
+        if (normalizedSchemaNames.isEmpty()) {
+            throw new IllegalArgumentException("Invalid schema or no schema specified.");
+        }
+        return new ArrayList<String>(normalizedSchemaNames);
+    }
+
+    private String resolveCatalogName(ConnParameters cp) {
+        DatabaseType databaseType = cp.getDatabaseType();
+        String dbName = cp.getDbName();
+        if (DatabaseType.ORACLE == databaseType && dbName != null) {
+            if (dbName.startsWith("/")) {
+                dbName = dbName.substring(1);
+            }
+            final String upper = dbName.toUpperCase(Locale.ENGLISH);
+            final int slash = upper.indexOf('/');
+            dbName = (slash >= 0) ? upper.substring(0, slash) : upper;
+        }
+        return dbName;
+    }
+
+    private void addSchemaEntries(
+            SchemaCatalog schemaCatalog,
+            List<String> schemaNames,
+            DatabaseType databaseType,
+            String conUser) {
+        boolean multiSchema = databaseType.isSupportMultiSchema();
+        for (String schemaName : schemaNames) {
+            final boolean grantorSchema =
+                    multiSchema
+                            ? (conUser == null || !schemaName.equalsIgnoreCase(conUser))
+                            : false;
+            schemaCatalog.getSchemas().add(new SchemaEntry(schemaName, grantorSchema));
+        }
+    }
+
     /** Builds a Catalog with objects only for the given schemas using the given SchemaCatalog. */
     public Catalog buildSchemaObjects(
             final Connection conn, final SchemaCatalog sc, List<String> schemaNames)
             throws SQLException {
+        return buildSchemaObjects(conn, sc, schemaNames, null);
+    }
+
+    /** Builds a Catalog with objects only for the given schemas using the given SchemaCatalog. */
+    public Catalog buildSchemaObjects(
+            final Connection conn,
+            final SchemaCatalog sc,
+            List<String> schemaNames,
+            IBuildSchemaFilter filter)
+            throws SQLException {
+        if (schemaNames == null || schemaNames.isEmpty()) {
+            throw new IllegalArgumentException("Invalid schema or no schema specified.");
+        }
+        LOG.debug(
+                "[SCHEMA_SELECTED_ONLY] buildSchemaObjects schemaNames={} count={}",
+                schemaNames,
+                schemaNames.size());
         Catalog catalog = SchemaCatalogMapper.createEmptyCatalogFromSchemaCatalog(sc, schemaNames);
         for (String schemaName : schemaNames) {
             Schema schema = catalog.getSchemaByName(schemaName);
@@ -193,14 +287,16 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
                 continue;
             }
 
-            runSchemaTask("buildTables", true, () -> buildTables(conn, catalog, schema, null));
-            runSchemaTask("buildViews", false, () -> buildViews(conn, catalog, schema, null));
+            runSchemaTask("buildTables", true, () -> buildTables(conn, catalog, schema, filter));
+            runSchemaTask("buildViews", false, () -> buildViews(conn, catalog, schema, filter));
             runSchemaTask(
-                    "buildProcedures", false, () -> buildProcedures(conn, catalog, schema, null));
-            runSchemaTask("buildTriggers", false, () -> buildTriggers(conn, catalog, schema, null));
-            runSchemaTask("buildSequence", false, () -> buildSequence(conn, catalog, schema, null));
-            runSchemaTask("buildSynonym", false, () -> buildSynonym(conn, catalog, schema, null));
-            runSchemaTask("buildGrant", false, () -> buildGrant(conn, catalog, schema, null));
+                    "buildProcedures", false, () -> buildProcedures(conn, catalog, schema, filter));
+            runSchemaTask(
+                    "buildTriggers", false, () -> buildTriggers(conn, catalog, schema, filter));
+            runSchemaTask(
+                    "buildSequence", false, () -> buildSequence(conn, catalog, schema, filter));
+            runSchemaTask("buildSynonym", false, () -> buildSynonym(conn, catalog, schema, filter));
+            runSchemaTask("buildGrant", false, () -> buildGrant(conn, catalog, schema, filter));
         }
         return catalog;
     }
