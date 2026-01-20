@@ -1214,11 +1214,9 @@ public class MigrationConfiguration {
         }
         this.addTargetDataFileName(schemaName, buildDataFileFullPath(schemaName, "object"));
 
-        if (!this.targetDataFileName.containsKey(this.getSrcConnOwner())) {
-            this.addTargetDataFileName(
-                    this.getSrcConnOwner().toUpperCase(),
-                    this.buildSQLDataFileFullPath(this.getSrcConnOwner().toUpperCase(), "objects"));
-        }
+        this.addTargetDataFileName(
+                MigrationConfiguration.SQLTABLE,
+                this.buildSQLDataFileFullPath(MigrationConfiguration.SQLTABLE, "objects"));
 
         this.addTargetTableFileName(
                 MigrationConfiguration.SQLTABLE,
@@ -3442,30 +3440,24 @@ public class MigrationConfiguration {
      * @return source table
      */
     public Table getSrcTableSchema(String schema, String name) {
-        if (schema != null && schema.equals(MigrationConfiguration.SQLTABLE)) {
+        if (MigrationConfiguration.SQLTABLE.equals(schema)) {
             return getSrcSQLSchema(name);
-        } else {
-            if (srcCatalog == null) {
-                return null;
-            }
-            if (srcCatalog.getSchemas().isEmpty()) {
-                return null;
-            }
-            final Schema sc;
-            if (schema == null) {
-                sc = srcCatalog.getSchemas().get(0);
-            } else {
-                sc = srcCatalog.getSchemaByName(schema);
-            }
-            if (sc == null) {
-                return null;
-            }
-            Table table = sc.getTableByName(name);
-            if (table == null) {
-                table = getSrcSQLSchema(name);
-            }
-            return table;
         }
+
+        if (srcCatalog == null || srcCatalog.getSchemas().isEmpty()) {
+            return null;
+        }
+
+        final Schema sc =
+                (schema == null)
+                        ? srcCatalog.getSchemas().get(0)
+                        : srcCatalog.getSchemaByName(schema);
+        if (sc == null) {
+            return null;
+        }
+
+        Table table = sc.getTableByName(name);
+        return (table != null) ? table : getSrcSQLSchema(name);
     }
 
     /**
