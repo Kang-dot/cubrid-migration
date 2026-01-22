@@ -393,7 +393,7 @@ public final class ConnParameters implements Serializable, IDBSource, IJDBCConne
 
         String u1 = StringUtils.defaultString(conUser);
         String u2 = StringUtils.defaultString(cp.conUser);
-        if (u1.equalsIgnoreCase(u2)) {
+        if (!u1.equalsIgnoreCase(u2)) {
             return false;
         }
 
