@@ -42,6 +42,7 @@ import com.cubrid.cubridmigration.core.engine.MigrationStatusManager;
 import com.cubrid.cubridmigration.core.engine.RecordExportedListener;
 import com.cubrid.cubridmigration.core.engine.ThreadUtils;
 import com.cubrid.cubridmigration.core.engine.config.SourceColumnConfig;
+import com.cubrid.cubridmigration.core.engine.config.SourceSQLTableConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceTableConfig;
 import com.cubrid.cubridmigration.core.engine.event.LobMigrationErrorEvent;
 import com.cubrid.cubridmigration.core.engine.event.MigrationErrorEvent;
@@ -242,7 +243,14 @@ public class JDBCExporter extends MigrationExporter {
         if (LOG.isDebugEnabled()) {
             LOG.debug("[IN]exportTableRecordsByPaging()");
         }
-        Table sTable = config.getSrcTableSchema(stc.getOwner(), stc.getName());
+
+        Table sTable;
+        if (stc instanceof SourceSQLTableConfig) {
+            sTable = config.getSrcSQLSchema(stc.getName());
+        } else {
+            sTable = config.getSrcTableSchema(stc.getOwner(), stc.getName());
+        }
+
         if (sTable == null) {
             throw new NormalMigrationException("Table " + stc.getName() + " was not found.");
         }

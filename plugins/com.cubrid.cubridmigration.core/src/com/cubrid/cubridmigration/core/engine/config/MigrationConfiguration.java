@@ -1214,6 +1214,14 @@ public class MigrationConfiguration {
         }
         this.addTargetDataFileName(schemaName, buildDataFileFullPath(schemaName, "object"));
 
+        this.addTargetDataFileName(
+                MigrationConfiguration.SQLTABLE,
+                this.buildSQLDataFileFullPath(MigrationConfiguration.SQLTABLE, "objects"));
+
+        this.addTargetTableFileName(
+                MigrationConfiguration.SQLTABLE,
+                this.buildLocalFileFullPath(MigrationConfiguration.SQLTABLE, "class", null));
+
         this.addTargetIndexFileName(
                 schemaName, buildLocalFileFullPath(schemaName, "indexes", null));
         this.addTargetUpdateStatisticFileName(
@@ -3432,27 +3440,24 @@ public class MigrationConfiguration {
      * @return source table
      */
     public Table getSrcTableSchema(String schema, String name) {
-        if (srcCatalog == null) {
+        if (MigrationConfiguration.SQLTABLE.equals(schema)) {
+            return getSrcSQLSchema(name);
+        }
+
+        if (srcCatalog == null || srcCatalog.getSchemas().isEmpty()) {
             return null;
         }
-        if (srcCatalog.getSchemas().isEmpty()) {
-            return null;
-        }
-        final Schema sc;
-        if (schema == null) {
-            // retrieves default schema.
-            sc = srcCatalog.getSchemas().get(0);
-        } else {
-            sc = srcCatalog.getSchemaByName(schema);
-        }
+
+        final Schema sc =
+                (schema == null)
+                        ? srcCatalog.getSchemas().get(0)
+                        : srcCatalog.getSchemaByName(schema);
         if (sc == null) {
             return null;
         }
+
         Table table = sc.getTableByName(name);
-        if (table == null) {
-            table = getSrcSQLSchema(name);
-        }
-        return table;
+        return (table != null) ? table : getSrcSQLSchema(name);
     }
 
     /**
@@ -5612,7 +5617,7 @@ public class MigrationConfiguration {
         return mergePath(
                 mergePath(
                         mergePath(mergePath(getFileRepositroyPath(), getName()), sourceSchemaName),
-                        MigrationConfiguration.SQLTABLE),
+                        isOneTableOneFile() ? "objects" : ""),
                 fileName.toString());
     }
 
