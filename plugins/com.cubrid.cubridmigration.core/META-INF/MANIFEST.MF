@@ -41,6 +41,7 @@ Export-Package:
    com.cubrid.cubridmigration.core.trans",
  com.cubrid.cubridmigration.core.engine.event;uses:="com.cubrid.cubridmigration.core.dbobject,com.cubrid.cubridmigration.core.engine.config",
  com.cubrid.cubridmigration.core.engine.exception,
+ com.cubrid.cubridmigration.core.engine.executors,
  com.cubrid.cubridmigration.core.engine.exporter;uses:="com.cubrid.cubridmigration.core.dbobject,com.cubrid.cubridmigration.core.engine.config,com.cubrid.cubridmigration.core.engine",
  com.cubrid.cubridmigration.core.engine.exporter.impl;
   uses:="com.cubrid.cubridmigration.core.export,
