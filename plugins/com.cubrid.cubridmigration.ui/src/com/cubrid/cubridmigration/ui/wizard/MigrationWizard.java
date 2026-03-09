@@ -32,9 +32,11 @@ package com.cubrid.cubridmigration.ui.wizard;
 
 import com.cubrid.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.dbobject.Catalog;
+import com.cubrid.cubridmigration.core.dbobject.SchemaCatalog;
 import com.cubrid.cubridmigration.core.dbtype.DatabaseType;
 import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
-import com.cubrid.cubridmigration.core.engine.template.MigrationTemplateParser;
+import com.cubrid.cubridmigration.core.engine.template.reader.MigrationTemplateReader;
+import com.cubrid.cubridmigration.core.engine.template.writer.MigrationTemplateWriter;
 import com.cubrid.cubridmigration.cubrid.CUBRIDTimeUtil;
 import com.cubrid.cubridmigration.ui.common.UICommonTool;
 import com.cubrid.cubridmigration.ui.common.navigator.event.CubridNodeManager;
@@ -57,11 +59,7 @@ import com.cubrid.cubridmigration.ui.wizard.page.SchemaMappingPage;
 import com.cubrid.cubridmigration.ui.wizard.page.SelectDestinationPage;
 import com.cubrid.cubridmigration.ui.wizard.page.SelectSourcePage;
 import com.cubrid.cubridmigration.ui.wizard.page.SelectSrcTarTypesPage;
-import java.io.File;
-import java.sql.Connection;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.Set;
+
 import org.eclipse.jface.dialogs.DialogSettings;
 import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.jface.dialogs.MessageDialog;
@@ -70,6 +68,12 @@ import org.eclipse.jface.wizard.Wizard;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
 import org.slf4j.Logger;
+
+import java.io.File;
+import java.sql.Connection;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Migration Wizard
@@ -86,37 +90,7 @@ public class MigrationWizard extends Wizard implements IMigrationWizardStatus {
 
     private static final int[] IDX_ONLINE = new int[] {0, 1, 2, 11, 3, 4};
 
-    // private static final int[] IDX_OFFLINE = new int[]{0, 1, 2, 11, 3, 4 };
-
-    // public static final String SELECTED = "Selected";
     private static final Logger LOG = LogUtil.getLogger(MigrationWizard.class);
-
-    /**
-     * Retrieves the DB types which can be source database.
-     *
-     * @return Set<Integer> of database type ids
-     */
-    public static Set<Integer> getSupportedSrcDBTypes() {
-        Set<Integer> supportedDBs = new HashSet<Integer>(6);
-        supportedDBs.add(DatabaseType.MYSQL.getID());
-        supportedDBs.add(DatabaseType.ORACLE.getID());
-        supportedDBs.add(DatabaseType.CUBRID.getID());
-        supportedDBs.add(DatabaseType.MSSQL.getID());
-        supportedDBs.add(DatabaseType.MARIADB.getID());
-        supportedDBs.add(DatabaseType.INFORMIX.getID());
-        return supportedDBs;
-    }
-
-    /**
-     * Retrieves the DB types which can be target database.
-     *
-     * @return Set<Integer> of database type ids
-     */
-    public static Set<Integer> getSupportedTarDBTypes() {
-        Set<Integer> supportedDBs = new HashSet<Integer>(4);
-        supportedDBs.add(DatabaseType.CUBRID.getID());
-        return supportedDBs;
-    }
 
     private ObjectMappingPage objMapPage;
 
@@ -126,8 +100,8 @@ public class MigrationWizard extends Wizard implements IMigrationWizardStatus {
     protected MigrationConfiguration migrationConfig;
 
     protected Catalog sourceCatalog;
-    protected Catalog originalSourceCatalog;
     protected Catalog targetCatalog;
+    protected SchemaCatalog sourceSchemaCatalog;
 
     protected DatabaseNode sourceDBNode;
 
@@ -161,8 +135,35 @@ public class MigrationWizard extends Wizard implements IMigrationWizardStatus {
             throw new RuntimeException("File(" + migrationFileName + ") does not exist");
         }
         this.migrationConfigFileName = migrationFileName;
-        migrationConfig = MigrationTemplateParser.parse(migrationConfigFileName);
+        migrationConfig = MigrationTemplateReader.parse(migrationConfigFileName);
         autoSetUniqueNameOfConfiguration();
+    }
+
+    /**
+     * Retrieves the DB types which can be source database.
+     *
+     * @return Set<Integer> of database type ids
+     */
+    public static Set<Integer> getSupportedSrcDBTypes() {
+        Set<Integer> supportedDBs = new HashSet<Integer>(6);
+        supportedDBs.add(DatabaseType.MYSQL.getID());
+        supportedDBs.add(DatabaseType.ORACLE.getID());
+        supportedDBs.add(DatabaseType.CUBRID.getID());
+        supportedDBs.add(DatabaseType.MSSQL.getID());
+        supportedDBs.add(DatabaseType.MARIADB.getID());
+        supportedDBs.add(DatabaseType.INFORMIX.getID());
+        return supportedDBs;
+    }
+
+    /**
+     * Retrieves the DB types which can be target database.
+     *
+     * @return Set<Integer> of database type ids
+     */
+    public static Set<Integer> getSupportedTarDBTypes() {
+        Set<Integer> supportedDBs = new HashSet<Integer>(4);
+        supportedDBs.add(DatabaseType.CUBRID.getID());
+        return supportedDBs;
     }
 
     /** Auto update an unique name of the parsed configuration. */
@@ -198,8 +199,6 @@ public class MigrationWizard extends Wizard implements IMigrationWizardStatus {
         addPage(new CSVImportConfirmPage("10"));
 
         addPage(new SchemaMappingPage("11"));
-
-        //		addPage(new SelectOfflineDest2Page("11"));
     }
 
     /**
@@ -254,9 +253,6 @@ public class MigrationWizard extends Wizard implements IMigrationWizardStatus {
      */
     private int[] getPageNOs() {
         if (migrationConfig.sourceIsOnline() || migrationConfig.sourceIsXMLDump()) {
-            //			if (migrationConfig.targetIsOffline()) {
-            //				return IDX_OFFLINE;
-            //			}
             return IDX_ONLINE;
         }
 
@@ -304,8 +300,8 @@ public class MigrationWizard extends Wizard implements IMigrationWizardStatus {
         return sourceCatalog;
     }
 
-    public Catalog getOriginalSourceCatalog() {
-        return originalSourceCatalog;
+    public SchemaCatalog getSourceSchemaCatalog() {
+        return sourceSchemaCatalog;
     }
 
     /**
@@ -427,10 +423,13 @@ public class MigrationWizard extends Wizard implements IMigrationWizardStatus {
     /** Source DB changed, rebuild target database schema */
     public void resetBySourceDBChanged() {
         objMapPage.setFirstVisible(true);
+        if (migrationConfig != null) {
+            migrationConfig.clearSelectedSrcSchemas();
+        }
         if (isLoadMigrationScript()) {
             // Reload the migration configuration file
             MigrationConfiguration tempConfig = migrationConfig;
-            migrationConfig = MigrationTemplateParser.parse(migrationConfigFileName);
+            migrationConfig = MigrationTemplateReader.parse(migrationConfigFileName);
             migrationConfig.setName(tempConfig.getName());
             // Copy target DB information to new migration configuration object
             migrationConfig.setDestType(tempConfig.getDestType());
@@ -459,7 +458,7 @@ public class MigrationWizard extends Wizard implements IMigrationWizardStatus {
                     MigrationScriptManager.getInstance().newScript(migrationConfig, saveSchema);
         } else {
             migrationScript.setName(migrationConfig.getName());
-            MigrationTemplateParser.save(
+            MigrationTemplateWriter.save(
                     migrationConfig, migrationScript.getAbstractConfigFileName(), saveSchema);
             MigrationScriptManager.getInstance().save();
         }
@@ -479,12 +478,12 @@ public class MigrationWizard extends Wizard implements IMigrationWizardStatus {
     }
 
     /**
-     * setOriginalSourceCatalog
+     * setSourceSchemaCatalog
      *
-     * @param originalSourceCatalog
+     * @param SchemaCatalog
      */
-    public void setOriginalSourceCatalog(Catalog originalSourceCatalog) {
-        this.originalSourceCatalog = originalSourceCatalog;
+    public void setSourceSchemaCatalog(SchemaCatalog sourceSchemaCatalog) {
+        this.sourceSchemaCatalog = sourceSchemaCatalog;
     }
 
     /**
@@ -572,12 +571,16 @@ public class MigrationWizard extends Wizard implements IMigrationWizardStatus {
         srcOfflineMode = migrationConfig.isSourceOfflineMode();
     }
 
-    /** @return Retrieves true If source is a JDBC connection and can't be connected */
+    /**
+     * @return Retrieves true If source is a JDBC connection and can't be connected
+     */
     public boolean isSourceOfflineMode() {
         return srcOfflineMode;
     }
 
-    /** @return Retrieves true If target is a JDBC connection and can't be connected */
+    /**
+     * @return Retrieves true If target is a JDBC connection and can't be connected
+     */
     public boolean isTargetOfflineMode() {
         return tarOfflineMode;
     }

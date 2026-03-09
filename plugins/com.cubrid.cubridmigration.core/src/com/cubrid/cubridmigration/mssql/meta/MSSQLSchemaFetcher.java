@@ -45,6 +45,7 @@ import com.cubrid.cubridmigration.core.dbobject.PK;
 import com.cubrid.cubridmigration.core.dbobject.PartitionInfo;
 import com.cubrid.cubridmigration.core.dbobject.PartitionTable;
 import com.cubrid.cubridmigration.core.dbobject.Schema;
+import com.cubrid.cubridmigration.core.dbobject.SchemaCatalog;
 import com.cubrid.cubridmigration.core.dbobject.Synonym;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.View;
@@ -56,6 +57,11 @@ import com.cubrid.cubridmigration.mssql.MSSQLDataTypeHelper;
 import com.cubrid.cubridmigration.mssql.MSSQLSQLHelper;
 import com.cubrid.cubridmigration.mssql.dbobj.MSSQLPartitionSchemas;
 import com.cubrid.cubridmigration.mssql.export.MSSQLExportHelper;
+
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -69,9 +75,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
 
 /**
  * MSSQLSchemaFetcher
@@ -88,32 +91,99 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
     private static final String OBJECT_TYPE_VIEW = "VIEW";
 
     private static final String SHOW_CHARSET =
-            "SELECT [DEFAULT_CHARACTER_SET_NAME] FROM [catalogName].[INFORMATION_SCHEMA].[SCHEMATA] "
-                    + "WHERE [CATALOG_NAME]=? AND [SCHEMA_NAME]='dbo'";
+            "SELECT [DEFAULT_CHARACTER_SET_NAME] FROM [catalogName].[INFORMATION_SCHEMA].[SCHEMATA]"
+                    + " WHERE [CATALOG_NAME]=? AND [SCHEMA_NAME]='dbo'";
     private static final String SHOW_DDL =
-            "SELECT [definition]  FROM [catalogName].[sys].[all_sql_modules] a, [catalogName].[sys].[all_objects] b"
-                    + " WHERE b.[schema_id]=? and a.[object_id]=b.[object_id] "
-                    + "and b.[name]=? and b.[type_desc]=? ";
+            "SELECT [definition]  FROM [catalogName].[sys].[all_sql_modules] a,"
+                    + " [catalogName].[sys].[all_objects] b WHERE b.[schema_id]=? and"
+                    + " a.[object_id]=b.[object_id] and b.[name]=? and b.[type_desc]=? ";
 
     private static final String SHOW_IDENTITY =
-            "SELECT a.[name] tablename, b.[name] columnname, "
-                    + "cast(b.[seed_value] as bigint) seed_value, "
-                    + "cast(b.[increment_value] as bigint) increment_value, "
-                    + "cast(b.[last_value] as bigint) last_value "
-                    + "FROM [catalogName].[sys].[tables] a, [catalogName].[sys].[identity_columns] b "
-                    + "Where a.[object_id]=b.[object_id] and a.[schema_id]=?";
+            "SELECT a.[name] tablename, b.[name] columnname, cast(b.[seed_value] as bigint)"
+                + " seed_value, cast(b.[increment_value] as bigint) increment_value,"
+                + " cast(b.[last_value] as bigint) last_value FROM [catalogName].[sys].[tables] a,"
+                + " [catalogName].[sys].[identity_columns] b Where a.[object_id]=b.[object_id] and"
+                + " a.[schema_id]=?";
 
     private static final String SHOW_SCHEMA_ID =
-            "SELECT [schema_id],[name] FROM [catalogName].[sys].[schemas] WHERE [name] in ("
-                    + "SELECT distinct [TABLE_SCHEMA] FROM [catalogName].[INFORMATION_SCHEMA].[TABLES])";
+            "SELECT [schema_id],[name] FROM [catalogName].[sys].[schemas] WHERE [name] in (SELECT"
+                    + " distinct [TABLE_SCHEMA] FROM [catalogName].[INFORMATION_SCHEMA].[TABLES])";
 
     private static final String SHOW_SYNONYM =
-            "SELECT [name], [base_object_name] FROM [sys].[synonyms] "
-                    + "WHERE [schema_id] = (SELECT [schema_id] FROM [sys].[schemas] WHERE [name]=?)";
+            "SELECT [name], [base_object_name] FROM [sys].[synonyms] WHERE [schema_id] = (SELECT"
+                    + " [schema_id] FROM [sys].[schemas] WHERE [name]=?)";
 
     private static final String USER_DEF_DATA_TYPE =
-            "select t.name as username,t2.name as realname"
-                    + " from sys.systypes t,sys.systypes t2 where t.xtype<>t.xusertype and t.xtype=t2.xusertype";
+            "select t.name as username,t2.name as realname from sys.systypes t,sys.systypes t2"
+                    + " where t.xtype<>t.xusertype and t.xtype=t2.xusertype";
+
+    private static final String SQL_GET_TABLE_COMMENT =
+            "SELECT"
+                    + "    CAST(ep.value AS NVARCHAR(MAX)) AS TableComment "
+                    + "FROM"
+                    + "    sys.extended_properties AS ep "
+                    + "INNER JOIN"
+                    + "    sys.objects AS obj ON ep.major_id = obj.object_id "
+                    + "INNER JOIN"
+                    + "    sys.schemas AS s ON obj.schema_id = s.schema_id "
+                    + "WHERE"
+                    + "    ep.minor_id = 0 "
+                    + "    AND ep.name = 'MS_Description' "
+                    + "    AND obj.type = 'U' "
+                    + "    AND s.name = ? "
+                    + "    AND obj.name = ?";
+
+    private static final String SQL_GET_TABLE_COLUMN_COMMENT =
+            "SELECT    CAST(ep.value AS NVARCHAR(MAX)) AS ColumnComment FROM    "
+                + " sys.extended_properties AS ep INNER JOIN     sys.objects AS obj ON ep.major_id"
+                + " = obj.object_id INNER JOIN     sys.schemas AS s ON obj.schema_id = s.schema_id"
+                + " INNER JOIN     sys.columns AS col ON ep.major_id = col.object_id AND"
+                + " ep.minor_id = col.column_id WHERE     ep.name = 'MS_Description'     AND"
+                + " obj.type = 'U'     AND s.name = ?     AND obj.name = ?     AND col.name = ?"
+                + " ORDER BY     col.column_id; ";
+
+    private static final String SQL_GET_ALL_TABLE_COLUMN_COMMENTS =
+            "SELECT    s.name AS SchemaName,     obj.name AS TableName,     col.name AS ColumnName,"
+                + "     CAST(ep.value AS NVARCHAR(MAX)) AS ColumnComment FROM    "
+                + " sys.extended_properties AS ep INNER JOIN     sys.objects AS obj ON ep.major_id"
+                + " = obj.object_id INNER JOIN     sys.schemas AS s ON obj.schema_id = s.schema_id"
+                + " INNER JOIN     sys.columns AS col ON ep.major_id = col.object_id AND"
+                + " ep.minor_id = col.column_id WHERE     ep.name = 'MS_Description'     AND"
+                + " obj.type = 'U'     AND s.name = ?     AND obj.name = ? ORDER BY    "
+                + " col.column_id; ";
+
+    private static final String SQL_GET_VIEW_COMMENT =
+            "SELECT "
+                    + "    ep.value                   AS view_comment "
+                    + "FROM "
+                    + "    sys.views v "
+                    + "    LEFT JOIN sys.extended_properties ep "
+                    + "        ON ep.major_id = v.object_id "
+                    + "       AND ep.minor_id = 0 "
+                    + "       AND ep.name = 'MS_Description'"
+                    + "WHERE "
+                    + "    SCHEMA_NAME(v.schema_id) = ? and"
+                    + "    v.name = ?";
+
+    private static final String SQL_GET_VIEW_COLUMN_COMMENT =
+            "SELECT "
+                    + "    value         AS Description "
+                    + "FROM  "
+                    + "    fn_listextendedproperty ( "
+                    + "        default,        "
+                    + "        'schema',       "
+                    + "        ?,          "
+                    + "        'VIEW',         "
+                    + "        ?,  "
+                    + "        'COLUMN',       "
+                    + "        ?         "
+                    + "    )";
+
+    private static final String SQL_GET_ALL_VIEW_COLUMN_COMMENTS =
+            "SELECT     v.name AS ViewName,     c.name AS ColumnName,     ep.value AS Comment FROM "
+                + "    sys.extended_properties ep JOIN     sys.columns c ON ep.major_id ="
+                + " c.object_id AND ep.minor_id = c.column_id JOIN     sys.views v ON c.object_id ="
+                + " v.object_id WHERE     ep.name = 'MS_Description'     AND v.name = ?";
 
     private static final Map<String, String> CHARSET_MAPPING = new HashMap<String, String>();
 
@@ -136,7 +206,6 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
                      */
                     public DataType createDataType() {
                         return new DataType();
-                        // new MSSQLDataTypeHelper()
                     }
                 };
     }
@@ -153,64 +222,95 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
     public Catalog buildCatalog(final Connection conn, ConnParameters cp, IBuildSchemaFilter filter)
             throws SQLException {
         final Catalog catalog = super.buildCatalog(conn, cp, filter);
-        final String catalogName = cp.getDbName();
+        String catalogName = cp.getDbName();
+        SQLHelper sqlHelper = cp.getDatabaseType().getSQLHelper(null);
+
+        loadMSSQLCatalogDetails(conn, catalog, sqlHelper, catalogName);
+        return catalog;
+    }
+
+    @Override
+    public Catalog buildSchemaObjects(Connection conn, SchemaCatalog sc, List<String> schemaNames)
+            throws SQLException {
+        Catalog catalog = super.buildSchemaObjects(conn, sc, schemaNames);
+        String catalogName = catalog.getName();
+        SQLHelper sqlHelper = sc.getDatabaseType().getSQLHelper(null);
+
+        loadMSSQLCatalogDetails(conn, catalog, sqlHelper, catalogName);
+        return catalog;
+    }
+
+    private void loadMSSQLCatalogDetails(
+            Connection conn, Catalog catalog, SQLHelper sqlHelper, String catalogName)
+            throws SQLException {
+
         String charset = getCatalogCharset(conn, catalog);
         catalog.setCharset(charset);
-        final List<Schema> schemaList = catalog.getSchemas();
-        final SQLHelper sqlHelper = cp.getDatabaseType().getSQLHelper(null);
+
+        List<Schema> schemaList = catalog.getSchemas();
         for (Schema schema : schemaList) {
-            ResultSet rs = null; // NOPMD
-            PreparedStatement stmt = null; // NOPMD
-            try {
-                stmt = conn.prepareStatement(SHOW_IDENTITY.replace(CATALOG_NAME, catalogName));
-                stmt.setInt(1, schemaNameIDMap.get(schema.getName()));
-                rs = stmt.executeQuery();
-
-                while (rs.next()) {
-                    Table table = schema.getTableByName(rs.getString("tablename"));
-                    if (table == null) {
-                        continue;
-                    }
-                    Column column = table.getColumnByName(rs.getString("columnname"));
-                    if (column == null) {
-                        continue;
-                    }
-                    column.setAutoIncrement(true);
-                    Long incrementValue = rs.getLong("increment_value");
-                    incrementValue = incrementValue == null ? 1 : incrementValue;
-                    column.setAutoIncIncrVal(incrementValue);
-                    Long lastValue = rs.getLong("last_value");
-                    if (null == lastValue) {
-                        column.setAutoIncSeedVal(rs.getLong("seed_value"));
-                    } else {
-                        column.setAutoIncSeedVal(lastValue + incrementValue);
-                    }
-                }
-            } finally {
-                Closer.close(rs);
-                Closer.close(stmt);
-            }
-
-            // get views
-            final List<View> viewList = schema.getViews();
-
-            for (View view : viewList) {
-                String viewDDL =
-                        getObjectDDL(
-                                conn,
-                                catalogName,
-                                schema.getName(),
-                                view.getName(),
-                                OBJECT_TYPE_VIEW);
-                view.setDDL(viewDDL);
-                view.setQuerySpec(sqlHelper.getViewQuerySpec(viewDDL));
-                view.setOwner(schema.getName());
-            }
-            // get partitions
+            updateTableIdentityInfo(conn, catalogName, schema);
+            buildViewDetails(conn, catalogName, sqlHelper, schema);
             buildPartitions(conn, catalog, schema);
         }
+
         catalog.setTimezone(getTimezone(conn));
-        return catalog;
+    }
+
+    private void updateTableIdentityInfo(Connection conn, String catalogName, Schema schema)
+            throws SQLException {
+        String escapedCatalogName = (catalogName == null) ? "" : catalogName.replace("]", "]]");
+        PreparedStatement stmt = null; // NOPMD
+        ResultSet rs = null; // NOPMD
+        try {
+            String sql = SHOW_IDENTITY.replace(CATALOG_NAME, escapedCatalogName);
+            stmt = conn.prepareStatement(sql);
+
+            stmt.setInt(1, schemaNameIDMap.get(schema.getName()));
+            rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                Table table = schema.getTableByName(rs.getString("tablename"));
+                if (table == null) {
+                    continue;
+                }
+
+                table.setComment(getTableComment(conn, schema.getName(), table.getName()));
+
+                Column column = table.getColumnByName(rs.getString("columnname"));
+                if (column == null) {
+                    continue;
+                }
+                column.setAutoIncrement(true);
+                Long incrementValue = rs.getLong("increment_value");
+                incrementValue = incrementValue == null ? 1 : incrementValue;
+                column.setAutoIncIncrVal(incrementValue);
+                long lastValue = rs.getLong("last_value");
+                if (rs.wasNull()) {
+                    column.setAutoIncSeedVal(rs.getLong("seed_value"));
+                } else {
+                    column.setAutoIncSeedVal(lastValue + incrementValue);
+                }
+            }
+        } finally {
+            Closer.close(rs);
+            Closer.close(stmt);
+        }
+    }
+
+    private void buildViewDetails(
+            Connection conn, String catalogName, SQLHelper sqlHelper, Schema schema)
+            throws SQLException {
+        List<View> viewList = schema.getViews();
+        for (View view : viewList) {
+            String viewDDL =
+                    getObjectDDL(
+                            conn, catalogName, schema.getName(), view.getName(), OBJECT_TYPE_VIEW);
+            view.setDDL(viewDDL);
+            view.setQuerySpec(sqlHelper.getViewQuerySpec(viewDDL));
+            view.setOwner(schema.getName());
+            view.setComment(getViewComment(conn, schema.getName(), view.getName()));
+        }
     }
 
     /**
@@ -224,9 +324,10 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
     private void buildPartitions(final Connection conn, final Catalog catalog, final Schema schema)
             throws SQLException {
         String sql =
-                "SELECT a.[name], a.[data_space_id], b.[type_desc], b.[fanout], b.[boundary_value_on_right], a.[function_id] "
-                        + " FROM [sys].[partition_schemes] a,[sys].[partition_functions] b"
-                        + " WHERE a.[function_id]=b.[function_id] AND a.[type]='PS' and b.[type]='R'";
+                "SELECT a.[name], a.[data_space_id], b.[type_desc], b.[fanout],"
+                        + " b.[boundary_value_on_right], a.[function_id]  FROM"
+                        + " [sys].[partition_schemes] a,[sys].[partition_functions] b WHERE"
+                        + " a.[function_id]=b.[function_id] AND a.[type]='PS' and b.[type]='R'";
 
         Map<Long, MSSQLPartitionSchemas> partSchemas = new HashMap<Long, MSSQLPartitionSchemas>();
         ResultSet rs = null; // NOPMD
@@ -271,8 +372,9 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
             }
 
             sql =
-                    "SELECT a.[parameter_id], b.[name] FROM [sys].[partition_parameters] a, [sys].[types] b"
-                            + " WHERE a.[system_type_id]=b.[system_type_id] AND a.[function_id]=";
+                    "SELECT a.[parameter_id], b.[name] FROM [sys].[partition_parameters] a,"
+                            + " [sys].[types] b WHERE a.[system_type_id]=b.[system_type_id] AND"
+                            + " a.[function_id]=";
             try {
                 stmt = conn.createStatement();
                 rs = stmt.executeQuery(sql + ps.getFunctionId());
@@ -288,9 +390,10 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
         }
 
         sql =
-                "SELECT b.[name], a.[data_space_id], a.[index_id], a.[object_id] "
-                        + " FROM [sys].[indexes] a, [sys].[tables] b,[sys].[schemas] s"
-                        + " WHERE a.[index_id ]< 2 AND a.[object_id]=b.[object_id] and b.[schema_id]=s.[schema_id] and s.[name]='"
+                "SELECT b.[name], a.[data_space_id], a.[index_id], a.[object_id]  FROM"
+                    + " [sys].[indexes] a, [sys].[tables] b,[sys].[schemas] s WHERE a.[index_id ]<"
+                    + " 2 AND a.[object_id]=b.[object_id] and b.[schema_id]=s.[schema_id] and"
+                    + " s.[name]='"
                         + schema.getName()
                         + "' order by b.[name],a.[data_space_id]";
         try {
@@ -388,6 +491,11 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
             if (table.getName().equalsIgnoreCase("ProductDocument")) {
                 System.out.println();
             }
+
+            // Get all column comments in one query for optimization
+            Map<String, String> columnComments =
+                    getAllTableColumnComments(conn, schema.getName(), table.getName());
+
             while (rs.next()) {
                 // create new column
                 final Column column = factory.createColumn();
@@ -441,6 +549,11 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 column.setDefaultValue(defaultValue);
                 String shownDataType = dtHelper.getShownDataType(column);
                 column.setShownDataType(shownDataType);
+
+                // Set column comment from the pre-fetched map
+                String comment = columnComments.get(column.getName());
+                column.setComment(commentEditor(comment));
+
                 table.addColumn(column);
             }
         } finally {
@@ -480,10 +593,18 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
             final Connection conn, final Catalog catalog, final Schema schema, final View view)
             throws SQLException {
         super.buildViewColumns(conn, catalog, schema, view);
+
+        // Get all column comments in one query for optimization
+        Map<String, String> columnComments = getAllViewColumnComments(conn, view.getName());
+
         MSSQLDataTypeHelper dtHelper = MSSQLDataTypeHelper.getInstance(null);
         for (Column column : view.getColumns()) {
             String shownDataType = dtHelper.getShownDataType(column);
             column.setShownDataType(shownDataType);
+
+            // Set column comment from the pre-fetched map
+            String comment = columnComments.get(column.getName());
+            column.setComment(commentEditor(comment));
         }
     }
 
@@ -854,7 +975,9 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
         }
         // TO fix the jdbc's error of reading FK information
         String sql =
-                "select CONSTRAINT_NAME,DELETE_RULE,UPDATE_RULE from INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS where CONSTRAINT_SCHEMA=? and CONSTRAINT_NAME=?";
+                "select CONSTRAINT_NAME,DELETE_RULE,UPDATE_RULE from"
+                    + " INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS where CONSTRAINT_SCHEMA=? and"
+                    + " CONSTRAINT_NAME=?";
         ResultSet rs = null; // NOPMD
         PreparedStatement stmt = conn.prepareStatement(sql);
         List<FK> fks = table.getFks();
@@ -884,5 +1007,156 @@ public final class MSSQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
         } finally {
             Closer.close(stmt);
         }
+    }
+
+    /**
+     * Get table comment
+     *
+     * @param conn Connection
+     * @param schemaName Schema name
+     * @param tableName Table name
+     * @return String table comment
+     * @throws SQLException e
+     */
+    @Override
+    protected String getTableComment(Connection conn, String schemaName, String tableName)
+            throws SQLException {
+        if (StringUtils.isBlank(tableName)) {
+            throw new IllegalArgumentException("The table name is null!");
+        }
+
+        PreparedStatement stmt = null; // NOPMD
+        ResultSet rs = null; // NOPMD
+        try {
+            stmt = conn.prepareStatement(SQL_GET_TABLE_COMMENT);
+            stmt.setString(1, schemaName);
+            stmt.setString(2, tableName);
+            LOG.debug("[SQL]{} (1={}, 2={})", SQL_GET_TABLE_COMMENT, schemaName, tableName);
+            rs = stmt.executeQuery();
+
+            String comment = null;
+
+            while (rs.next()) {
+                comment = rs.getString(1);
+            }
+
+            return commentEditor(comment);
+        } finally {
+            Closer.close(rs);
+            Closer.close(stmt);
+        }
+    }
+
+    /**
+     * Get all table column comments for a specific table
+     *
+     * @param conn Connection
+     * @param schemaName Schema name
+     * @param tableName Table name
+     * @return Map<String, String> column name to comment mapping
+     * @throws SQLException e
+     */
+    protected Map<String, String> getAllTableColumnComments(
+            Connection conn, String schemaName, String tableName) throws SQLException {
+        if (StringUtils.isBlank(tableName)) {
+            throw new IllegalArgumentException("The table name is null!");
+        }
+
+        Map<String, String> columnComments = new HashMap<String, String>();
+        PreparedStatement stmt = null; // NOPMD
+        ResultSet rs = null; // NOPMD
+        try {
+            stmt = conn.prepareStatement(SQL_GET_ALL_TABLE_COLUMN_COMMENTS);
+            stmt.setString(1, schemaName);
+            stmt.setString(2, tableName);
+            LOG.debug(
+                    "[SQL]{} (1={}, 2={})",
+                    SQL_GET_ALL_TABLE_COLUMN_COMMENTS,
+                    schemaName,
+                    tableName);
+            rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                String columnName = rs.getString("ColumnName");
+                String comment = rs.getString("ColumnComment");
+                columnComments.put(columnName, comment);
+            }
+
+            return columnComments;
+        } finally {
+            Closer.close(rs);
+            Closer.close(stmt);
+        }
+    }
+
+    /**
+     * Get view comment
+     *
+     * @param conn Connection
+     * @param schemaName Schema name
+     * @param viewName View name
+     * @return String view comment
+     * @throws SQLException e
+     */
+    @Override
+    protected String getViewComment(Connection conn, String schemaName, String viewName)
+            throws SQLException {
+        if (StringUtils.isBlank(viewName)) {
+            throw new IllegalArgumentException("The table name is null!");
+        }
+
+        PreparedStatement stmt = null; // NOPMD
+        ResultSet rs = null; // NOPMD
+        try {
+            stmt = conn.prepareStatement(SQL_GET_VIEW_COMMENT);
+            stmt.setString(1, schemaName);
+            stmt.setString(2, viewName);
+            LOG.debug("[SQL]{} (1={}, 2={})", SQL_GET_VIEW_COMMENT, schemaName, viewName);
+            rs = stmt.executeQuery();
+
+            String comment = null;
+
+            while (rs.next()) {
+                comment = rs.getString(1);
+            }
+
+            return commentEditor(comment);
+        } finally {
+            Closer.close(rs);
+            Closer.close(stmt);
+        }
+    }
+
+    /**
+     * Get all view column comments for a specific view
+     *
+     * @param conn Connection
+     * @param schemaName Schema name
+     * @param viewName View name
+     * @return Map<String, String> column name to comment mapping
+     * @throws SQLException e
+     */
+    protected Map<String, String> getAllViewColumnComments(Connection conn, String viewName)
+            throws SQLException {
+        if (StringUtils.isBlank(viewName)) {
+            throw new IllegalArgumentException("The view name is null!");
+        }
+
+        Map<String, String> columnComments = new HashMap<String, String>();
+
+        try (PreparedStatement stmt = conn.prepareStatement(SQL_GET_ALL_VIEW_COLUMN_COMMENTS)) {
+            stmt.setString(1, viewName);
+            LOG.debug("[SQL]{} (1={})", SQL_GET_ALL_VIEW_COLUMN_COMMENTS, viewName);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    String columnName = rs.getString("ColumnName");
+                    String comment = rs.getString("Comment");
+                    columnComments.put(columnName, comment);
+                }
+            }
+        }
+
+        return columnComments;
     }
 }

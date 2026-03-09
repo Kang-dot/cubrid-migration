@@ -241,6 +241,7 @@ public class Messages extends NLS {
     public static String confirmMessage;
     public static String confirmMigrationPageDescription;
     public static String confirmMigrationPageTile;
+    public static String confirmMultipleSchemas;
     public static String confirmPath;
     public static String confirmPort;
     public static String confirmSettingsSourceDatabase;
@@ -270,6 +271,7 @@ public class Messages extends NLS {
     public static String confrimUniqueIndex;
     public static String confrimUpdateStatistic;
     public static String confrimSQLTables;
+    public static String copyButtonLabel;
     public static String cUBRID2CUBRID;
     public static String cubridNewInfoEditorName;
     public static String dBConnectCompositeBtnBrowse;
@@ -540,6 +542,8 @@ public class Messages extends NLS {
     public static String msgConnectFailed;
     public static String msgConnectingHDFS;
     public static String msgConnectSuccess;
+    public static String msgCopyJDBC;
+    public static String msgCopyJDBCDesc;
     public static String msgCSVFilesList;
     public static String msgCubridCSV;
     public static String msgCubridDump;
@@ -708,6 +712,9 @@ public class Messages extends NLS {
     public static String objectMapPageTabFolderTables;
     public static String objectMapPageTabFolderViews;
     public static String objectMapPageTitle;
+    public static String objectMappingRefreshLabel;
+    public static String objectMappingRefreshDescription;
+    public static String objectMappingRefreshActionMessage;
     public static String oldScriptMigration;
     public static String onlineCUBRIDCommitCount;
     public static String openConfActionTitle;
@@ -717,13 +724,13 @@ public class Messages extends NLS {
     public static String prefTitleGeneral;
     public static String productName;
     public static String progressMetadata;
-    public static String refreshButtonLabel;
-    public static String refreshButtonDescription;
-    public static String refreshDBConnActionMessage;
     public static String removeButtonLabel;
     public static String schemaMappingPageTitle;
     public static String schemaMappingPageDescription;
     public static String schemaMappingPageDescriptionUncorrectable;
+    public static String schemaMappingRefreshLabel;
+    public static String schemaMappingRefreshDescription;
+    public static String schemaMappingRefreshActionMessage;
     public static String setOptionPageOKMsg;
     public static String sourceDBPageErrNoSelectedItem;
     public static String sourceDBPageErrNoSelectedXMLFile;
@@ -837,6 +844,7 @@ public class Messages extends NLS {
     public static String titleSettingCharTypeColumns;
     public static String titleWizardPageSelectSQL;
     public static String ttAnalyzXMLFile;
+    public static String ttCopyConnection;
     public static String ttCreateNewConnection;
     public static String ttCreatePKFirst;
     public static String ttCSVSettings;

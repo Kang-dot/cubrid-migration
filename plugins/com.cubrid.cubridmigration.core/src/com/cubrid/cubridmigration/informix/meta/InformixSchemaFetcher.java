@@ -49,6 +49,9 @@ import com.cubrid.cubridmigration.core.dbtype.DatabaseType;
 import com.cubrid.cubridmigration.core.export.DBExportHelper;
 import com.cubrid.cubridmigration.informix.InformixDataTypeHelper;
 import com.cubrid.cubridmigration.informix.export.InformixExportHelper;
+
+import org.slf4j.Logger;
+
 import java.math.BigInteger;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -60,7 +63,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import org.slf4j.Logger;
 
 /**
  * InformixSchemaFetcher Description
@@ -547,5 +549,19 @@ public class InformixSchemaFetcher extends AbstractJDBCSchemaFetcher {
     @Override
     protected DBExportHelper getExportHelper() {
         return new InformixExportHelper();
+    }
+
+    @Override
+    protected String getTableComment(Connection conn, String schemaName, String tableName)
+            throws SQLException {
+        // informix doesn't support comment feature
+        return null;
+    }
+
+    @Override
+    protected String getViewComment(Connection conn, String schemaName, String viewName)
+            throws SQLException {
+        // informix doesn't support comment feature
+        return null;
     }
 }

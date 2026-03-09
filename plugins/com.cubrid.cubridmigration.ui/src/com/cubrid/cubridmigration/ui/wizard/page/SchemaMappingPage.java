@@ -31,175 +31,50 @@
 package com.cubrid.cubridmigration.ui.wizard.page;
 
 import com.cubrid.common.log.LogUtil;
-import com.cubrid.common.ui.swt.table.celleditor.CheckboxCellEditorFactory;
-import com.cubrid.common.ui.swt.table.celleditor.EditableComboBoxCellEditor;
-import com.cubrid.common.ui.swt.table.listener.CheckBoxColumnSelectionListener;
+import com.cubrid.cubridmigration.core.connection.CMTConParamManager;
+import com.cubrid.cubridmigration.core.connection.ConnParameters;
 import com.cubrid.cubridmigration.core.dbobject.Catalog;
 import com.cubrid.cubridmigration.core.dbobject.Grant;
 import com.cubrid.cubridmigration.core.dbobject.Schema;
+import com.cubrid.cubridmigration.core.dbobject.SchemaCatalog;
+import com.cubrid.cubridmigration.core.dbobject.SchemaEntry;
 import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
-import com.cubrid.cubridmigration.ui.common.CompositeUtils;
-import com.cubrid.cubridmigration.ui.common.dialog.DetailMessageDialog;
+import com.cubrid.cubridmigration.ui.database.SchemaFetcherWithProgress;
 import com.cubrid.cubridmigration.ui.message.Messages;
 import com.cubrid.cubridmigration.ui.wizard.MigrationWizard;
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import com.cubrid.cubridmigration.ui.wizard.page.view.SchemaTableView;
+import com.cubrid.cubridmigration.ui.wizard.page.view.SchemaTableView.SrcTable;
+
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.dialogs.PageChangedEvent;
 import org.eclipse.jface.dialogs.PageChangingEvent;
-import org.eclipse.jface.viewers.CellEditor;
-import org.eclipse.jface.viewers.ColumnWeightData;
-import org.eclipse.jface.viewers.ComboBoxCellEditor;
-import org.eclipse.jface.viewers.ICellModifier;
-import org.eclipse.jface.viewers.ILabelProviderListener;
-import org.eclipse.jface.viewers.IStructuredContentProvider;
-import org.eclipse.jface.viewers.ITableLabelProvider;
-import org.eclipse.jface.viewers.TableLayout;
-import org.eclipse.jface.viewers.TableViewer;
-import org.eclipse.jface.viewers.TextCellEditor;
-import org.eclipse.jface.viewers.Viewer;
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.events.SelectionListener;
-import org.eclipse.swt.graphics.Image;
-import org.eclipse.swt.layout.FillLayout;
+import org.eclipse.swt.events.SelectionAdapter;
+import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Group;
-import org.eclipse.swt.widgets.TableColumn;
-import org.eclipse.swt.widgets.TableItem;
 import org.slf4j.Logger;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
 public class SchemaMappingPage extends MigrationWizardPage {
+    private static final Logger LOG = LogUtil.getLogger(SchemaMappingPage.class);
 
-    private Logger logger = LogUtil.getLogger(SchemaMappingPage.class);
-
-    private MigrationWizard wizard = null;
-    private MigrationConfiguration config = null;
-
-    private String[] propertyList = {
-        "",
-        Messages.sourceSchema,
-        Messages.msgNote,
-        Messages.msgSrcType,
-        Messages.targetSchema,
-        Messages.msgTarType
-    };
-    private String[] tarSchemaNameArray = null;
-
-    Catalog srcCatalog;
-    Catalog tarCatalog;
-
-    TableViewer srcTableViewer = null;
-    TableViewer tarTableViewer = null;
-
-    ArrayList<String> tarSchemaNameList = new ArrayList<String>();
-    ArrayList<SrcTable> srcTableList = new ArrayList<SrcTable>();
-
-    List<Schema> srcSchemaList = null;
-    List<Schema> tarSchemaList = null;
-
-    ComboBoxCellEditor comboEditor = null;
-
-    TextCellEditor textEditor = null;
-
-    private boolean firstVisible = true;
-
-    Map<String, String> schemaFullName;
-    Map<String, String> tableFullName;
-    Map<String, String> viewFullName;
-    Map<String, String> viewQuerySpecFullName;
-    Map<String, String> pkFullName;
-    Map<String, String> fkFullName;
-    Map<String, String> dataFullName;
-    Map<String, String> indexFullName;
-    Map<String, String> uniqueIndexFullName;
-    Map<String, String> serialFullName;
-    Map<String, String> updateStatisticFullName;
-    Map<String, String> schemaFileListFullName;
-    Map<String, String> synonymFileListFullName;
-    Map<String, Map<String, String>> grantFileListFullName;
-    Map<String, List<String>> tableDataFileListFullName;
-    Map<String, String> plcsqlProcedureHeaderFullName;
-    Map<String, String> plcsqlFunctionHeaderFullName;
-    Map<String, String> plcsqlProcedureFullName;
-    Map<String, String> plcsqlFunctionFullName;
-    Map<String, Map<String, String>> plcsqlProcedureFileListFullName;
-    Map<String, Map<String, String>> plcsqlFunctionFileListFullName;
-
-    protected class SrcTable {
-        private boolean isSelected;
-
-        private String note;
-
-        private String srcSchema;
-        private String srcDBType;
-
-        private String tarSchema;
-        private String tarDBType;
-
-        public boolean isSelected() {
-            return isSelected;
-        }
-
-        public void setSelected(boolean isSelected) {
-            this.isSelected = isSelected;
-        }
-
-        public String getNote() {
-            return note;
-        }
-
-        public void setNote(String note) {
-            this.note = note;
-        }
-
-        public void setNote(boolean note) {
-            if (note == true) {
-                setNote(Messages.msgGrantSchema);
-            } else {
-                setNote(Messages.msgMainSchema);
-            }
-        }
-
-        public String getSrcSchema() {
-            return srcSchema;
-        }
-
-        public void setSrcSchema(String srcSchema) {
-            this.srcSchema = srcSchema;
-        }
-
-        public String getSrcDBType() {
-            return srcDBType;
-        }
-
-        public void setSrcDBType(String srcDBtype) {
-            this.srcDBType = srcDBtype;
-        }
-
-        public String getTarSchema() {
-            return tarSchema;
-        }
-
-        public void setTarSchema(String tarSchema) {
-            this.tarSchema = tarSchema;
-        }
-
-        public String getTarDBType() {
-            return tarDBType;
-        }
-
-        public void setTarDBType(String tarDBType) {
-            this.tarDBType = tarDBType;
-        }
-    }
+    private MigrationWizard wizard;
+    private MigrationConfiguration config;
+    private SchemaTableView schemaTableView;
+    private final List<SrcTable> srcTableList = new ArrayList<>();
+    private Catalog srcCatalog;
+    private Button btnUpdateObjects;
 
     public SchemaMappingPage(String pageName) {
         super(pageName);
@@ -208,339 +83,204 @@ public class SchemaMappingPage extends MigrationWizardPage {
     @Override
     public void createControl(Composite parent) {
         Composite container = new Composite(parent, SWT.NONE);
-        container.setLayout(new FillLayout());
+
+        GridLayout layout = new GridLayout(1, false);
+        layout.marginWidth = 0;
+        layout.marginHeight = 0;
+        container.setLayout(layout);
         container.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
 
-        createSrcTable(container);
+        Composite header = new Composite(container, SWT.NONE);
+        GridLayout headerLayout = new GridLayout(1, false);
+        headerLayout.marginWidth = 0;
+        headerLayout.marginHeight = 0;
+        header.setLayout(headerLayout);
+        header.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
+
+        btnUpdateObjects = new Button(header, SWT.PUSH);
+        btnUpdateObjects.setText(Messages.objectMappingRefreshLabel);
+        btnUpdateObjects.addSelectionListener(
+                new SelectionAdapter() {
+                    @Override
+                    public void widgetSelected(SelectionEvent e) {
+                        handleRefreshDatabaseObject();
+                    }
+                });
+
+        schemaTableView = new SchemaTableView(container, getMigrationWizard().getMigrationConfig());
+
+        schemaTableView
+                .getViewer()
+                .getTable()
+                .getParent()
+                .setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
 
         setControl(container);
     }
 
-    private void createSrcTable(Composite container) {
-        Group srcTableViewerGroup = new Group(container, SWT.NONE);
-        srcTableViewerGroup.setLayout(new FillLayout());
-        srcTableViewer = new TableViewer(srcTableViewerGroup, SWT.FULL_SELECTION);
+    @Override
+    protected void afterShowCurrentPage(PageChangedEvent event) {
+        wizard = getMigrationWizard();
+        config = wizard.getMigrationConfig();
 
-        srcTableViewer.setContentProvider(
-                new IStructuredContentProvider() {
-                    @Override
-                    public Object[] getElements(Object inputElement) {
-                        if (inputElement instanceof List) {
-
-                            @SuppressWarnings("unchecked")
-                            List<SrcTable> schemaObj = (ArrayList<SrcTable>) inputElement;
-
-                            return schemaObj.toArray();
-                        } else {
-                            return new Object[0];
-                        }
-                    }
-
-                    @Override
-                    public void inputChanged(Viewer viewer, Object oldInput, Object newInput) {}
-
-                    @Override
-                    public void dispose() {}
-                });
-
-        srcTableViewer.setLabelProvider(
-                new ITableLabelProvider() {
-                    @Override
-                    public String getColumnText(Object element, int columnIndex) {
-                        SrcTable obj = (SrcTable) element;
-
-                        switch (columnIndex) {
-                            case 0:
-                                return null;
-                            case 1:
-                                return obj.getSrcSchema();
-                            case 2:
-                                return obj.getNote();
-                            case 3:
-                                return obj.getSrcDBType();
-                            case 4:
-                                return obj.getTarSchema().toUpperCase(Locale.US);
-                            case 5:
-                                return obj.getTarDBType();
-                            default:
-                                return null;
-                        }
-                    }
-
-                    @Override
-                    public Image getColumnImage(Object element, int columnIndex) {
-                        SrcTable srcTable = (SrcTable) element;
-
-                        if (columnIndex == 0) {
-                            if (firstVisible) {
-                                if (srcTable.getNote().equals(Messages.msgMainSchema)
-                                        || srcTable.isSelected()) {
-                                    srcTable.setSelected(true);
-                                    return CompositeUtils.CHECK_IMAGE;
-                                } else {
-                                    srcTable.setSelected(false);
-                                    return CompositeUtils.UNCHECK_IMAGE;
-                                }
-                            } else {
-                                if (srcTable.isSelected()) {
-                                    return CompositeUtils.CHECK_IMAGE;
-                                } else {
-                                    return CompositeUtils.UNCHECK_IMAGE;
-                                }
-                            }
-                        }
-                        return null;
-                    }
-
-                    @Override
-                    public void removeListener(ILabelProviderListener listener) {}
-
-                    @Override
-                    public boolean isLabelProperty(Object element, String property) {
-                        return false;
-                    }
-
-                    @Override
-                    public void dispose() {}
-
-                    @Override
-                    public void addListener(ILabelProviderListener listener) {}
-                });
-
-        srcTableViewer.setColumnProperties(propertyList);
-
-        TableLayout tableLayout = new TableLayout();
-
-        tableLayout.addColumnData(new ColumnWeightData(5, true));
-        tableLayout.addColumnData(new ColumnWeightData(20, true));
-        tableLayout.addColumnData(new ColumnWeightData(13, true));
-        tableLayout.addColumnData(new ColumnWeightData(20, true));
-        tableLayout.addColumnData(new ColumnWeightData(20, true));
-        tableLayout.addColumnData(new ColumnWeightData(20, true));
-
-        srcTableViewer.getTable().setLayout(tableLayout);
-        srcTableViewer.getTable().setLinesVisible(true);
-        srcTableViewer.getTable().setHeaderVisible(true);
-
-        TableColumn col1 = new TableColumn(srcTableViewer.getTable(), SWT.LEFT);
-        TableColumn col2 = new TableColumn(srcTableViewer.getTable(), SWT.LEFT);
-        TableColumn col3 = new TableColumn(srcTableViewer.getTable(), SWT.LEFT);
-        TableColumn col4 = new TableColumn(srcTableViewer.getTable(), SWT.LEFT);
-        TableColumn col5 = new TableColumn(srcTableViewer.getTable(), SWT.LEFT);
-        TableColumn col6 = new TableColumn(srcTableViewer.getTable(), SWT.LEFT);
-
-        final SelectionListener[] selectionListeners =
-                new SelectionListener[] {
-                    new CheckBoxColumnSelectionListener(), null, null, null, null, null
-                };
-        CompositeUtils.setTableColumnSelectionListener(srcTableViewer, selectionListeners);
-
-        col1.setImage(CompositeUtils.getCheckImage(false));
-        col2.setText(propertyList[1]);
-        col3.setText(propertyList[2]);
-        col4.setText(propertyList[3]);
-        col5.setText(propertyList[4]);
-        col6.setText(propertyList[5]);
-    }
-
-    private void getSchemaValues() {
-        Catalog targetCatalog = wizard.getTargetCatalog();
-        Catalog sourceCatalog = wizard.getOriginalSourceCatalog();
-
-        List<Schema> targetSchemaList = targetCatalog.getSchemas();
-        List<Schema> sourceSchemaList = sourceCatalog.getSchemas();
-
-        tarSchemaNameList = new ArrayList<String>();
-        ArrayList<String> dropDownSchemaList = new ArrayList<String>();
-
-        for (Schema schema : targetSchemaList) {
-            tarSchemaNameList.add(schema.getName());
-            dropDownSchemaList.add(schema.getName());
+        if (!srcTableList.isEmpty()) {
+            srcTableList.clear();
         }
 
-        for (Schema schema : sourceSchemaList) {
-            if (tarSchemaNameList.contains(schema.getName().toUpperCase())) {
-                continue;
-            }
+        setTitle(wizard.getStepNoMsg(this) + Messages.schemaMappingPageTitle);
+        updateDescription();
 
-            dropDownSchemaList.add(schema.getName());
+        schemaTableView.setSrcSchemaCatalog(wizard.getSourceSchemaCatalog());
+        schemaTableView.setTarCatalog(wizard.getTargetCatalog());
+        schemaTableView.updateCellEditors();
+
+        if (btnUpdateObjects != null && !btnUpdateObjects.isDisposed()) {
+            boolean enableUpdateObjects = config.sourceIsOnline();
+            btnUpdateObjects.setEnabled(enableUpdateObjects);
         }
 
-        if (targetCatalog.isDBAGroup()) {
-            tarSchemaNameArray = dropDownSchemaList.toArray(new String[] {});
-
+        if (!config.targetIsOnline()) {
+            setOfflineSchemaMappingPage();
         } else {
-            tarSchemaNameArray =
-                    new String[] {targetCatalog.getConnectionParameters().getConUser()};
+            setOnlineSchemaMappingPage();
+        }
+
+        schemaTableView.setInput(srcTableList);
+    }
+
+    private void updateDescription() {
+        if ((config.targetIsOnline() && !wizard.getTargetCatalog().isDBAGroup())
+                || (!config.targetIsOnline() && !config.isAddUserSchema())) {
+            setDescription(Messages.schemaMappingPageDescriptionUncorrectable);
+        } else {
+            setDescription(Messages.schemaMappingPageDescription);
         }
     }
 
-    private void setOnlineEditor() {
-        comboEditor =
-                new EditableComboBoxCellEditor(
-                        srcTableViewer.getTable(), tarSchemaNameArray, SWT.READ_ONLY);
+    @Override
+    protected void handlePageLeaving(PageChangingEvent event) {
+        if (!isPageComplete()) return;
+        if (!isGotoNextPage(event)) return;
 
-        CellEditor[] editors =
-                new CellEditor[] {
-                    new CheckboxCellEditorFactory().getCellEditor(srcTableViewer.getTable()),
-                    null,
-                    null,
-                    null,
-                    comboEditor,
-                    null
-                };
-
-        srcTableViewer.setCellEditors(editors);
-        srcTableViewer.setCellModifier(
-                new ICellModifier() {
-
-                    @Override
-                    public void modify(Object element, String property, Object value) {
-                        TableItem tabItem = (TableItem) element;
-                        SrcTable srcTable = (SrcTable) tabItem.getData();
-
-                        if (property.equals(propertyList[4])) {
-                            srcTable.setTarSchema(returnValue((Integer) value, tabItem));
-                            addSelectCheckboxValue();
-                            srcTableViewer.refresh();
-                        } else if (property.equals(propertyList[0])) {
-                            tabItem.setImage(CompositeUtils.getCheckImage(!srcTable.isSelected));
-                            srcTable.setSelected(!srcTable.isSelected);
-                        }
-                    }
-
-                    @Override
-                    public Object getValue(Object element, String property) {
-                        if (property.equals(propertyList[4])) {
-                            return returnIndex(element);
-                        } else if (property.equals(propertyList[0])) {
-                            return true;
-                        } else {
-                            return null;
-                        }
-                    }
-
-                    @Override
-                    public boolean canModify(Object element, String property) {
-                        if (property.equals(propertyList[4]) || property.equals(propertyList[0])) {
-                            return true;
-                        } else {
-                            return false;
-                        }
-                    }
-
-                    public int returnIndex(Object element) {
-                        if (element instanceof SrcTable) {
-                            SrcTable srcTable = (SrcTable) element;
-
-                            for (int i = 0; i < tarSchemaNameArray.length; i++) {
-                                if (tarSchemaNameArray[i].equals(srcTable.getTarSchema())) {
-                                    return i;
-                                }
-                            }
-                        }
-
-                        return 0;
-                    }
-
-                    public String returnValue(int index, TableItem item) {
-                        return tarSchemaNameArray[index];
-                    }
-
-                    private void addSelectCheckboxValue() {
-                        TableItem[] tableItems = srcTableViewer.getTable().getItems();
-                        for (int i = 0; i < tableItems.length; i++) {
-                            if (tableItems[i].getImage().equals(CompositeUtils.CHECK_IMAGE)) {
-                                srcTableList.get(i).setSelected(true);
-                            } else {
-                                srcTableList.get(i).setSelected(false);
-                            }
-                        }
-                    }
-                });
+        List<SrcTable> currentSrcTables = schemaTableView.getSrcTableList();
+        List<String> selectedSchemas = collectSelectedSchemas(currentSrcTables);
+        if (config.targetIsOnline()) {
+            event.doit = saveOnlineData(currentSrcTables, selectedSchemas);
+        } else {
+            event.doit =
+                    saveOfflineData(
+                            config.isAddUserSchema(),
+                            config.isSplitSchema(),
+                            currentSrcTables,
+                            selectedSchemas);
+        }
     }
 
-    private void setOfflineEditor(boolean isAddUserSchema) {
-        textEditor = new TextCellEditor(srcTableViewer.getTable());
+    private void handleRefreshDatabaseObject() {
+        final MigrationWizard wizard = getMigrationWizard();
+        final MigrationConfiguration cfg = wizard.getMigrationConfig();
 
-        CellEditor[] editors =
-                new CellEditor[] {
-                    new CheckboxCellEditorFactory().getCellEditor(srcTableViewer.getTable()),
-                    null,
-                    null,
-                    null,
-                    isAddUserSchema ? textEditor : null,
-                    null
-                };
+        List<SrcTable> currentSrcTables = schemaTableView.getSrcTableList();
+        List<String> selectedSchemas = collectSelectedSchemas(currentSrcTables);
+        if (selectedSchemas.isEmpty()) {
+            MessageDialog.openError(
+                    getShell(), Messages.msgError, Messages.msgErrEmptySchemaCheckbox);
+            return;
+        }
 
-        srcTableViewer.setCellEditors(editors);
-        srcTableViewer.setCellModifier(
-                new ICellModifier() {
+        boolean confirmed =
+                MessageDialog.openConfirm(
+                        getShell(),
+                        Messages.msgConfirmation,
+                        Messages.objectMappingRefreshActionMessage);
+        if (!confirmed) {
+            return;
+        }
 
-                    @Override
-                    public boolean canModify(Object element, String property) {
-                        if (property.equals(propertyList[4]) || property.equals(propertyList[0])) {
-                            return true;
-                        } else {
-                            return false;
-                        }
-                    }
+        if (!validateSourceConfiguration(cfg, wizard.getSourceSchemaCatalog())) {
+            return;
+        }
 
-                    @Override
-                    public Object getValue(Object element, String property) {
-                        if (property.equals(propertyList[4])) {
-                            return ((SrcTable) element).getTarSchema().toUpperCase(Locale.US);
-                        } else if (property.equals(propertyList[0])) {
-                            return true;
-                        } else {
-                            return null;
-                        }
-                    }
+        cfg.setSelectedSrcSchemas(selectedSchemas);
+        refreshSourceCatalog(cfg, wizard, selectedSchemas);
+    }
 
-                    @Override
-                    public void modify(Object element, String property, Object value) {
-                        TableItem tabItem = (TableItem) element;
-                        SrcTable srcTable = (SrcTable) tabItem.getData();
+    private boolean validateSourceConfiguration(
+            MigrationConfiguration cfg, SchemaCatalog sourceSchemaCatalog) {
+        if (cfg.getSourceConParams() == null) {
+            MessageDialog.openError(getShell(), Messages.msgError, "Source connection is not set.");
+            return false;
+        }
+        if (sourceSchemaCatalog == null) {
+            MessageDialog.openError(
+                    getShell(), Messages.msgError, "Source schema catalog is not loaded.");
+            return false;
+        }
+        return true;
+    }
 
-                        if (property.equals(propertyList[4])) {
-                            srcTable.setTarSchema(((String) value).toUpperCase(Locale.US));
-                            addSelectCheckboxValue();
-                            srcTableViewer.refresh();
-                        } else if (property.equals(propertyList[0])) {
-                            tabItem.setImage(CompositeUtils.getCheckImage(!srcTable.isSelected));
-                            srcTable.setSelected(!srcTable.isSelected);
-                        }
-                    }
+    private void refreshSourceCatalog(
+            MigrationConfiguration cfg, MigrationWizard wizard, List<String> selectedSchemas) {
+        try {
+            ConnParameters cp = cfg.getSourceConParams();
+            SchemaFetcherWithProgress fetcher =
+                    SchemaFetcherWithProgress.getInstance(
+                            wizard.getSourceSchemaCatalog().getConnectionParameters());
+            Catalog detailed =
+                    fetcher.fetchDetails(wizard.getSourceSchemaCatalog(), selectedSchemas);
 
-                    private void addSelectCheckboxValue() {
-                        TableItem[] tableItems = srcTableViewer.getTable().getItems();
-                        for (int i = 0; i < tableItems.length; i++) {
-                            if (tableItems[i].getImage().equals(CompositeUtils.CHECK_IMAGE)) {
-                                srcTableList.get(i).setSelected(true);
-                            } else {
-                                srcTableList.get(i).setSelected(false);
-                            }
-                        }
-                    }
-                });
+            if (fetcher.isCanceled()) {
+                return;
+            }
+            if (fetcher.getError() != null) {
+                throw fetcher.getError();
+            }
+            if (detailed == null) return;
+
+            srcCatalog = detailed;
+            wizard.setSourceCatalog(srcCatalog);
+            CMTConParamManager.getInstance()
+                    .updateSelectedSourceCatalog(cp, selectedSchemas, srcCatalog);
+            wizard.setSourceDBNode(srcCatalog);
+        } catch (Exception e) {
+            LOG.error("Failed to refresh detailed catalog in SchemaMappingPage", e);
+        }
+    }
+
+    private List<String> collectSelectedSchemas(List<SrcTable> tables) {
+        List<String> selected = new ArrayList<>();
+        for (SrcTable srcTable : tables) {
+            if (srcTable.isSelected()) {
+                selected.add(srcTable.getSrcSchema());
+            }
+        }
+        return selected;
     }
 
     private void setOfflineSchemaMappingPage() {
         setOfflineData();
-        setOfflineEditor(config.isAddUserSchema());
+        schemaTableView.updateCellEditors();
+    }
+
+    private void setOnlineSchemaMappingPage() {
+        setOnlineData();
+        schemaTableView.updateCellEditors();
     }
 
     private void setOfflineData() {
-        srcCatalog = wizard.getOriginalSourceCatalog().createCatalog();
-        srcSchemaList = srcCatalog.getSchemas();
-        Map<String, Schema> scriptSchemaMap = config.getScriptSchemaMapping();
-        List<Schema> targetSchemaList = config.getTargetSchemaList();
+        final SchemaCatalog sourceSchemaCatalog = wizard.getSourceSchemaCatalog();
 
-        for (Schema schema : srcSchemaList) {
-            SrcTable srcTable = new SrcTable();
-            srcTable.setSrcDBType(srcCatalog.getDatabaseType().getName());
-            srcTable.setSrcSchema(schema.getName());
-            srcTable.setNote(schema.isGrantorSchema());
+        Set<String> selected = config.getSelectedSrcSchemas();
+        for (SchemaEntry schemaEntry : sourceSchemaCatalog.getSchemas()) {
+            SrcTable srcTable = createSrcTable(sourceSchemaCatalog, schemaEntry);
+            String schemaName = schemaEntry.name();
+            boolean isSelected;
+            if (!selected.isEmpty()) {
+                isSelected = selected.contains(schemaName);
+            } else {
+                isSelected = !schemaEntry.grantorSchema();
+            }
+            srcTable.setSelected(isSelected);
 
             if (config.targetIsSQL()) {
                 srcTable.setTarDBType(Messages.msgCubridSQL);
@@ -551,526 +291,480 @@ public class SchemaMappingPage extends MigrationWizardPage {
             } else {
                 srcTable.setTarDBType(Messages.msgCubridDump);
             }
-
-            if (!schema.isGrantorSchema()) {
-                srcTableList.add(0, srcTable);
-            } else {
-                srcTableList.add(srcTable);
-            }
-
-            if (scriptSchemaMap.size() != 0) {
-                logger.info("offline script schema");
-                Schema scriptSchema = scriptSchemaMap.get(srcTable.getSrcSchema());
-                if (scriptSchema != null) {
-                    srcTable.setTarSchema(
-                            scriptSchemaMap.get(srcTable.getSrcSchema()).getTargetSchemaName());
-                    srcTable.setSelected(
-                            scriptSchemaMap.get(srcTable.getSrcSchema()).isMigration());
-                }
-
-                if (srcTable.getTarSchema() == null || srcTable.getTarSchema().isEmpty()) {
-                    srcTable.setTarSchema(srcTable.getSrcSchema());
-                }
-
-            } else if (config.isAddUserSchema() && !targetSchemaList.isEmpty()) {
-                for (Schema targetSchema : targetSchemaList) {
-                    if (targetSchema.getName().equals(schema.getName())) {
-                        srcTable.setTarSchema(targetSchema.getTargetSchemaName());
-                        break;
-                    }
-                }
-                if (srcTable.getTarSchema() == null || srcTable.getTarSchema().isEmpty()) {
-                    srcTable.setTarSchema(srcTable.getSrcSchema());
-                }
-            } else {
-                srcTable.setTarSchema(srcTable.getSrcSchema());
-            }
+            setOfflineTargetSchema(srcTable, schemaEntry);
         }
     }
 
-    private void setOnlineSchemaMappingPage() {
-        setOnlineData();
-        getSchemaValues();
-        setOnlineEditor();
+    private void setOfflineTargetSchema(SrcTable srcTable, SchemaEntry schema) {
+        final Map<String, Schema> scriptSchemaMap = config.getScriptSchemaMapping();
+        final List<Schema> targetSchemaList = config.getTargetSchemaList();
+
+        String tarSchemaName = null;
+        if (!scriptSchemaMap.isEmpty()) {
+            LOG.info("offline script schema");
+            Schema scriptSchema = scriptSchemaMap.get(srcTable.getSrcSchema());
+            if (scriptSchema != null) {
+                tarSchemaName = scriptSchema.getTargetSchemaName();
+                srcTable.setSelected(scriptSchema.isMigration());
+            }
+        } else if (config.isAddUserSchema() && !targetSchemaList.isEmpty()) {
+            Optional<String> result =
+                    targetSchemaList.stream()
+                            .filter(ts -> ts.getName().equals(schema.name()))
+                            .map(Schema::getTargetSchemaName)
+                            .findFirst();
+            if (result.isPresent()) {
+                tarSchemaName = result.get();
+            }
+        }
+
+        srcTable.setTarSchema(
+                StringUtils.isEmpty(tarSchemaName) ? srcTable.getSrcSchema() : tarSchemaName);
+    }
+
+    private SrcTable createSrcTable(SchemaCatalog schemaCatalog, SchemaEntry schema) {
+        SrcTable srcTable = new SrcTable();
+        srcTable.setSrcDBType(schemaCatalog.getDatabaseType().getName());
+        srcTable.setSrcSchema(schema.name());
+        srcTable.setNote(schema.grantorSchema());
+
+        if (!schema.grantorSchema()) {
+            srcTableList.add(0, srcTable);
+        } else {
+            srcTableList.add(srcTable);
+        }
+        return srcTable;
     }
 
     private void setOnlineData() {
-        srcCatalog = wizard.getOriginalSourceCatalog().createCatalog();
-        tarCatalog = wizard.getTargetCatalog();
+        final SchemaCatalog sourceSchemaCatalog = wizard.getSourceSchemaCatalog();
+        final Catalog tarCatalog = wizard.getTargetCatalog();
 
-        srcSchemaList = srcCatalog.getSchemas();
-        tarSchemaList = tarCatalog.getSchemas();
-
-        Map<String, Schema> scriptSchemaMap = config.getScriptSchemaMapping();
-
-        for (Schema schema : srcSchemaList) {
-            SrcTable srcTable = new SrcTable();
-            srcTable.setSrcDBType(srcCatalog.getDatabaseType().getName());
-            srcTable.setSrcSchema(schema.getName());
-            srcTable.setNote(schema.isGrantorSchema());
-
-            if (!schema.isGrantorSchema()) {
-                srcTableList.add(0, srcTable);
+        Set<String> selected = config.getSelectedSrcSchemas();
+        for (SchemaEntry schemaEntry : sourceSchemaCatalog.getSchemas()) {
+            SrcTable srcTable = createSrcTable(sourceSchemaCatalog, schemaEntry);
+            String schemaName = schemaEntry.name();
+            boolean isSelected;
+            if (!selected.isEmpty()) {
+                isSelected = selected.contains(schemaName);
             } else {
-                srcTableList.add(srcTable);
+                isSelected = !schemaEntry.grantorSchema();
             }
-
-            srcTable.setTarDBType(tarCatalog.getDatabaseType().getName());
-
-            if (scriptSchemaMap.size() != 0) {
-                logger.info("script schema");
-
-                Schema scriptSchema = scriptSchemaMap.get(srcTable.getSrcSchema());
-                String tarSchemaName = null;
-                if (scriptSchema != null) {
-                    srcTable.setTarSchema(scriptSchema.getTargetSchemaName().toUpperCase());
-                    tarSchemaName = scriptSchema.getTargetSchemaName().toUpperCase();
-                    srcTable.setSelected(
-                            scriptSchemaMap.get(srcTable.getSrcSchema()).isMigration());
-                }
-
-                if (tarSchemaName == null || tarSchemaName.isEmpty()) {
-                    srcTable.setTarSchema(tarCatalog.getName());
-                }
-
-                logger.info("srcTable target schema : " + srcTable.getTarSchema());
-            } else {
-                int version =
-                        tarCatalog.getVersion().getDbMajorVersion() * 10
-                                + tarCatalog.getVersion().getDbMinorVersion();
-
-                if (tarCatalog.isDBAGroup() && version >= 112) {
-                    srcTable.setTarSchema(srcTable.getSrcSchema());
-                } else {
-                    srcTable.setTarSchema(tarCatalog.getSchemas().get(0).getName());
-                }
-            }
+            srcTable.setSelected(isSelected);
+            setOnlineTargetSchema(srcTable, tarCatalog);
         }
     }
 
-    @Override
-    protected void afterShowCurrentPage(PageChangedEvent event) {
-        wizard = getMigrationWizard();
-        config = wizard.getMigrationConfig();
+    private void setOnlineTargetSchema(SrcTable srcTable, Catalog tarCatalog) {
+        final Map<String, Schema> scriptSchemaMap = config.getScriptSchemaMapping();
+        if (!scriptSchemaMap.isEmpty()) {
+            LOG.info("script schema");
 
-        if (srcTableList != null) {
-            srcTableList.clear();
-        }
+            Schema scriptSchema = scriptSchemaMap.get(srcTable.getSrcSchema());
+            String tarSchemaName = null;
+            if (scriptSchema != null) {
+                tarSchemaName = scriptSchema.getTargetSchemaName().toUpperCase();
+                srcTable.setTarSchema(tarSchemaName);
+                srcTable.setSelected(scriptSchema.isMigration());
+            }
 
-        setTitle(wizard.getStepNoMsg(this) + Messages.schemaMappingPageTitle);
-        if ((config.targetIsOnline() && !wizard.getTargetCatalog().isDBAGroup())
-                || (!config.targetIsOnline()) && !config.isAddUserSchema()) {
-            setDescription(Messages.schemaMappingPageDescriptionUncorrectable);
-        } else {
-            setDescription(Messages.schemaMappingPageDescription);
-        }
-
-        if (!config.targetIsOnline()) {
-            setOfflineSchemaMappingPage();
-        } else {
-            setOnlineSchemaMappingPage();
-        }
-
-        srcTableViewer.setInput(srcTableList);
-        firstVisible = firstVisible ? false : true;
-    }
-
-    @Override
-    protected void handlePageLeaving(PageChangingEvent event) {
-        if (!isPageComplete()) {
+            if (StringUtils.isEmpty(tarSchemaName)) {
+                srcTable.setTarSchema(srcTable.getSrcSchema());
+            }
+            LOG.info("srcTable target schema : " + srcTable.getTarSchema());
             return;
         }
-        if (isGotoNextPage(event)) {
-            Catalog originalSrcCatlog = wizard.getOriginalSourceCatalog();
-            if (originalSrcCatlog.getSchemas().size() != srcCatalog.getSchemas().size()) {
-                srcCatalog.getSchemas().clear();
-                srcCatalog.setSchemas(originalSrcCatlog.getSchemas());
-            }
-            if (config.targetIsOnline()) {
-                event.doit = saveOnlineData();
-            } else {
-                event.doit = saveOfflineData(config.isAddUserSchema(), config.isSplitSchema());
-            }
+
+        int version =
+                tarCatalog.getVersion().getDbMajorVersion() * 10
+                        + tarCatalog.getVersion().getDbMinorVersion();
+
+        if (tarCatalog.isDBAGroup() && version >= 112) {
+            srcTable.setTarSchema(srcTable.getSrcSchema());
+        } else {
+            srcTable.setTarSchema(tarCatalog.getSchemas().get(0).getName());
         }
     }
 
-    private boolean saveOnlineData() {
-        if (!isSelectCheckbox()) {
-            MessageDialog.openError(
-                    getShell(), Messages.msgError, Messages.msgErrEmptySchemaCheckbox);
+    private boolean saveOnlineData(
+            final List<SrcTable> currentSrcTables, final List<String> selectedSchemas) {
+        final Catalog tarCatalog = wizard.getTargetCatalog();
+
+        if (!ensureDetailedSrcCatalog(selectedSchemas)) {
             return false;
         }
 
-        List<String> checkNewSchemaDuplicate = new ArrayList<String>();
-        for (SrcTable srcTable : srcTableList) {
-            if (!(tarCatalog.isDbHasUserSchema())) {
-                srcTable.setTarSchema(null);
-                if (!srcTable.isSelected) {
-                    srcCatalog.removeOneSchema(srcCatalog.getSchemaByName(srcTable.getSrcSchema()));
-                }
+        List<String> checkNewSchemaDuplicate = new ArrayList<>();
+        config.setTarSchemaDuplicate(false);
+
+        for (SrcTable srcTable : currentSrcTables) {
+            if (!srcTable.isSelected()) {
                 continue;
             }
-
-            if (srcTable.getTarSchema().isEmpty()) {
-                MessageDialog.openError(
-                        getShell(), Messages.msgError, Messages.msgErrEmptySchemaName);
+            if (!processOnlineTableMapping(srcTable, tarCatalog, checkNewSchemaDuplicate)) {
                 return false;
             }
-
-            if (!srcTable.isSelected) {
-                Schema srcSchema = srcCatalog.getSchemaByName(srcTable.getSrcSchema());
-                srcCatalog.removeOneSchema(srcSchema);
-                continue;
-            }
-
-            logger.info("src schema : " + srcTable.getSrcSchema());
-            logger.info("tar schema : " + srcTable.getTarSchema());
-
-            Schema targetSchema = tarCatalog.getSchemaByName(srcTable.getTarSchema());
-
-            if (targetSchema != null) {
-                Schema srcSchema = srcCatalog.getSchemaByName(srcTable.getSrcSchema());
-                srcSchema.setTargetSchemaName(targetSchema.getName());
-
-            } else {
-                logger.info("need to create a new schema for target db");
-                Schema newSchema = new Schema();
-                newSchema.setName(srcTable.getTarSchema());
-                newSchema.setNewTargetSchema(true);
-
-                Schema srcSchema = srcCatalog.getSchemaByName(srcTable.getSrcSchema());
-                srcSchema.setTargetSchemaName(newSchema.getName());
-
-                if (checkNewSchemaDuplicate.contains(newSchema.getName())) {
-                    config.setTarSchemaDuplicate(true);
-                    continue;
-                }
-
-                checkNewSchemaDuplicate.add(newSchema.getName());
-                config.setNewTargetSchema(newSchema.getName());
-            }
         }
-        wizard.setSourceCatalog(srcCatalog);
-        getMigrationWizard().setSourceDBNode(srcCatalog);
-
+        wizard.setSourceDBNode(srcCatalog);
         return true;
     }
 
-    private boolean saveOfflineData(boolean addUserSchema, boolean splitSchema) {
-        if (!isSelectCheckbox()) {
+    private boolean processOnlineTableMapping(
+            SrcTable srcTable, Catalog tarCatalog, List<String> checkNewSchemaDuplicate) {
+        if (!(tarCatalog.isDbHasUserSchema())) {
+            srcTable.setTarSchema(null);
+            return true;
+        }
+
+        if (StringUtils.isEmpty(srcTable.getTarSchema())) {
+            MessageDialog.openError(getShell(), Messages.msgError, Messages.msgErrEmptySchemaName);
+            return false;
+        }
+
+        Schema targetSchema = tarCatalog.getSchemaByName(srcTable.getTarSchema());
+        final Schema srcSchema = srcCatalog.getSchemaByName(srcTable.getSrcSchema());
+        if (srcSchema == null) return true;
+
+        if (targetSchema != null) {
+            srcSchema.setTargetSchemaName(targetSchema.getName());
+        } else {
+            configureNewTargetSchema(srcSchema, srcTable.getTarSchema(), checkNewSchemaDuplicate);
+        }
+        return true;
+    }
+
+    private void configureNewTargetSchema(
+            Schema srcSchema, String targetSchemaName, List<String> checkNewSchemaDuplicate) {
+        Schema newSchema = new Schema();
+        newSchema.setName(targetSchemaName);
+        newSchema.setNewTargetSchema(true);
+        srcSchema.setTargetSchemaName(newSchema.getName());
+        if (checkNewSchemaDuplicate.contains(newSchema.getName())) {
+            config.setTarSchemaDuplicate(true);
+        } else {
+            checkNewSchemaDuplicate.add(newSchema.getName());
+            config.setNewTargetSchema(newSchema.getName());
+        }
+    }
+
+    /**
+     * Ensures that srcCatalog has detailed objects for the selected schemas using cache first, then
+     * lazy loading if needed.
+     */
+    private boolean ensureDetailedSrcCatalog(List<String> selectedSchemas) {
+        if (selectedSchemas == null || selectedSchemas.isEmpty()) {
+            MessageDialog.openError(
+                    getShell(), Messages.msgError, Messages.msgErrEmptySchemaCheckbox);
+            return false;
+        }
+        config.setSelectedSrcSchemas(selectedSchemas);
+        if (config.sourceIsOnline()) {
+            return ensureDetailedSrcCatalogOnline(selectedSchemas);
+        } else {
+            return ensureDetailedSrcCatalogOffline(selectedSchemas);
+        }
+    }
+
+    /**
+     * Logic to get the detailed catalog for online sources. Extracted the online-specific logic
+     * from the existing ensureDetailedSrcCatalog.
+     */
+    private boolean ensureDetailedSrcCatalogOnline(List<String> selectedSchemas) {
+        SchemaCatalog schemaCatalog = wizard.getSourceSchemaCatalog();
+        ConnParameters cp = config.getSourceConParams();
+
+        if (cp == null
+                || schemaCatalog == null
+                || schemaCatalog.getConnectionParameters() == null) {
+            return srcCatalog != null;
+        }
+
+        Catalog cached =
+                CMTConParamManager.getInstance().getSelectedSourceCatalog(cp, selectedSchemas);
+        if (cached != null) {
+            srcCatalog = cached;
+            wizard.setSourceCatalog(srcCatalog);
+            return true;
+        }
+
+        return fetchAndCacheDetailedCatalog(schemaCatalog, cp, selectedSchemas);
+    }
+
+    private boolean fetchAndCacheDetailedCatalog(
+            SchemaCatalog schemaCatalog, ConnParameters cp, List<String> selectedSchemas) {
+        try {
+            SchemaFetcherWithProgress fetcher =
+                    SchemaFetcherWithProgress.getInstance(schemaCatalog.getConnectionParameters());
+            Catalog detailed = fetcher.fetchDetails(schemaCatalog, selectedSchemas);
+
+            if (fetcher.isCanceled()) {
+                return false;
+            }
+            if (fetcher.getError() != null) {
+                throw fetcher.getError();
+            }
+            if (detailed == null) {
+                return false;
+            }
+
+            srcCatalog = detailed;
+            wizard.setSourceCatalog(srcCatalog);
+            CMTConParamManager.getInstance()
+                    .updateSelectedSourceCatalog(cp, selectedSchemas, detailed);
+            return true;
+        } catch (Exception e) {
+            LOG.error("Failed to fetch detailed source catalog in SchemaMappingPage", e);
+            return false;
+        }
+    }
+
+    /**
+     * Logic to get the detailed catalog for offline sources. Uses the catalog pre-loaded via
+     * config.setSrcCatalog.
+     */
+    private boolean ensureDetailedSrcCatalogOffline(List<String> selectedSchemas) {
+        if (selectedSchemas == null || selectedSchemas.isEmpty()) {
             MessageDialog.openError(
                     getShell(), Messages.msgError, Messages.msgErrEmptySchemaCheckbox);
             return false;
         }
 
-        List<Schema> targetSchemaList = new ArrayList<Schema>();
-        schemaFullName = new HashMap<String, String>();
-        tableFullName = new HashMap<String, String>();
-        viewFullName = new HashMap<String, String>();
-        viewQuerySpecFullName = new HashMap<String, String>();
-        pkFullName = new HashMap<String, String>();
-        fkFullName = new HashMap<String, String>();
-        dataFullName = new HashMap<String, String>();
-        indexFullName = new HashMap<String, String>();
-        uniqueIndexFullName = new HashMap<String, String>();
-        serialFullName = new HashMap<String, String>();
-        updateStatisticFullName = new HashMap<String, String>();
-        schemaFileListFullName = new HashMap<String, String>();
-        synonymFileListFullName = new HashMap<String, String>();
-        grantFileListFullName = new HashMap<String, Map<String, String>>();
-        tableDataFileListFullName = new HashMap<String, List<String>>();
-        plcsqlProcedureFullName = new HashMap<>();
-        plcsqlFunctionFullName = new HashMap<>();
-        plcsqlProcedureHeaderFullName = new HashMap<>();
-        plcsqlFunctionHeaderFullName = new HashMap<>();
-        plcsqlProcedureFileListFullName = new HashMap<>();
-        plcsqlFunctionFileListFullName = new HashMap<>();
+        Catalog full = config.getOfflineFullSrcCatalog();
+        if (full == null) {
+            full = config.getSrcCatalog();
+            if (full != null) {
+                config.setOfflineFullSrcCatalog(full);
+            }
+        }
 
-        for (SrcTable srcTable : srcTableList) {
+        if (full == null) {
+            MessageDialog.openError(
+                    getShell(),
+                    Messages.msgError,
+                    "Source catalog is not loaded for offline source.");
+            return false;
+        }
+
+        Catalog working = full.createCatalog();
+        Set<String> selectedSet = new HashSet<>(selectedSchemas);
+
+        List<Schema> toRemove = new ArrayList<>();
+        for (Schema s : working.getSchemas()) {
+            if (!selectedSet.contains(s.getName())) {
+                toRemove.add(s);
+            }
+        }
+        working.removeSchema(toRemove);
+
+        srcCatalog = working;
+        wizard.setSourceCatalog(srcCatalog);
+        return true;
+    }
+
+    private static class OfflineFilePathContext {
+        final Map<String, String> schemaFullName = new HashMap<>();
+        final Map<String, String> tableFullName = new HashMap<>();
+        final Map<String, String> viewFullName = new HashMap<>();
+        final Map<String, String> viewQuerySpecFullName = new HashMap<>();
+        final Map<String, String> pkFullName = new HashMap<>();
+        final Map<String, String> fkFullName = new HashMap<>();
+        final Map<String, String> dataFullName = new HashMap<>();
+        final Map<String, String> indexFullName = new HashMap<>();
+        final Map<String, String> uniqueIndexFullName = new HashMap<>();
+        final Map<String, String> serialFullName = new HashMap<>();
+        final Map<String, String> updateStatisticFullName = new HashMap<>();
+        final Map<String, String> schemaFileListFullName = new HashMap<>();
+        final Map<String, String> synonymFileListFullName = new HashMap<>();
+        final Map<String, Map<String, String>> grantFileListFullName = new HashMap<>();
+        final Map<String, List<String>> tableDataFileListFullName = new HashMap<>();
+        final Map<String, String> plcsqlProcedureHeaderFullName = new HashMap<>();
+        final Map<String, String> plcsqlFunctionHeaderFullName = new HashMap<>();
+        final Map<String, String> plcsqlProcedureFullName = new HashMap<>();
+        final Map<String, String> plcsqlFunctionFullName = new HashMap<>();
+        final Map<String, Map<String, String>> plcsqlProcedureFileListFullName = new HashMap<>();
+        final Map<String, Map<String, String>> plcsqlFunctionFileListFullName = new HashMap<>();
+    }
+
+    private boolean saveOfflineData(
+            boolean addUserSchema,
+            boolean splitSchema,
+            List<SrcTable> currentSrcTables,
+            List<String> selectedSchemas) {
+        if (!ensureDetailedSrcCatalog(selectedSchemas)) {
+            return false;
+        }
+
+        List<Schema> targetSchemaList = new ArrayList<>();
+        OfflineFilePathContext pathContext = new OfflineFilePathContext();
+
+        for (SrcTable srcTable : currentSrcTables) {
+            if (!srcTable.isSelected()) {
+                continue;
+            }
+
             String targetSchemaName = srcTable.getTarSchema();
-            if (addUserSchema
-                    && srcTable.isSelected()
-                    && (targetSchemaName == null
-                            || targetSchemaName.isEmpty()
-                            || StringUtils.trimToEmpty(targetSchemaName).equals(""))) {
+            if (addUserSchema && StringUtils.trimToEmpty(targetSchemaName).isEmpty()) {
                 MessageDialog.openError(
                         getShell(), Messages.msgError, Messages.msgErrEmptySchemaName);
                 return false;
-            }
-
-            if (!srcTable.isSelected) {
-                Schema srcSchema = srcCatalog.getSchemaByName(srcTable.getSrcSchema());
-                srcCatalog.removeOneSchema(srcSchema);
-                continue;
             }
 
             Schema schema = srcCatalog.getSchemaByName(srcTable.getSrcSchema());
             schema.setTargetSchemaName(srcTable.getTarSchema());
             targetSchemaList.add(schema);
 
-            String schemaName =
-                    srcCatalog.getDatabaseType().isSupportMultiSchema()
-                            ? srcTable.getSrcSchema()
-                            : config.getSrcConnOwner();
-
-            if (splitSchema) {
-                tableFullName.put(
-                        schemaName, config.buildLocalFileFullPath(schemaName, "class", null));
-                viewFullName.put(
-                        schemaName, config.buildLocalFileFullPath(schemaName, "vclass", null));
-                viewQuerySpecFullName.put(
-                        schemaName,
-                        config.buildLocalFileFullPath(schemaName, "vclass_query_spec", null));
-                pkFullName.put(schemaName, config.buildLocalFileFullPath(schemaName, "pk", null));
-                fkFullName.put(schemaName, config.buildLocalFileFullPath(schemaName, "fk", null));
-                uniqueIndexFullName.put(
-                        schemaName, config.buildLocalFileFullPath(schemaName, "uk", null));
-                serialFullName.put(
-                        schemaName, config.buildLocalFileFullPath(schemaName, "serial", null));
-                schemaFileListFullName.put(
-                        schemaName, config.buildLocalFileFullPath(schemaName, "info", null));
-                synonymFileListFullName.put(
-                        schemaName, config.buildLocalFileFullPath(schemaName, "synonym", null));
-
-                List<Grant> grantList = schema.getGrantList();
-                for (Grant grant : grantList) {
-                    if (!grantFileListFullName.containsKey(schemaName)) {
-                        grantFileListFullName.put(schemaName, new HashMap<String, String>());
-                    }
-                    Map<String, String> grantMap = grantFileListFullName.get(schemaName);
-                    if (!grantMap.containsKey(grant.getSourceObjectOwner())) {
-                        grantMap.put(
-                                grant.getSourceObjectOwner(),
-                                config.buildLocalFileFullPath(
-                                        schemaName, "grant", grant.getSourceObjectOwner()));
-                    }
-                }
-
-                plcsqlProcedureHeaderFullName.put(
-                        schemaName,
-                        config.buildLocalFileFullPath(schemaName, "procedure_header", null));
-                plcsqlFunctionHeaderFullName.put(
-                        schemaName,
-                        config.buildLocalFileFullPath(schemaName, "function_header", null));
-
-                plcsqlProcedureFullName.put(
-                        schemaName, config.buildLocalFileFullPath(schemaName, "procedure", null));
-                plcsqlFunctionFullName.put(
-                        schemaName, config.buildLocalFileFullPath(schemaName, "function", null));
-
-                Map<String, String> procedureFiles = new HashMap<>();
-                schema.getPlcsqlProcedures()
-                        .forEach(
-                                proc ->
-                                        procedureFiles.put(
-                                                proc.getName(),
-                                                config.buildPlcsqlProcedureFileFullPath(
-                                                        schemaName, proc.getName(), "procedure")));
-                plcsqlProcedureFileListFullName.put(schemaName, procedureFiles);
-
-                Map<String, String> functionFiles = new HashMap<>();
-                schema.getPlcsqlFunctions()
-                        .forEach(
-                                func ->
-                                        functionFiles.put(
-                                                func.getName(),
-                                                config.buildPlcsqlProcedureFileFullPath(
-                                                        schemaName, func.getName(), "function")));
-                plcsqlFunctionFileListFullName.put(schemaName, functionFiles);
-
-            } else {
-                schemaFullName.put(
-                        schemaName, config.buildLocalFileFullPath(schemaName, "schema", null));
-            }
-            if (config.isOneTableOneFile()) {
-                List<String> tableList = new ArrayList<>();
-                schema.getTables()
-                        .forEach(
-                                table ->
-                                        tableList.add(
-                                                config.buildDataFileFullPath(
-                                                        schemaName, table.getName())));
-                tableDataFileListFullName.put(schemaName, tableList);
-            }
-            dataFullName.put(schemaName, config.buildDataFileFullPath(schemaName, "objects"));
-            indexFullName.put(
-                    schemaName, config.buildLocalFileFullPath(schemaName, "indexes", null));
-            updateStatisticFullName.put(
-                    schemaName, config.buildLocalFileFullPath(schemaName, "updatestatistic", null));
+            populateFilePathsForSchema(schema, srcTable.getSrcSchema(), splitSchema, pathContext);
         }
 
-        if (!checkFileRepository()) {
-            return false;
+        updateConfigurationWithPaths(targetSchemaList, pathContext);
+        wizard.setSourceDBNode(srcCatalog);
+
+        return true;
+    }
+
+    private void populateFilePathsForSchema(
+            Schema schema,
+            String srcSchemaName,
+            boolean splitSchema,
+            OfflineFilePathContext pathContext) {
+        String schemaName =
+                srcCatalog.getDatabaseType().isSupportMultiSchema()
+                        ? srcSchemaName
+                        : config.getSrcConnOwner();
+
+        if (splitSchema) {
+            populateSplitSchemaPaths(schema, schemaName, pathContext);
+        } else {
+            pathContext.schemaFullName.put(
+                    schemaName, config.buildLocalFileFullPath(schemaName, "schema", null));
+
+            pathContext.schemaFullName.put(
+                    MigrationConfiguration.SQLTABLE,
+                    config.buildLocalFileFullPath(MigrationConfiguration.SQLTABLE, "schema", null));
         }
 
+        pathContext.dataFullName.put(
+                MigrationConfiguration.SQLTABLE,
+                config.buildSQLDataFileFullPath(MigrationConfiguration.SQLTABLE, "objects"));
+
+        populateDataAndIndexPaths(schema, schemaName, pathContext);
+    }
+
+    private void populateSplitSchemaPaths(
+            Schema schema, String schemaName, OfflineFilePathContext pathContext) {
+        pathContext.tableFullName.put(
+                schemaName, config.buildLocalFileFullPath(schemaName, "class", null));
+        pathContext.viewFullName.put(
+                schemaName, config.buildLocalFileFullPath(schemaName, "vclass", null));
+        pathContext.viewQuerySpecFullName.put(
+                schemaName, config.buildLocalFileFullPath(schemaName, "vclass_query_spec", null));
+        pathContext.pkFullName.put(
+                schemaName, config.buildLocalFileFullPath(schemaName, "pk", null));
+        pathContext.fkFullName.put(
+                schemaName, config.buildLocalFileFullPath(schemaName, "fk", null));
+        pathContext.uniqueIndexFullName.put(
+                schemaName, config.buildLocalFileFullPath(schemaName, "uk", null));
+        pathContext.serialFullName.put(
+                schemaName, config.buildLocalFileFullPath(schemaName, "serial", null));
+        pathContext.schemaFileListFullName.put(
+                schemaName, config.buildLocalFileFullPath(schemaName, "info", null));
+        pathContext.synonymFileListFullName.put(
+                schemaName, config.buildLocalFileFullPath(schemaName, "synonym", null));
+        pathContext.tableFullName.put(
+                MigrationConfiguration.SQLTABLE,
+                config.buildLocalFileFullPath(MigrationConfiguration.SQLTABLE, "class", null));
+
+        for (Grant grant : schema.getGrantList()) {
+            pathContext.grantFileListFullName.putIfAbsent(schemaName, new HashMap<>());
+            Map<String, String> grantMap = pathContext.grantFileListFullName.get(schemaName);
+            grantMap.putIfAbsent(
+                    grant.getSourceObjectOwner(),
+                    config.buildLocalFileFullPath(
+                            schemaName, "grant", grant.getSourceObjectOwner()));
+        }
+
+        populatePlcsqlPaths(schema, schemaName, pathContext);
+    }
+
+    private void populatePlcsqlPaths(
+            Schema schema, String schemaName, OfflineFilePathContext pathContext) {
+        pathContext.plcsqlProcedureHeaderFullName.put(
+                schemaName, config.buildLocalFileFullPath(schemaName, "procedure_header", null));
+        pathContext.plcsqlFunctionHeaderFullName.put(
+                schemaName, config.buildLocalFileFullPath(schemaName, "function_header", null));
+
+        pathContext.plcsqlProcedureFullName.put(
+                schemaName, config.buildLocalFileFullPath(schemaName, "procedure", null));
+        pathContext.plcsqlFunctionFullName.put(
+                schemaName, config.buildLocalFileFullPath(schemaName, "function", null));
+
+        Map<String, String> procedureFiles = new HashMap<>();
+        schema.getPlcsqlProcedures()
+                .forEach(
+                        proc ->
+                                procedureFiles.put(
+                                        proc.getName(),
+                                        config.buildPlcsqlProcedureFileFullPath(
+                                                schemaName, proc.getName(), "procedure")));
+        pathContext.plcsqlProcedureFileListFullName.put(schemaName, procedureFiles);
+
+        Map<String, String> functionFiles = new HashMap<>();
+        schema.getPlcsqlFunctions()
+                .forEach(
+                        func ->
+                                functionFiles.put(
+                                        func.getName(),
+                                        config.buildPlcsqlProcedureFileFullPath(
+                                                schemaName, func.getName(), "function")));
+        pathContext.plcsqlFunctionFileListFullName.put(schemaName, functionFiles);
+    }
+
+    private void populateDataAndIndexPaths(
+            Schema schema, String schemaName, OfflineFilePathContext pathContext) {
+        if (config.isOneTableOneFile()) {
+            List<String> tableList = new ArrayList<>();
+            schema.getTables()
+                    .forEach(
+                            table ->
+                                    tableList.add(
+                                            config.buildDataFileFullPath(
+                                                    schemaName, table.getName())));
+            pathContext.tableDataFileListFullName.put(schemaName, tableList);
+        }
+        pathContext.dataFullName.put(
+                schemaName, config.buildDataFileFullPath(schemaName, "objects"));
+        pathContext.indexFullName.put(
+                schemaName, config.buildLocalFileFullPath(schemaName, "indexes", null));
+        pathContext.updateStatisticFullName.put(
+                schemaName, config.buildLocalFileFullPath(schemaName, "updatestatistic", null));
+    }
+
+    private void updateConfigurationWithPaths(
+            List<Schema> targetSchemaList, OfflineFilePathContext pathContext) {
         if (config.getTargetSchemaList().size() > 0) {
             config.removeTargetSchemaList();
         }
         config.setTargetSchemaList(targetSchemaList);
-        config.setTargetSchemaFileName(schemaFullName);
-        config.setTargetTableFileName(tableFullName);
-        config.setTargetViewFileName(viewFullName);
-        config.setTargetViewQuerySpecFileName(viewQuerySpecFullName);
-        config.setTargetDataFileName(dataFullName);
-        config.setTargetIndexFileName(indexFullName);
-        config.setTargetPkFileName(pkFullName);
-        config.setTargetFkFileName(fkFullName);
-        config.setTargetUniqueIndexFileName(uniqueIndexFullName);
-        config.setTargetSerialFileName(serialFullName);
-        config.setTargetUpdateStatisticFileName(updateStatisticFullName);
-        config.setTargetSchemaFileListName(schemaFileListFullName);
-        config.setTargetSynonymFileName(synonymFileListFullName);
-        config.setTargetGrantFileName(grantFileListFullName);
-        config.setTargetTableDataFileName(tableDataFileListFullName);
-        config.setTargetAllPlcsqlProcedureHeaderFileName(plcsqlProcedureHeaderFullName);
-        config.setTargetAllPlcsqlFunctionHeaderFileName(plcsqlFunctionHeaderFullName);
-        config.setTargetAllPlcsqlProcedureFileName(plcsqlProcedureFullName);
-        config.setTargetAllPlcsqlFunctionFileName(plcsqlFunctionFullName);
-        config.setTargetPlcsqlProcedureFileName(plcsqlProcedureFileListFullName);
-        config.setTargetPlcsqlFunctionFileName(plcsqlFunctionFileListFullName);
-
-        wizard.setSourceCatalog(srcCatalog);
-        getMigrationWizard().setSourceDBNode(srcCatalog);
-
-        return true;
-    }
-
-    /**
-     * Check if overwriting to a file
-     *
-     * @param schemaFullName
-     * @param dataFullName
-     * @param indexFullName
-     * @return boolean
-     */
-    private boolean checkFileRepository() {
-        StringBuffer buffer = new StringBuffer();
-
-        if (srcCatalog.getDatabaseType().isSupportMultiSchema()) {
-            for (SrcTable srcTable : srcTableList) {
-                if (!srcTable.isSelected) {
-                    continue;
-                }
-                duplicateFilePath(buffer, srcTable.getSrcSchema());
-            }
-        } else {
-            duplicateFilePath(buffer, config.getSrcConnOwner());
-        }
-
-        if (buffer.length() > 0) {
-            return DetailMessageDialog.openConfirm(
-                    getShell(),
-                    Messages.msgConfirmation,
-                    Messages.msgDuplicateFileDetail,
-                    buffer.toString());
-        }
-        return true;
-    }
-
-    private void duplicateFilePath(StringBuffer buffer, String schemaName) {
-        String lineSeparator = System.getProperty("line.separator");
-        try {
-            if (config.isSplitSchema()) {
-                File tableFile = new File(tableFullName.get(schemaName));
-                File viewFile = new File(viewFullName.get(schemaName));
-                File viewQuerySpecFile = new File(viewQuerySpecFullName.get(schemaName));
-                File pkFile = new File(pkFullName.get(schemaName));
-                File fkFile = new File(fkFullName.get(schemaName));
-                File uniqueIndexFile = new File(uniqueIndexFullName.get(schemaName));
-                File serialFile = new File(serialFullName.get(schemaName));
-                File infoFile = new File(schemaFileListFullName.get(schemaName));
-                File synonymFile = new File(synonymFileListFullName.get(schemaName));
-                Map<String, String> grantFilePaths = grantFileListFullName.get(schemaName);
-                Iterator<String> keys = null;
-                if (grantFilePaths != null) {
-                    keys = grantFilePaths.keySet().iterator();
-                }
-
-                if (tableFile.exists()) {
-                    buffer.append(tableFile.getCanonicalPath()).append(lineSeparator);
-                }
-                if (viewFile.exists()) {
-                    buffer.append(viewFile.getCanonicalPath()).append(lineSeparator);
-                }
-                if (viewQuerySpecFile.exists()) {
-                    buffer.append(viewQuerySpecFile.getCanonicalPath()).append(lineSeparator);
-                }
-                if (pkFile.exists()) {
-                    buffer.append(pkFile.getCanonicalPath()).append(lineSeparator);
-                }
-                if (fkFile.exists()) {
-                    buffer.append(fkFile.getCanonicalPath()).append(lineSeparator);
-                }
-                if (uniqueIndexFile.exists()) {
-                    buffer.append(uniqueIndexFile.getCanonicalPath()).append(lineSeparator);
-                }
-                if (serialFile.exists()) {
-                    buffer.append(serialFile.getCanonicalPath()).append(lineSeparator);
-                }
-                if (infoFile.exists()) {
-                    buffer.append(infoFile.getCanonicalPath()).append(lineSeparator);
-                }
-                if (synonymFile.exists()) {
-                    buffer.append(synonymFile.getCanonicalPath()).append(lineSeparator);
-                }
-                if (keys != null) {
-                    while (keys.hasNext()) {
-                        File grantFile = new File(grantFilePaths.get(keys.next()));
-                        if (grantFile.exists()) {
-                            buffer.append(grantFile.getCanonicalPath()).append(lineSeparator);
-                        }
-                    }
-                }
-            } else {
-                File schemaFile = new File(schemaFullName.get(schemaName));
-                if (schemaFile.exists()) {
-                    buffer.append(schemaFile.getCanonicalPath()).append(lineSeparator);
-                }
-            }
-
-            if (config.isOneTableOneFile()) {
-                for (String tableDataFilePath : tableDataFileListFullName.get(schemaName)) {
-                    File tableDataFile = new File(tableDataFilePath);
-                    if (tableDataFile.exists()) {
-                        buffer.append(tableDataFile.getCanonicalPath()).append(lineSeparator);
-                    }
-                }
-            } else {
-                File dataFile = new File(dataFullName.get(schemaName));
-                if (dataFile.exists()) {
-                    buffer.append(dataFile.getCanonicalPath()).append(lineSeparator);
-                }
-            }
-
-            File indexFile = new File(indexFullName.get(schemaName));
-            File updateStatisticFile = new File(updateStatisticFullName.get(schemaName));
-
-            if (indexFile.exists()) {
-                buffer.append(indexFile.getCanonicalPath()).append(lineSeparator);
-            }
-            if (updateStatisticFile.exists()) {
-                buffer.append(updateStatisticFile.getCanonicalPath()).append(lineSeparator);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private boolean isSelectCheckbox() {
-        TableItem[] tableItems = srcTableViewer.getTable().getItems();
-        for (int i = 0; i < tableItems.length; i++) {
-            if (tableItems[i].getImage().equals(CompositeUtils.CHECK_IMAGE)) {
-                srcTableList.get(i).setSelected(true);
-            } else {
-                srcTableList.get(i).setSelected(false);
-            }
-        }
-
-        for (SrcTable srcTable : srcTableList) {
-            if (srcTable.isSelected) {
-                return true;
-            }
-        }
-        return false;
+        config.setTargetSchemaFileName(pathContext.schemaFullName);
+        config.setTargetTableFileName(pathContext.tableFullName);
+        config.setTargetViewFileName(pathContext.viewFullName);
+        config.setTargetViewQuerySpecFileName(pathContext.viewQuerySpecFullName);
+        config.setTargetDataFileName(pathContext.dataFullName);
+        config.setTargetIndexFileName(pathContext.indexFullName);
+        config.setTargetPkFileName(pathContext.pkFullName);
+        config.setTargetFkFileName(pathContext.fkFullName);
+        config.setTargetUniqueIndexFileName(pathContext.uniqueIndexFullName);
+        config.setTargetSerialFileName(pathContext.serialFullName);
+        config.setTargetUpdateStatisticFileName(pathContext.updateStatisticFullName);
+        config.setTargetSchemaFileListName(pathContext.schemaFileListFullName);
+        config.setTargetSynonymFileName(pathContext.synonymFileListFullName);
+        config.setTargetGrantFileName(pathContext.grantFileListFullName);
+        config.setTargetTableDataFileName(pathContext.tableDataFileListFullName);
+        config.setTargetAllPlcsqlProcedureHeaderFileName(pathContext.plcsqlProcedureHeaderFullName);
+        config.setTargetAllPlcsqlFunctionHeaderFileName(pathContext.plcsqlFunctionHeaderFullName);
+        config.setTargetAllPlcsqlProcedureFileName(pathContext.plcsqlProcedureFullName);
+        config.setTargetAllPlcsqlFunctionFileName(pathContext.plcsqlFunctionFullName);
+        config.setTargetPlcsqlProcedureFileName(pathContext.plcsqlProcedureFileListFullName);
+        config.setTargetPlcsqlFunctionFileName(pathContext.plcsqlFunctionFileListFullName);
     }
 }

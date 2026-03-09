@@ -30,13 +30,14 @@
  */
 package com.cubrid.cubridmigration.command;
 
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang3.StringUtils;
 
 /**
  * ConsoleUtils provides methods that are used by console.
@@ -45,6 +46,8 @@ import org.apache.commons.lang3.StringUtils;
  * @version 1.0 - 2012-11-14 created by Kevin Cao
  */
 public class ConsoleUtils {
+
+    public static final String EMPTY_CELL_VALUE = "-";
 
     /**
      * Reading console input
@@ -65,10 +68,17 @@ public class ConsoleUtils {
 
     /** Print help information */
     public static void printHelp(String src) {
-        final InputStream in = ConsoleUtils.class.getResourceAsStream(src);
-        final List<String> readLines = IOUtils.readLines(in, StandardCharsets.UTF_8);
-        for (String ss : readLines) {
-            System.out.println(ss);
+        try (InputStream in = ConsoleUtils.class.getResourceAsStream(src)) {
+            if (in != null) {
+                final List<String> readLines = IOUtils.readLines(in, StandardCharsets.UTF_8);
+                for (String ss : readLines) {
+                    System.out.println(ss);
+                }
+            } else {
+                System.err.println("Help file not found: " + src);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 

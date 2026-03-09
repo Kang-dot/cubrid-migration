@@ -23,6 +23,7 @@ Export-Package:
  com.cubrid.cubridmigration.core.datatype,
  com.cubrid.cubridmigration.core.dbmetadata;uses:="com.cubrid.cubridmigration.core.dbobject,com.cubrid.cubridmigration.core.connection,com.cubrid.cubridmigration.core.export",
  com.cubrid.cubridmigration.core.dbobject;uses:="com.cubrid.cubridmigration.core.dbtype,com.cubrid.cubridmigration.core.connection,com.cubrid.cubridmigration.core.datatype",
+ com.cubrid.cubridmigration.core.dbobject.mapper,
  com.cubrid.cubridmigration.core.dbtype;
   uses:="com.cubrid.cubridmigration.core.dbmetadata,
    com.cubrid.cubridmigration.core.connection,
@@ -79,8 +80,17 @@ Export-Package:
    com.cubrid.cubridmigration.core.engine.config,
    com.cubrid.cubridmigration.core.engine.task,
    com.cubrid.cubridmigration.core.engine",
+<<<<<<< HEAD
  com.cubrid.cubridmigration.core.engine.template;uses:="com.cubrid.cubridmigration.core.engine.config,org.xml.sax.helpers,org.xml.sax",
  com.cubrid.cubridmigration.core.export;uses:="com.cubrid.cubridmigration.core.engine.config,com.cubrid.cubridmigration.core.dbobject,com.cubrid.cubridmigration.core.dbtype",
+=======
+ com.cubrid.cubridmigration.core.engine.template.reader;uses:="com.cubrid.cubridmigration.core.engine.config,org.xml.sax.helpers,org.xml.sax",
+ com.cubrid.cubridmigration.core.engine.template.writer;uses:="com.cubrid.cubridmigration.core.engine.config",
+ com.cubrid.cubridmigration.core.export;
+  uses:="com.cubrid.cubridmigration.core.engine.config,
+   com.cubrid.cubridmigration.core.dbobject,
+   com.cubrid.cubridmigration.core.dbtype",
+>>>>>>> develop
  com.cubrid.cubridmigration.core.hadoop;uses:="org.apache.hadoop.fs",
  com.cubrid.cubridmigration.core.io,
  com.cubrid.cubridmigration.core.mapping;uses:="com.cubrid.cubridmigration.core.mapping.model",

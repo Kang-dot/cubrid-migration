@@ -31,16 +31,19 @@
 package com.cubrid.cubridmigration.core.engine.config;
 
 import static com.cubrid.cubridmigration.core.common.PathUtils.mergePath;
+
 import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
 
 import au.com.bytecode.opencsv.CSVReader;
+
 import com.cubrid.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.common.CUBRIDIOUtils;
 import com.cubrid.cubridmigration.core.common.CharsetUtils;
 import com.cubrid.cubridmigration.core.common.PathUtils;
 import com.cubrid.cubridmigration.core.common.TimeZoneUtils;
 import com.cubrid.cubridmigration.core.connection.ConnParameters;
+import com.cubrid.cubridmigration.core.dbmetadata.BuildSchemaFilterFactory;
 import com.cubrid.cubridmigration.core.dbmetadata.DBSchemaInfoFetcherFactory;
 import com.cubrid.cubridmigration.core.dbmetadata.IBuildSchemaFilter;
 import com.cubrid.cubridmigration.core.dbmetadata.IDBSchemaInfoFetcher;
@@ -70,6 +73,11 @@ import com.cubrid.cubridmigration.cubrid.CUBRIDSQLHelper;
 import com.cubrid.cubridmigration.mysql.MysqlXmlDumpSource;
 import com.cubrid.cubridmigration.oracle.parser.PlConvOracleToCubrid;
 import com.cubrid.cubridmigration.oracle.parser.ProcedureDDL;
+
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -78,6 +86,7 @@ import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -85,11 +94,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.TreeMap;
-import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
 
 /**
  * MigrationConfiguration Description
@@ -133,6 +140,12 @@ public class MigrationConfiguration {
     public static final int RPT_LEVEL_INFO = 2;
     public static final int RPT_LEVEL_DEBUG = 3;
 
+    public static final int DEFAULT_EXPORT_THREAD_COUNT = 4;
+    public static final int DEFAULT_IMPORT_THREAD_COUNT = 3;
+
+    // Used to set the name of the data file extracted by SQL.
+    public static final String SQLTABLE = "__SQLTABLE__";
+
     // Previously, data files had the ".txt" extension attached, but deleted the ".txt" extension
     // when changing it to _object to match the unloaddb format
     private static final String[] DATA_FORMAT_EXT =
@@ -150,8 +163,8 @@ public class MigrationConfiguration {
 
     private int commitCount = 1000;
     private int maxCountPerFile = 0;
-    private int exportThreadCount = 2;
-    private int importThreadCount = 2;
+    private int exportThreadCount = DEFAULT_EXPORT_THREAD_COUNT;
+    private int importThreadCount = DEFAULT_IMPORT_THREAD_COUNT;
 
     private boolean deleteTempFile = true;
 
@@ -212,6 +225,12 @@ public class MigrationConfiguration {
     private int tarSchemaSize;
     private Catalog offlineSrcCatalog;
 
+    /**
+     * Full/original offline source catalog snapshot used for Step4/Step5 back navigation and re
+     * selection.
+     */
+    private Catalog offlineFullSrcCatalog;
+
     private final List<Table> srcSQLSchemas = new ArrayList<Table>();
 
     private boolean createConstrainsBeforeData = false;
@@ -224,6 +243,7 @@ public class MigrationConfiguration {
     private int destType;
     private ConnParameters targetConParams;
 
+    private SchemaSelection selectedSrcSchemas = SchemaSelection.empty();
     private List<String> newTargetSchema = new ArrayList<String>();
     private List<Schema> targetSchemaList = new ArrayList<Schema>();
 
@@ -766,27 +786,8 @@ public class MigrationConfiguration {
             return null;
         }
         IDBSchemaInfoFetcher bcf = DBSchemaInfoFetcherFactory.createFetcher(ds);
-        Catalog cl =
-                bcf.fetchSchema(
-                        ds,
-                        new IBuildSchemaFilter() {
-
-                            public boolean filter(String schema, String objName) {
-                                // If database don't support multi schema, the schema name will be
-                                // pass as null.
-                                String tmpSchema = null;
-                                if (sourceIsOnline() && getSourceDBType().isSupportMultiSchema()) {
-                                    tmpSchema = schema;
-                                }
-                                if (getExpEntryTableCfg(tmpSchema, objName) != null
-                                        || getExpViewCfg(tmpSchema, objName) != null
-                                        || getExpSerialCfg(tmpSchema, objName) != null
-                                        || getExpSynonymCfg(tmpSchema, objName) != null) {
-                                    return false;
-                                }
-                                return true;
-                            }
-                        });
+        IBuildSchemaFilter filter = BuildSchemaFilterFactory.from(this);
+        Catalog cl = bcf.fetchSchema(ds, filter);
         if (cl == null || cl.getSchemas().isEmpty()) {
             return null;
         }
@@ -1034,7 +1035,10 @@ public class MigrationConfiguration {
                             getTargetPlcsqlProcedureSchema(sc.getTargetOwner(), sc.getTarget());
                 }
 
-                if (tprocedure == null) {
+                if (tprocedure == null
+                        || !sourceDBSchema
+                                .getTargetSchemaName()
+                                .equals(tprocedure.getTargetOwner())) {
                     tprocedure = new PlcsqlProcedure();
                     tprocedure.setOwner(sc.getOwner());
                     tprocedure.setTargetOwner(sc.getTargetOwner());
@@ -1106,7 +1110,10 @@ public class MigrationConfiguration {
                     tfunction = getTargetPlcsqlFunctionSchema(sc.getTargetOwner(), sc.getTarget());
                 }
 
-                if (tfunction == null) {
+                if (tfunction == null
+                        || !sourceDBSchema
+                                .getTargetSchemaName()
+                                .equals(tfunction.getTargetOwner())) {
                     tfunction = new PlcsqlFunction();
                     tfunction.setOwner(sc.getOwner());
                     tfunction.setTargetOwner(sc.getTargetOwner());
@@ -1209,6 +1216,15 @@ public class MigrationConfiguration {
             }
         }
         this.addTargetDataFileName(schemaName, buildDataFileFullPath(schemaName, "object"));
+
+        this.addTargetDataFileName(
+                MigrationConfiguration.SQLTABLE,
+                this.buildSQLDataFileFullPath(MigrationConfiguration.SQLTABLE, "objects"));
+
+        this.addTargetTableFileName(
+                MigrationConfiguration.SQLTABLE,
+                this.buildLocalFileFullPath(MigrationConfiguration.SQLTABLE, "class", null));
+
         this.addTargetIndexFileName(
                 schemaName, buildLocalFileFullPath(schemaName, "indexes", null));
         this.addTargetUpdateStatisticFileName(
@@ -1588,9 +1604,7 @@ public class MigrationConfiguration {
                             StringUtils.lowerCase(entry.getValue()));
                 }
 
-                // tfk.setDeferability(fk.getDeferability());
                 tfk.setDeleteRule(fk.getDeleteRule());
-                // tfk.setOnCacheObject(fk.getOnCacheObject());
                 tfk.setUpdateRule(fk.getUpdateRule());
             }
             tfks.add(tfk);
@@ -1700,7 +1714,9 @@ public class MigrationConfiguration {
         }
     }
 
-    /** @param isReset boolean */
+    /**
+     * @param isReset boolean
+     */
     private void buildViewCfg(boolean isReset) {
         List<SourceViewConfig> tempSCList = new ArrayList<SourceViewConfig>();
         List<View> tempTarList = new ArrayList<View>();
@@ -2008,19 +2024,15 @@ public class MigrationConfiguration {
                                         .substring(tempPath.length()));
             }
             if (targetGrantFileName.get(schemaName) != null) {
-                Map<String, String> grantFileFullName = targetGrantFileName.get(schemaName);
-                for (SourceGrantConfig sgc : expGrants) {
-                    if (!grantFileFullName.containsKey(schemaName)) {
-                        continue;
-                    }
-                    if (grantFileFullName.get(schemaName) != null) {
-                        addTargetGrantFileName(
-                                schemaName,
-                                sgc.getSourceObjectOwner(),
-                                path2
-                                        + grantFileFullName
-                                                .get(schemaName)
-                                                .substring(tempPath.length()));
+                Map<String, String> grantFilesForSchema = targetGrantFileName.get(schemaName);
+
+                for (Map.Entry<String, String> entry : grantFilesForSchema.entrySet()) {
+                    String sourceObjectOwner = entry.getKey();
+                    String oldFilePath = entry.getValue();
+
+                    if (oldFilePath != null) {
+                        String newFilePath = path2 + oldFilePath.substring(tempPath.length());
+                        addTargetGrantFileName(schemaName, sourceObjectOwner, newFilePath);
                     }
                 }
             }
@@ -2057,25 +2069,31 @@ public class MigrationConfiguration {
                                         .substring(tempPath.length()));
             }
             if (targetPlcsqlProcedureFileName.get(schemaName) != null) {
-                for (SourcePlcsqlProcedureConfig spc : expPlcsqlProcedures) {
-                    addTargetPlcsqlProcedureFileName(
-                            schemaName,
-                            spc.getName(),
-                            path2
-                                    + targetSchemaFileListName
-                                            .get(schemaName)
-                                            .substring(tempPath.length()));
+                Map<String, String> proceduresForSchema =
+                        targetPlcsqlProcedureFileName.get(schemaName);
+
+                for (Map.Entry<String, String> entry : proceduresForSchema.entrySet()) {
+                    String procedureName = entry.getKey();
+                    String oldFilePath = entry.getValue();
+
+                    if (oldFilePath != null) {
+                        String newFilePath = path2 + oldFilePath.substring(tempPath.length());
+                        addTargetPlcsqlProcedureFileName(schemaName, procedureName, newFilePath);
+                    }
                 }
             }
             if (targetPlcsqlFunctionFileName.get(schemaName) != null) {
-                for (SourcePlcsqlFunctionConfig fpc : expPlcsqlFunctions) {
-                    addTargetPlcsqlFunctionFileName(
-                            schemaName,
-                            fpc.getName(),
-                            path2
-                                    + targetSchemaFileListName
-                                            .get(schemaName)
-                                            .substring(tempPath.length()));
+                Map<String, String> functionsForSchema =
+                        targetPlcsqlFunctionFileName.get(schemaName);
+
+                for (Map.Entry<String, String> entry : functionsForSchema.entrySet()) {
+                    String functionName = entry.getKey();
+                    String oldFilePath = entry.getValue();
+
+                    if (oldFilePath != null) {
+                        String newFilePath = path2 + oldFilePath.substring(tempPath.length());
+                        addTargetPlcsqlFunctionFileName(schemaName, functionName, newFilePath);
+                    }
                 }
             }
         } else {
@@ -2087,7 +2105,7 @@ public class MigrationConfiguration {
         }
         if (this.isOneTableOneFile()) {
             if (targetTableDataFileName.get(schemaName) != null) {
-                List<String> filePaths = targetTableDataFileName.get(schemaName);
+                List<String> filePaths = new ArrayList<>(targetTableDataFileName.get(schemaName));
                 for (String filePath : filePaths) {
                     addTargetTableDataFileName(
                             schemaName, path2 + filePath.substring(tempPath.length()));
@@ -2527,6 +2545,49 @@ public class MigrationConfiguration {
         return DATA_FORMAT_EXT[destType];
     }
 
+    public Set<String> getSelectedSrcSchemas() {
+        return selectedSrcSchemas.asSet();
+    }
+
+    public void setSelectedSrcSchemas(Collection<String> schemas) {
+        this.selectedSrcSchemas = SchemaSelection.of(schemas);
+    }
+
+    public void addSelectedSrcSchema(String schemaName) {
+        if (schemaName == null || schemaName.trim().isEmpty()) {
+            return;
+        }
+        List<String> merged = new ArrayList<String>(selectedSrcSchemas.asSet());
+        merged.add(schemaName.trim());
+        this.selectedSrcSchemas = SchemaSelection.of(merged);
+    }
+
+    public void removeSelectedSrcSchema(String schemaName) {
+        if (schemaName == null || selectedSrcSchemas.isEmpty()) {
+            return;
+        }
+        String trimmed = schemaName.trim();
+        List<String> remaining = new ArrayList<String>();
+        for (String s : selectedSrcSchemas.asSet()) {
+            if (!s.equals(trimmed)) {
+                remaining.add(s);
+            }
+        }
+        this.selectedSrcSchemas = SchemaSelection.of(remaining);
+    }
+
+    public boolean isSrcSchemaSelected(String schemaName) {
+        return selectedSrcSchemas.contains(schemaName);
+    }
+
+    public boolean hasSelectedSrcSchemas() {
+        return !selectedSrcSchemas.isEmpty();
+    }
+
+    public void clearSelectedSrcSchemas() {
+        this.selectedSrcSchemas = SchemaSelection.empty();
+    }
+
     /**
      * If source is online, JDBC parameter will be returned; if source is XML, <MYSQLXMLDumpSource>
      * will be returned; Other (SQL or CSV) will return a IDBSource object.
@@ -2722,7 +2783,9 @@ public class MigrationConfiguration {
         return iCount;
     }
 
-    /** @return the exportThreadCount */
+    /**
+     * @return the exportThreadCount
+     */
     public int getExportThreadCount() {
         return exportThreadCount;
     }
@@ -3036,7 +3099,7 @@ public class MigrationConfiguration {
     public String getFullTargetFilePrefix() {
         String filePrefix = getTargetFilePrefix();
         if (filePrefix == null) {
-            filePrefix = srcCatalog.getName();
+            filePrefix = srcCatalog == null ? "" : srcCatalog.getName();
         }
         if (StringUtils.isNotBlank(filePrefix)) {
             filePrefix = filePrefix + "_";
@@ -3044,7 +3107,9 @@ public class MigrationConfiguration {
         return filePrefix;
     }
 
-    /** @return the importThreadCount */
+    /**
+     * @return the importThreadCount
+     */
     public int getImportThreadCount() {
         return importThreadCount;
     }
@@ -3067,6 +3132,10 @@ public class MigrationConfiguration {
 
     public Catalog getOfflineSrcCatalog() {
         return offlineSrcCatalog;
+    }
+
+    public Catalog getOfflineFullSrcCatalog() {
+        return offlineFullSrcCatalog;
     }
 
     /**
@@ -3107,14 +3176,9 @@ public class MigrationConfiguration {
         return charset;
     }
 
-    //	/**
-    //	 * @return the sourceDBSchema
-    //	 */
-    //	public Schema getSourceDBSchema() {
-    //		return sourceDBSchema;
-    //	}
-
-    /** @return the sourceConParams */
+    /**
+     * @return the sourceConParams
+     */
     public ConnParameters getSourceConParams() {
         return sourceConParams;
     }
@@ -3140,7 +3204,9 @@ public class MigrationConfiguration {
         return tz == null ? TimeZone.getDefault() : tz;
     }
 
-    /** @return the getSourceDBType() */
+    /**
+     * @return the getSourceDBType()
+     */
     public DatabaseType getSourceDBType() {
         if (sourceIsCSV() || sourceIsSQL()) {
             return DatabaseType.CUBRID;
@@ -3151,22 +3217,30 @@ public class MigrationConfiguration {
         return DatabaseType.getDatabaseTypeByID(sourceType);
     }
 
-    /** @return the sourceFileEncoding */
+    /**
+     * @return the sourceFileEncoding
+     */
     public String getSourceFileEncoding() {
         return sourceFileEncoding == null ? "" : sourceFileEncoding;
     }
 
-    /** @return the sourceFileName */
+    /**
+     * @return the sourceFileName
+     */
     public String getSourceFileName() {
         return sourceFileName == null ? "" : sourceFileName;
     }
 
-    /** @return the sourceFileTimeZone */
+    /**
+     * @return the sourceFileTimeZone
+     */
     public String getSourceFileTimeZone() {
         return sourceFileTimeZone;
     }
 
-    /** @return the sourceFileVersion */
+    /**
+     * @return the sourceFileVersion
+     */
     public String getSourceFileVersion() {
         return sourceFileVersion;
     }
@@ -3369,27 +3443,24 @@ public class MigrationConfiguration {
      * @return source table
      */
     public Table getSrcTableSchema(String schema, String name) {
-        if (srcCatalog == null) {
+        if (MigrationConfiguration.SQLTABLE.equals(schema)) {
+            return getSrcSQLSchema(name);
+        }
+
+        if (srcCatalog == null || srcCatalog.getSchemas().isEmpty()) {
             return null;
         }
-        if (srcCatalog.getSchemas().isEmpty()) {
-            return null;
-        }
-        final Schema sc;
-        if (schema == null) {
-            // retrieves default schema.
-            sc = srcCatalog.getSchemas().get(0);
-        } else {
-            sc = srcCatalog.getSchemaByName(schema);
-        }
+
+        final Schema sc =
+                (schema == null)
+                        ? srcCatalog.getSchemas().get(0)
+                        : srcCatalog.getSchemaByName(schema);
         if (sc == null) {
             return null;
         }
+
         Table table = sc.getTableByName(name);
-        if (table == null) {
-            table = getSrcSQLSchema(name);
-        }
-        return table;
+        return (table != null) ? table : getSrcSQLSchema(name);
     }
 
     /**
@@ -3493,7 +3564,9 @@ public class MigrationConfiguration {
         return null;
     }
 
-    /** @return the targetConParams */
+    /**
+     * @return the targetConParams
+     */
     public ConnParameters getTargetConParams() {
         return targetConParams;
     }
@@ -3538,7 +3611,9 @@ public class MigrationConfiguration {
         return this.targetDataFileName.get(schemaName);
     }
 
-    /** @return the targetDBVersion */
+    /**
+     * @return the targetDBVersion
+     */
     public String getTargetDBVersion() {
         return targetDBVersion;
     }
@@ -3915,8 +3990,6 @@ public class MigrationConfiguration {
             return getTargetTableSchema(name);
         }
 
-        //		Schema targetSchema = verUtil.getSchemaMapping().get(owner);
-
         for (Table tt : this.targetTables) {
             if (tt.getName().equalsIgnoreCase(name) && tt.getOwner().equalsIgnoreCase(owner)) {
                 return tt;
@@ -4189,11 +4262,6 @@ public class MigrationConfiguration {
                 return sc.isCreate();
             }
         }
-        //		for (SourceConfig sc : expSerials) {
-        //			if (name.equalsIgnoreCase(sc.getTarget())) {
-        //				return true;
-        //			}
-        //		}
         return false;
     }
 
@@ -4244,7 +4312,6 @@ public class MigrationConfiguration {
     public void parsingCSVFile(SourceCSVConfig sc) {
         BufferedReader reader;
         try {
-            // new FileInputStream(sc.getName())
             reader =
                     new BufferedReader(
                             new InputStreamReader(
@@ -4489,6 +4556,7 @@ public class MigrationConfiguration {
             }
         }
     }
+
     /**
      * change SQL query's target table owner used in user schema db
      *
@@ -4598,12 +4666,6 @@ public class MigrationConfiguration {
                 sc.setCreate(value);
             }
         }
-
-        // Don't clear sqls
-        //		if (!value) {
-        //			expSQLTables.clear();
-        //			srcSQLSchemas.clear();
-        //		}
     }
 
     /**
@@ -4680,7 +4742,9 @@ public class MigrationConfiguration {
         }
     }
 
-    /** @param commitCount the commitCount to set */
+    /**
+     * @param commitCount the commitCount to set
+     */
     public void setCommitCount(int commitCount) {
         this.commitCount = commitCount;
     }
@@ -4839,25 +4903,6 @@ public class MigrationConfiguration {
         this.fileRepositroyPath = fileRepositroyPath;
     }
 
-    //	/**
-    //	 * Change migration configuration's source database schema, and the
-    //	 * configuration and target schemas will auto build according to the source
-    //	 * database schema. Note that this method may cost much time.
-    //	 *
-    //	 * @param sourceDBSchema the sourceDBSchema to set
-    //	 * @param reset reset the configuration or not
-    //	 */
-    //	public void setSourceDBSchema(Schema sourceDBSchema, boolean reset) {
-    //		if (sourceDBSchema == null) {
-    //			throw new IllegalArgumentException("Schema can't not be null.");
-    //		}
-    //		this.sourceDBSchema = sourceDBSchema;
-    //		if (reset) {
-    //			clearAll();
-    //		}
-    //		this.buildConfigAndTargetSchema(reset);
-    //	}
-
     /**
      * Set a true if didn't use to count total records before a migration for showing correct
      * progress.
@@ -4905,6 +4950,10 @@ public class MigrationConfiguration {
         this.offlineSrcCatalog = offlineSrcCatalog;
     }
 
+    public void setOfflineFullSrcCatalog(Catalog offlineFullSrcCatalog) {
+        this.offlineFullSrcCatalog = offlineFullSrcCatalog;
+    }
+
     public void setOneTableOneFile(boolean oneTableOneFile) {
         this.oneTableOneFile = oneTableOneFile;
     }
@@ -4917,7 +4966,9 @@ public class MigrationConfiguration {
         this.reportLevel = reportLevel;
     }
 
-    /** @param sourceConParams the sourceConParams to set */
+    /**
+     * @param sourceConParams the sourceConParams to set
+     */
     public void setSourceConParams(ConnParameters sourceConParams) {
         this.sourceConParams = sourceConParams;
         if (sourceConParams != null) {
@@ -4925,22 +4976,30 @@ public class MigrationConfiguration {
         }
     }
 
-    /** @param sourceFileEncoding the sourceFileEncoding to set */
+    /**
+     * @param sourceFileEncoding the sourceFileEncoding to set
+     */
     public void setSourceFileEncoding(String sourceFileEncoding) {
         this.sourceFileEncoding = sourceFileEncoding;
     }
 
-    /** @param sourceFileName the sourceFileName to set */
+    /**
+     * @param sourceFileName the sourceFileName to set
+     */
     public void setSourceFileName(String sourceFileName) {
         this.sourceFileName = sourceFileName;
     }
 
-    /** @param sourceFileTimeZone the sourceFileTimeZone to set */
+    /**
+     * @param sourceFileTimeZone the sourceFileTimeZone to set
+     */
     public void setSourceFileTimeZone(String sourceFileTimeZone) {
         this.sourceFileTimeZone = sourceFileTimeZone;
     }
 
-    /** @param sourceFileVersion the sourceFileVersion to set */
+    /**
+     * @param sourceFileVersion the sourceFileVersion to set
+     */
     public void setSourceFileVersion(String sourceFileVersion) {
         this.sourceFileVersion = sourceFileVersion;
     }
@@ -4949,7 +5008,9 @@ public class MigrationConfiguration {
         sourceType = srcType;
     }
 
-    /** @param dbType the getSourceDBType() to set:xml,sql,mysql,cubrid,oracle */
+    /**
+     * @param dbType the getSourceDBType() to set:xml,sql,mysql,cubrid,oracle
+     */
     public void setSourceType(String dbType) {
         if (SQL.equalsIgnoreCase(dbType)) {
             this.sourceType = MigrationConfiguration.SOURCE_TYPE_SQL;
@@ -4989,6 +5050,7 @@ public class MigrationConfiguration {
             throw new IllegalArgumentException("Catalog can't not be null.");
         }
         this.srcCatalog = srcCatalog;
+        applyScriptSchemaMappingToCatalog();
         if (reset) {
             clearAll();
         }
@@ -5028,7 +5090,9 @@ public class MigrationConfiguration {
         }
     }
 
-    /** @param targetConParams the targetConParams to set */
+    /**
+     * @param targetConParams the targetConParams to set
+     */
     public void setTargetConParams(ConnParameters targetConParams) {
         this.targetConParams = targetConParams;
     }
@@ -5041,7 +5105,9 @@ public class MigrationConfiguration {
         this.targetDataFileName.put(schemaName, filePath);
     }
 
-    /** @param targetDBVersion the targetDBVersion to set */
+    /**
+     * @param targetDBVersion the targetDBVersion to set
+     */
     public void setTargetDBVersion(String targetDBVersion) {
         this.targetDBVersion = targetDBVersion;
     }
@@ -5346,7 +5412,9 @@ public class MigrationConfiguration {
                 || destType == DEST_DB_UNLOAD;
     }
 
-    /** @return the targetDBIsOnline */
+    /**
+     * @return the targetDBIsOnline
+     */
     public boolean targetIsOnline() {
         return destType == DEST_ONLINE;
     }
@@ -5383,7 +5451,9 @@ public class MigrationConfiguration {
         }
     }
 
-    /** @return Retrieves true If source is a JDBC connection and can't be connected */
+    /**
+     * @return Retrieves true If source is a JDBC connection and can't be connected
+     */
     public boolean isSourceOfflineMode() {
         if (!sourceIsOnline()) {
             return false;
@@ -5396,7 +5466,9 @@ public class MigrationConfiguration {
         }
     }
 
-    /** @return Retrieves true If target is a JDBC connection and can't be connected */
+    /**
+     * @return Retrieves true If target is a JDBC connection and can't be connected
+     */
     public boolean isTargetOfflineMode() {
         if (!targetIsOnline()) {
             return false;
@@ -5421,7 +5493,9 @@ public class MigrationConfiguration {
         this.importThreadCount = importThreadCount;
     }
 
-    /** @return Retrieves the default extend file name of the target schema file. */
+    /**
+     * @return Retrieves the default extend file name of the target schema file.
+     */
     public String getDefaultTargetSchemaFileExtName() {
         if (targetIsDBDump()) {
             return "";
@@ -5525,6 +5599,31 @@ public class MigrationConfiguration {
                 fileName.toString());
     }
 
+    /**
+     * SQL migration records are created with their own path, so add a method to create a separate
+     * path for SQL migration records
+     *
+     * @param sourceSchemaName
+     * @param fileType
+     * @return
+     */
+    public String buildSQLDataFileFullPath(String sourceSchemaName, String fileType) {
+        StringBuilder fileName = new StringBuilder();
+        fileName.append(File.separator)
+                .append(getTargetFilePrefix())
+                .append("_")
+                .append(MigrationConfiguration.SQLTABLE)
+                .append("_")
+                .append(fileType)
+                .append(getDataFileExt());
+
+        return mergePath(
+                mergePath(
+                        mergePath(mergePath(getFileRepositroyPath(), getName()), sourceSchemaName),
+                        isOneTableOneFile() ? "objects" : ""),
+                fileName.toString());
+    }
+
     public String buildPlcsqlProcedureFileFullPath(
             String sourceSchemaName, String objectName, String fileType) {
         StringBuilder fileName = new StringBuilder();
@@ -5545,6 +5644,35 @@ public class MigrationConfiguration {
         String fullPath = mergePath(typePath, fileName.toString());
 
         return fullPath;
+    }
+
+    private void applyScriptSchemaMappingToCatalog() {
+        if (srcCatalog == null) {
+            return;
+        }
+        if (scriptSchemaMapping == null || scriptSchemaMapping.isEmpty()) {
+            return;
+        }
+        for (Schema srcSchema : srcCatalog.getSchemas()) {
+            if (srcSchema == null || StringUtils.isEmpty(srcSchema.getName())) {
+                continue;
+            }
+            Schema mapped = scriptSchemaMapping.get(srcSchema.getName());
+            if (mapped == null) {
+                for (Map.Entry<String, Schema> entry : scriptSchemaMapping.entrySet()) {
+                    if (srcSchema.getName().equalsIgnoreCase(entry.getKey())) {
+                        mapped = entry.getValue();
+                        break;
+                    }
+                }
+            }
+            if (mapped == null || StringUtils.isEmpty(mapped.getTargetSchemaName())) {
+                continue;
+            }
+            if (StringUtils.isEmpty(srcSchema.getTargetSchemaName())) {
+                srcSchema.setTargetSchemaName(mapped.getTargetSchemaName());
+            }
+        }
     }
 
     /**
@@ -5582,9 +5710,11 @@ public class MigrationConfiguration {
 
     public String getSrcConnOwner() {
         if (this.sourceIsXMLDump()) {
-            return getSrcCatalog().getName();
+            Catalog catalog = getSrcCatalog();
+            return catalog == null ? "" : catalog.getName();
         } else {
-            return getSourceConParams().getConUser();
+            ConnParameters params = getSourceConParams();
+            return params == null ? "" : params.getConUser();
         }
     }
 }

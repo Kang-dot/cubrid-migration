@@ -47,11 +47,13 @@ import com.cubrid.cubridmigration.cubrid.CUBRIDDataTypeHelper;
 import com.cubrid.cubridmigration.cubrid.CUBRIDTimeUtil;
 import com.cubrid.cubridmigration.cubrid.trans.ToCUBRIDDataConverterFacade;
 import com.cubrid.cubridmigration.mysql.trans.MySQL2CUBRIDMigParas;
+
+import org.apache.commons.lang3.StringUtils;
+
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
-import org.apache.commons.lang3.StringUtils;
 
 /**
  * a transform class which helps to data transform in migration of Oracle to CUBRID
@@ -324,6 +326,7 @@ public class Oracle2CUBRIDTranformHelper extends DBTransformHelper {
 
         if ((dataType.indexOf("TIMESTAMP") > -1 || "DATE".equalsIgnoreCase(dataType))
                 && isDefaultDateTimeFunction(defaultValue)) {
+            defaultValue = convertFunctionInDefaultValue(defaultValue, cubridColumn.getDataType());
             cubridColumn.setDefaultValue(defaultValue);
             return;
         }
@@ -379,6 +382,13 @@ public class Oracle2CUBRIDTranformHelper extends DBTransformHelper {
      */
     private String convertFunctionInDefaultValue(String defaultValue, String dataType) {
         String lowerCaseDefaultValue = defaultValue.toLowerCase(Locale.US);
+
+        switch (lowerCaseDefaultValue) {
+            case "sysdate":
+                return "sys_datetime";
+            case "current_date":
+                return "current_datetime";
+        }
 
         if ("datetime".equalsIgnoreCase(dataType) && lowerCaseDefaultValue.startsWith("to_date")) {
             return lowerCaseDefaultValue.replaceFirst("to_date", "to_datetime");

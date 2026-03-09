@@ -55,6 +55,9 @@ import com.cubrid.cubridmigration.core.engine.event.ExportRecordsEvent;
 import com.cubrid.cubridmigration.core.engine.event.ImportCSVEvent;
 import com.cubrid.cubridmigration.core.engine.event.ImportRecordsEvent;
 import com.cubrid.cubridmigration.core.engine.event.ImportSQLsEvent;
+
+import org.apache.commons.lang3.StringUtils;
+
 import java.beans.XMLEncoder;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -64,7 +67,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.commons.lang3.StringUtils;
 
 /**
  * Migration Report model
@@ -100,8 +102,12 @@ public class MigrationReport implements Serializable {
      * @return name displayed in table
      */
     private static String getDBObjName(DBObject obj) {
-        if (obj instanceof PK && ("PRIMARY".equals(obj.getName()) || obj.getName() == null)) {
-            return "primary key of " + ((PK) obj).getTable().getName();
+        if (obj instanceof PK) {
+            String name = obj.getName();
+            if (StringUtils.isBlank(name) || "primary".equalsIgnoreCase(name)) {
+                return "primary key of " + ((PK) obj).getTable().getName();
+            }
+            return "[" + ((PK) obj).getTable().getName() + "]" + name;
         } else if (obj instanceof Index) {
             return "[" + ((Index) obj).getTable().getName() + "]" + obj.getName();
         } else if (obj instanceof Table) {
@@ -593,6 +599,7 @@ public class MigrationReport implements Serializable {
             result.setSrcSchema(stc.getOwner());
             result.setSource(stc.getName());
             result.setTarget(stc.getTarget());
+            result.setDataMigrationSelected(stc.isMigrateData());
             if (!restore) {
                 result.setTotalCount(0);
             } else if (stc.isMigrateData()) {
@@ -610,8 +617,10 @@ public class MigrationReport implements Serializable {
                 continue;
             }
             RecordMigrationResult result = new RecordMigrationResult();
+            result.setSrcSchema(sstc.getOwner());
             result.setSource(sstc.getName());
             result.setTarget(sstc.getTarget());
+            result.setDataMigrationSelected(sstc.isMigrateData());
             if (!restore) {
                 result.setTotalCount(0);
             } else if (sstc.isMigrateData()) {

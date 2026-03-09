@@ -44,6 +44,9 @@ import com.cubrid.cubridmigration.core.engine.config.SourceSequenceConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceSynonymConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceViewConfig;
 import com.cubrid.cubridmigration.core.engine.task.ImportTask;
+
+import org.slf4j.Logger;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -51,7 +54,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.slf4j.Logger;
 
 /**
  * CleanDBTask is to clear the database objects which were set to be replaced in target database
@@ -264,10 +266,11 @@ public class CleanDBTask extends ImportTask {
 
             if (isSourceDBSupportMultiSchema) {
                 for (Schema schema : schemaList) {
-                    String ownerName = schema.getName();
-                    writeFile(dropQueryBySchemaMap, ownerName, CLEAR_SQL);
-                    writeFile(fkDropQueryBySchemaMap, ownerName, DROP_FK_SQL);
-                    writeFile(tbTruncateQueryBySchemaMap, ownerName, TRUNCATE_SQL);
+                    String ownerName = schema.getTargetSchemaName();
+                    String fileNameSchema = schema.getName();
+                    writeFile(dropQueryBySchemaMap, ownerName, fileNameSchema, CLEAR_SQL);
+                    writeFile(fkDropQueryBySchemaMap, ownerName, fileNameSchema, DROP_FK_SQL);
+                    writeFile(tbTruncateQueryBySchemaMap, ownerName, fileNameSchema, TRUNCATE_SQL);
                 }
             } else {
                 writeFile(dropQueryBySchemaMap, conUser, CLEAR_SQL);
@@ -277,14 +280,24 @@ public class CleanDBTask extends ImportTask {
         }
     }
 
+    /** Drop queries are written to a file */
+    private void writeFile(Map<String, List<String>> map, String ownerName, String fileName) {
+        writeFile(map, ownerName, ownerName, fileName);
+    }
+
     /**
      * Drop queries are written to a file
      *
      * @param map Map<String, List<String>>
      * @param ownerName String
+     * @param fileNameSchema Schema name used in the file name
      * @param fileName String
      */
-    private void writeFile(Map<String, List<String>> map, String ownerName, String fileName) {
+    private void writeFile(
+            Map<String, List<String>> map,
+            String ownerName,
+            String fileNameSchema,
+            String fileName) {
         if (!map.isEmpty()) {
             File clearFile =
                     new File(
@@ -292,9 +305,9 @@ public class CleanDBTask extends ImportTask {
                                     + File.separator
                                     + config.getName()
                                     + File.separator
-                                    + ownerName
+                                    + fileNameSchema
                                     + File.separator
-                                    + ownerName
+                                    + fileNameSchema
                                     + fileName);
             try {
                 PathUtils.deleteFile(clearFile);

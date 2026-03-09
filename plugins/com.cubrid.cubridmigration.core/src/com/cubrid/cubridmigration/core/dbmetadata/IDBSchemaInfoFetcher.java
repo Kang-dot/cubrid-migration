@@ -31,6 +31,9 @@
 package com.cubrid.cubridmigration.core.dbmetadata;
 
 import com.cubrid.cubridmigration.core.dbobject.Catalog;
+import com.cubrid.cubridmigration.core.dbobject.SchemaCatalog;
+
+import java.util.List;
 
 /**
  * IDBSchemaInfoFetcher build data source's schema information.
@@ -48,6 +51,12 @@ public interface IDBSchemaInfoFetcher {
      * @return catalog
      */
     public Catalog fetchSchema(IDBSource ds, IBuildSchemaFilter filter);
+
+    /** Fetches names-only schema metadata (Lazy Loading Step 1). */
+    public SchemaCatalog fetchSchemaNames(IDBSource ds);
+
+    /** Fetches objects for the given schemas based on a SchemaCatalog (Lazy Loading Step 2). */
+    public Catalog fetchSchemaObjects(IDBSource ds, SchemaCatalog sc, List<String> schemas);
 
     /** The fetching process may cost much time, so a cancel method should be provided. */
     public void cancel();
