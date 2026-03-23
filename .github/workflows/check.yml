@@ -89,14 +89,12 @@ jobs:
         with:
           files: |
             **/*.java
-            !tests/**/*.java
           write_output_files: true
       - uses: axel-op/googlejavaformat-action@c1134ebd196c4cbffb077f9476585b0be8b6afcd
         if: steps.changed.outputs.any_changed == 'true'
         with:
           release-name: v1.32.0
           args: "--aosp --replace --set-exit-if-changed @.github/outputs/all_changed_files.txt"
-          files-excluded: "**/tests/**/*.java"
           skip-commit: true
       - name: Suggest code changes
         if: failure()
