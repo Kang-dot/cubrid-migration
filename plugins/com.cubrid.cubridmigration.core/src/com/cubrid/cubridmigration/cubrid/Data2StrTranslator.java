@@ -50,6 +50,7 @@ import com.cubrid.cubridmigration.cubrid.format.FloatToCUBRIDString;
 import com.cubrid.cubridmigration.cubrid.format.IntegerToCUBRIDString;
 import com.cubrid.cubridmigration.cubrid.format.NumericToCUBRIDString;
 import com.cubrid.cubridmigration.cubrid.format.TimeToCUBRIDString;
+import com.cubrid.cubridmigration.cubrid.format.TimeZoneValueToCUBRIDString;
 import com.cubrid.cubridmigration.cubrid.format.TimestampToCUBRIDString;
 import com.cubrid.cubridmigration.cubrid.format.csv.CSVBitToCUBRIDString;
 import com.cubrid.cubridmigration.cubrid.format.csv.CSVCharToCUBRIDString;
@@ -60,6 +61,7 @@ import com.cubrid.cubridmigration.cubrid.format.dump.UnloadDatetimeToCUBRIDStrin
 import com.cubrid.cubridmigration.cubrid.format.dump.UnloadNCharToCUBRIDString;
 import com.cubrid.cubridmigration.cubrid.format.dump.UnloadNumericToCUBRIDString;
 import com.cubrid.cubridmigration.cubrid.format.dump.UnloadTimeToCUBRIDString;
+import com.cubrid.cubridmigration.cubrid.format.dump.UnloadTimeZoneToCUBRIDString;
 import com.cubrid.cubridmigration.cubrid.format.dump.UnloadTimestampToCUBRIDString;
 
 import org.apache.commons.lang3.StringUtils;
@@ -118,6 +120,9 @@ public class Data2StrTranslator implements IData2StrTranslator {
         formaters.put(DataTypeConstant.CUBRID_DT_FLOAT, new FloatToCUBRIDString());
         formaters.put(DataTypeConstant.CUBRID_DT_DOUBLE, new DoubleToCUBRIDString());
 
+        TimeZoneValueToCUBRIDString tzFormatter = new TimeZoneValueToCUBRIDString();
+        TimeZoneValueToCUBRIDString ltzFormatter = new TimeZoneValueToCUBRIDString();
+
         if (targetDataFileFormat == MigrationConfiguration.DEST_CSV
                 || targetDataFileFormat == MigrationConfiguration.DEST_XLS) {
             formaters.put(
@@ -157,6 +162,18 @@ public class Data2StrTranslator implements IData2StrTranslator {
             formaters.put(
                     DataTypeConstant.CUBRID_DT_JSON,
                     new CSVCharToCUBRIDString(new CharToCUBRIDString(), config));
+            formaters.put(
+                    DataTypeConstant.CUBRID_DT_TIMESTAMPTZ,
+                    new CSVCharToCUBRIDString(tzFormatter, config));
+            formaters.put(
+                    DataTypeConstant.CUBRID_DT_DATETIMETZ,
+                    new CSVCharToCUBRIDString(tzFormatter, config));
+            formaters.put(
+                    DataTypeConstant.CUBRID_DT_TIMESTAMPLTZ,
+                    new CSVCharToCUBRIDString(ltzFormatter, config));
+            formaters.put(
+                    DataTypeConstant.CUBRID_DT_DATETIMELTZ,
+                    new CSVCharToCUBRIDString(ltzFormatter, config));
         } else {
             formaters.put(
                     DataTypeConstant.CUBRID_DT_BIT,
@@ -197,6 +214,18 @@ public class Data2StrTranslator implements IData2StrTranslator {
             formaters.put(
                     DataTypeConstant.CUBRID_DT_JSON,
                     new UnloadCharToCUBRIDString(new CharToCUBRIDString()));
+            formaters.put(
+                    DataTypeConstant.CUBRID_DT_TIMESTAMPTZ,
+                    new UnloadTimeZoneToCUBRIDString("timestamptz", tzFormatter));
+            formaters.put(
+                    DataTypeConstant.CUBRID_DT_DATETIMETZ,
+                    new UnloadTimeZoneToCUBRIDString("datetimetz", tzFormatter));
+            formaters.put(
+                    DataTypeConstant.CUBRID_DT_TIMESTAMPLTZ,
+                    new UnloadTimeZoneToCUBRIDString("timestampltz", ltzFormatter));
+            formaters.put(
+                    DataTypeConstant.CUBRID_DT_DATETIMELTZ,
+                    new UnloadTimeZoneToCUBRIDString("datetimeltz", ltzFormatter));
         }
     }
 

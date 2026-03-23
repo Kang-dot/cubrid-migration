@@ -1,5 +1,4 @@
 /*
- * Copyright (C) 2008 Search Solution Corporation.
  * Copyright (C) 2016 CUBRID Corporation.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -36,44 +35,17 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
 
-/**
- * DefaultHandler Description
- *
- * @author Kevin Cao
- * @version 1.0 - 2011-9-1 created by Kevin Cao
- */
-public class DefaultHandler implements SetterHandler {
+public class DateTimeTZHandler extends DefaultHandler {
 
-    /**
-     * @param stmt PreparedStatement
-     * @param idx parameter index
-     * @param columnValue ColumnValue
-     * @throws SQLException when SQL error.
-     */
     public void handle(PreparedStatement stmt, int idx, ColumnValue columnValue)
             throws SQLException {
         Object value = columnValue.getValue();
-        stmt.setString(idx + 1, String.valueOf(value));
-    }
 
-    /**
-     * Set null value to statement
-     *
-     * @param stmt PreparedStatement
-     * @param idx of column
-     * @throws SQLException when error.
-     */
-    public void setNull(PreparedStatement stmt, int idx) throws SQLException {
-        stmt.setNull(idx + 1, Types.NULL);
-    }
+        if (isNullOrEmpty(value)) {
+            stmt.setNull(idx + 1, Types.NULL);
+            return;
+        }
 
-    /**
-     * Check if value is null or empty string
-     *
-     * @param value Object to check
-     * @return true if value is null or empty string
-     */
-    protected boolean isNullOrEmpty(Object value) {
-        return value == null || "".equals(value);
+        stmt.setString(idx + 1, value.toString());
     }
 }

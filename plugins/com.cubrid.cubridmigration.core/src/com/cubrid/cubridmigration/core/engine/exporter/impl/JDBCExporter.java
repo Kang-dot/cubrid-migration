@@ -108,9 +108,6 @@ public class JDBCExporter extends MigrationExporter {
     protected JDBCConManager connManager;
     protected MigrationStatusManager msm;
 
-    //	public JDBCExporter() {
-    //	}
-
     /**
      * Export all records of all tables
      *
@@ -118,12 +115,6 @@ public class JDBCExporter extends MigrationExporter {
      */
     public void exportAllRecords(RecordExportedListener oneNewRecord) {
         // This method will not be called by clients
-        //		for (SourceEntryTableConfig st : config.getExportEntryTables()) {
-        //			exportTableRecords(st, oneNewRecord);
-        //		}
-        //		for (SourceSQLTableConfig st : config.getExportSQLTables()) {
-        //			exportTableRecords(st, oneNewRecord);
-        //		}
     }
 
     /**
@@ -264,7 +255,7 @@ public class JDBCExporter extends MigrationExporter {
             List<SourceColumnConfig> expColConfs = stc.getColumnConfigList();
             long totalExported = 0L;
             long intPageCount = config.getPageFetchCount();
-            String sql = expHelper.getSelectSQL(stc);
+            String sql = expHelper.getSelectSQL(stc, config);
             while (true) {
                 if (interrupted) {
                     return;

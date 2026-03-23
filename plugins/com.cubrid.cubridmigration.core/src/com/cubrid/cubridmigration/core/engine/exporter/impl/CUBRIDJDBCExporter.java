@@ -392,7 +392,7 @@ public class CUBRIDJDBCExporter extends JDBCExporter {
      */
     private String getPagingSQL(SourceEntryTableConfig setc, String[] spCols, boolean isFirstPage) {
         final DBExportHelper expHelper = getSrcDBExportHelper();
-        StringBuffer sql = new StringBuffer(expHelper.getSelectSQL(setc));
+        StringBuffer sql = new StringBuffer(expHelper.getSelectSQL(setc, config));
         final String[] quotedObjNames = getQuotedCols(spCols);
         if (StringUtils.isBlank(setc.getCondition())) {
             sql.append(" WHERE (");

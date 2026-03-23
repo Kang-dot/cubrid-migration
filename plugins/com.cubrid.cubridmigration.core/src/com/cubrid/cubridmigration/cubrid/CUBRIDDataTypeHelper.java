@@ -219,6 +219,34 @@ public final class CUBRIDDataTypeHelper extends DBDataTypeHelper {
         datetimeSymbol.getNickNames().add("datetime");
         CUBRIDDATA_TYPES.add(datetimeSymbol);
 
+        // timestamptz
+        DataTypeSymbol timestamptzSymbol =
+                new DataTypeSymbol(
+                        DataTypeConstant.CUBRID_DT_TIMESTAMPTZ, "timestamptz", "timestamptz");
+        timestamptzSymbol.getNickNames().add("timestamptz");
+        CUBRIDDATA_TYPES.add(timestamptzSymbol);
+
+        // timestampltz
+        DataTypeSymbol timestampltzSymbol =
+                new DataTypeSymbol(
+                        DataTypeConstant.CUBRID_DT_TIMESTAMPLTZ, "timestampltz", "timestampltz");
+        timestampltzSymbol.getNickNames().add("timestampltz");
+        CUBRIDDATA_TYPES.add(timestampltzSymbol);
+
+        // datetimetz
+        DataTypeSymbol datetimetzSymbol =
+                new DataTypeSymbol(
+                        DataTypeConstant.CUBRID_DT_DATETIMETZ, "datetimetz", "datetimetz");
+        datetimetzSymbol.getNickNames().add("datetimetz");
+        CUBRIDDATA_TYPES.add(datetimetzSymbol);
+
+        // datetimeltz
+        DataTypeSymbol datetimeltzSymbol =
+                new DataTypeSymbol(
+                        DataTypeConstant.CUBRID_DT_DATETIMELTZ, "datetimeltz", "datetimeltz");
+        datetimeltzSymbol.getNickNames().add("datetimeltz");
+        CUBRIDDATA_TYPES.add(datetimeltzSymbol);
+
         // bit
         DataTypeSymbol bitSymbol = new DataTypeSymbol(DataTypeConstant.CUBRID_DT_BIT, "bit", "bit");
         bitSymbol.getNickNames().add("bit");
@@ -321,6 +349,10 @@ public final class CUBRIDDataTypeHelper extends DBDataTypeHelper {
         TYPE_BYTES_MAP.put(DataTypeConstant.CUBRID_DT_TIME, 4);
         TYPE_BYTES_MAP.put(DataTypeConstant.CUBRID_DT_TIMESTAMP, 4);
         TYPE_BYTES_MAP.put(DataTypeConstant.CUBRID_DT_DATETIME, 8);
+        TYPE_BYTES_MAP.put(DataTypeConstant.CUBRID_DT_TIMESTAMPTZ, 8);
+        TYPE_BYTES_MAP.put(DataTypeConstant.CUBRID_DT_TIMESTAMPLTZ, 8);
+        TYPE_BYTES_MAP.put(DataTypeConstant.CUBRID_DT_DATETIMETZ, 12);
+        TYPE_BYTES_MAP.put(DataTypeConstant.CUBRID_DT_DATETIMELTZ, 12);
 
         // Ignore the LOB types
         TYPE_BYTES_MAP.put(DataTypeConstant.CUBRID_DT_FBO, 0);

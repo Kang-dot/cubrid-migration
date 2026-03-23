@@ -1,5 +1,4 @@
 /*
- * Copyright (C) 2008 Search Solution Corporation.
  * Copyright (C) 2016 CUBRID Corporation.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -28,52 +27,18 @@
  * OF SUCH DAMAGE.
  *
  */
-package com.cubrid.cubridmigration.cubrid.stmt.handler;
+package com.cubrid.cubridmigration.cubrid.trans.converter;
 
-import com.cubrid.cubridmigration.core.dbobject.Record.ColumnValue;
+import com.cubrid.cubridmigration.core.datatype.DataTypeInstance;
+import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
+import com.cubrid.cubridmigration.core.trans.AbstractDataConverter;
 
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.sql.Types;
+public class TimestampLTZConverter extends AbstractDataConverter {
 
-/**
- * DefaultHandler Description
- *
- * @author Kevin Cao
- * @version 1.0 - 2011-9-1 created by Kevin Cao
- */
-public class DefaultHandler implements SetterHandler {
-
-    /**
-     * @param stmt PreparedStatement
-     * @param idx parameter index
-     * @param columnValue ColumnValue
-     * @throws SQLException when SQL error.
-     */
-    public void handle(PreparedStatement stmt, int idx, ColumnValue columnValue)
-            throws SQLException {
-        Object value = columnValue.getValue();
-        stmt.setString(idx + 1, String.valueOf(value));
-    }
-
-    /**
-     * Set null value to statement
-     *
-     * @param stmt PreparedStatement
-     * @param idx of column
-     * @throws SQLException when error.
-     */
-    public void setNull(PreparedStatement stmt, int idx) throws SQLException {
-        stmt.setNull(idx + 1, Types.NULL);
-    }
-
-    /**
-     * Check if value is null or empty string
-     *
-     * @param value Object to check
-     * @return true if value is null or empty string
-     */
-    protected boolean isNullOrEmpty(Object value) {
-        return value == null || "".equals(value);
+    public Object convert(Object obj, DataTypeInstance dti, MigrationConfiguration config) {
+        if (obj == null) {
+            return null;
+        }
+        return obj.toString();
     }
 }

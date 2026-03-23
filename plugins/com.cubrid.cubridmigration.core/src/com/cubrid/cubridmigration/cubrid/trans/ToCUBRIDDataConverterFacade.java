@@ -44,6 +44,8 @@ import com.cubrid.cubridmigration.cubrid.trans.converter.CharConverter;
 import com.cubrid.cubridmigration.cubrid.trans.converter.ClobConverter;
 import com.cubrid.cubridmigration.cubrid.trans.converter.DateConverter;
 import com.cubrid.cubridmigration.cubrid.trans.converter.DateTimeConverter;
+import com.cubrid.cubridmigration.cubrid.trans.converter.DateTimeLTZConverter;
+import com.cubrid.cubridmigration.cubrid.trans.converter.DateTimeTZConverter;
 import com.cubrid.cubridmigration.cubrid.trans.converter.DoubleConverter;
 import com.cubrid.cubridmigration.cubrid.trans.converter.FloatConverter;
 import com.cubrid.cubridmigration.cubrid.trans.converter.IntegerConverter;
@@ -51,6 +53,8 @@ import com.cubrid.cubridmigration.cubrid.trans.converter.NumericConverter;
 import com.cubrid.cubridmigration.cubrid.trans.converter.SmallIntConverter;
 import com.cubrid.cubridmigration.cubrid.trans.converter.TimeConverter;
 import com.cubrid.cubridmigration.cubrid.trans.converter.TimeStampConverter;
+import com.cubrid.cubridmigration.cubrid.trans.converter.TimestampLTZConverter;
+import com.cubrid.cubridmigration.cubrid.trans.converter.TimestampTZConverter;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -98,6 +102,10 @@ public final class ToCUBRIDDataConverterFacade implements IDataConvertorFacade {
         converterMap.put(DataTypeConstant.CUBRID_DT_DATE, new DateConverter());
         converterMap.put(DataTypeConstant.CUBRID_DT_TIMESTAMP, new TimeStampConverter());
         converterMap.put(DataTypeConstant.CUBRID_DT_DATETIME, new DateTimeConverter());
+        converterMap.put(DataTypeConstant.CUBRID_DT_TIMESTAMPTZ, new TimestampTZConverter());
+        converterMap.put(DataTypeConstant.CUBRID_DT_TIMESTAMPLTZ, new TimestampLTZConverter());
+        converterMap.put(DataTypeConstant.CUBRID_DT_DATETIMETZ, new DateTimeTZConverter());
+        converterMap.put(DataTypeConstant.CUBRID_DT_DATETIMELTZ, new DateTimeLTZConverter());
 
         converterMap.put(DataTypeConstant.CUBRID_DT_BIT, new BitConverter());
         converterMap.put(DataTypeConstant.CUBRID_DT_VARBIT, new BitConverter());
@@ -158,7 +166,7 @@ public final class ToCUBRIDDataConverterFacade implements IDataConvertorFacade {
         if (obj != null && obj.getClass().isArray()) {
             return obj;
         }
-        if (obj instanceof Collection || obj instanceof byte[][]) {
+        if (obj instanceof Collection) {
             Collection<?> c = (Collection<?>) obj;
             List<Object> newCollection = new ArrayList<Object>();
 
