@@ -104,10 +104,26 @@ public class ScriptCommandHandler implements ConsoleCommandHandler {
         if (cl == null || cl.getSchemas().isEmpty()) {
             return;
         }
-        Schema tarSchema = cl.getSchemas().get(0);
+        applyTargetTableMapping(config, cl);
+    }
+
+    static void applyTargetTableMapping(MigrationConfiguration config, Catalog catalog) {
+        if (config == null || catalog == null || catalog.getSchemas().isEmpty()) {
+            return;
+        }
+
         List<SourceEntryTableConfig> tables = config.getExpEntryTableCfg();
         for (SourceEntryTableConfig setc : tables) {
-            Table tt = tarSchema.getTableByName(setc.getTarget());
+            Table tt = null;
+            if (StringUtils.isNotBlank(setc.getTargetOwner())) {
+                Schema tarSchema = findSchemaByName(catalog, setc.getTargetOwner());
+                if (tarSchema != null) {
+                    tt = findTableByNameIgnoreCase(tarSchema, setc.getTarget());
+                }
+            } else {
+                tt = findUniqueTableAcrossSchemas(catalog, setc.getTarget());
+            }
+
             if (tt == null) {
                 continue;
             }
@@ -115,6 +131,49 @@ public class ScriptCommandHandler implements ConsoleCommandHandler {
             setc.setReplace(false);
             setc.setCreatePK(false);
         }
+    }
+
+    private static Schema findSchemaByName(Catalog catalog, String schemaName) {
+        if (catalog == null || StringUtils.isBlank(schemaName)) {
+            return null;
+        }
+        for (Schema schema : catalog.getSchemas()) {
+            if (schemaName.equalsIgnoreCase(schema.getName())) {
+                return schema;
+            }
+        }
+        return null;
+    }
+
+    private static Table findUniqueTableAcrossSchemas(Catalog catalog, String tableName) {
+        if (catalog == null || StringUtils.isBlank(tableName)) {
+            return null;
+        }
+
+        Table matched = null;
+        for (Schema schema : catalog.getSchemas()) {
+            Table table = findTableByNameIgnoreCase(schema, tableName);
+            if (table == null) {
+                continue;
+            }
+            if (matched != null) {
+                return null;
+            }
+            matched = table;
+        }
+        return matched;
+    }
+
+    private static Table findTableByNameIgnoreCase(Schema schema, String tableName) {
+        if (schema == null || StringUtils.isBlank(tableName)) {
+            return null;
+        }
+        for (Table table : schema.getTables()) {
+            if (tableName.equalsIgnoreCase(table.getName())) {
+                return table;
+            }
+        }
+        return null;
     }
 
     /**
@@ -474,6 +533,7 @@ public class ScriptCommandHandler implements ConsoleCommandHandler {
                 return false;
             }
             config.setTargetConParams(tcp);
+            applyTargetOutputOptions(config, dbProperties, tvalue);
         } else if (config.targetIsFile()) {
             String prefix = dbProperties.getProperty(tvalue + ".file_prefix");
             config.setTargetFilePrefix(
@@ -485,17 +545,33 @@ public class ScriptCommandHandler implements ConsoleCommandHandler {
             config.setFileRepositroyPath(dbProperties.getProperty(tvalue + ".output"));
             config.setTargetCharSet(dbProperties.getProperty(tvalue + ".charset"));
             config.setTargetFileTimeZone("Default");
-
-            String splitSchema = dbProperties.getProperty(tvalue + ".split_schema");
-            config.setSplitSchema(isDefaultYes(splitSchema));
-
-            String addSchema = dbProperties.getProperty(tvalue + ".add_schema");
-            config.setAddUserSchema(isDefaultYes(addSchema));
-
-            String oneTableOneFile = dbProperties.getProperty(tvalue + ".one_table_one_file");
-            config.setOneTableOneFile(isDefaultNo(oneTableOneFile));
+            applyTargetOutputOptions(config, dbProperties, tvalue);
+            applyFileTargetOptions(config, dbProperties, tvalue);
         }
         return true;
+    }
+
+    static void applyTargetOutputOptions(
+            MigrationConfiguration config, Properties properties, String targetName) {
+        if (config == null || properties == null || StringUtils.isBlank(targetName)) {
+            return;
+        }
+
+        String addSchema = properties.getProperty(targetName + ".add_schema");
+        config.setAddUserSchema(isDefaultYes(addSchema));
+    }
+
+    static void applyFileTargetOptions(
+            MigrationConfiguration config, Properties properties, String targetName) {
+        if (config == null || properties == null || StringUtils.isBlank(targetName)) {
+            return;
+        }
+
+        String splitSchema = properties.getProperty(targetName + ".split_schema");
+        config.setSplitSchema(isDefaultYes(splitSchema));
+
+        String oneTableOneFile = properties.getProperty(targetName + ".one_table_one_file");
+        config.setOneTableOneFile(isDefaultNo(oneTableOneFile));
     }
 
     /**
@@ -518,7 +594,7 @@ public class ScriptCommandHandler implements ConsoleCommandHandler {
      * @param value the text to check
      * @return true if default is "yes"
      */
-    private boolean isDefaultYes(String value) {
+    private static boolean isDefaultYes(String value) {
         if (value == null) {
             return true;
         }
@@ -531,7 +607,7 @@ public class ScriptCommandHandler implements ConsoleCommandHandler {
      * @param value the text to check
      * @return true if default is "no"
      */
-    private boolean isDefaultNo(String value) {
+    private static boolean isDefaultNo(String value) {
         if (value == null) {
             return false;
         }

@@ -47,6 +47,7 @@ import com.cubrid.cubridmigration.core.dbobject.View;
 import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
 
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.List;
 
@@ -177,7 +178,7 @@ public class TargetNodeWriter {
     private void writeTargetPartitions(XMLStreamWriter writer, Table table)
             throws XMLStreamException {
         PartitionInfo pi = table.getPartitionInfo();
-        if (pi != null) {
+        if (pi != null && StringUtils.isNotBlank(pi.getDDL())) {
             writer.writeStartElement(TAG_PARTITIONS);
             writer.writeAttribute(ATTR_TYPE, pi.getPartitionMethod());
             writer.writeAttribute(ATTR_EXPRESSION, pi.getPartitionExp());

@@ -156,6 +156,8 @@ public class Messages extends NLS {
     public static String btnSrcOnlineMariaDBDB;
     public static String btnSrcOnlineInformixDB;
     public static String btnSrcOnlineInformixDBDes;
+    public static String btnSrcOnlineTiberoDB;
+    public static String btnSrcOnlineTiberoDBDes;
     public static String btnSrcSQLFiles;
     public static String btnSrcSQLFilesDes;
     public static String btnSSHProxySettings;
@@ -585,6 +587,7 @@ public class Messages extends NLS {
     public static String msgErrEmptyMax;
     public static String msgErrEmptyMin;
     public static String msgErrEmptyPartition;
+    public static String msgInfoPartitionDisabled;
     public static String msgErrEmptyRefTable;
     public static String msgErrEmptySchemaCheckbox;
     public static String msgErrEmptySchemaName;
@@ -683,6 +686,7 @@ public class Messages extends NLS {
     public static String msgWarning;
     public static String msgWarningImpossibleMigrationGrant;
     public static String msgWarningImpossibleMigrationSynonymGrant;
+    public static String msgWarnPartitionUnsupportedListDefault;
     public static String msgWarnTableRecreated;
     public static String msgWizardStep;
     public static String mysqlToCubrid;
@@ -719,6 +723,7 @@ public class Messages extends NLS {
     public static String onlineCUBRIDCommitCount;
     public static String openConfActionTitle;
     public static String oracle2CUBRID;
+    public static String tibero2CUBRID;
     public static String informix2CUBRID;
     public static String otherSettings;
     public static String prefTitleGeneral;

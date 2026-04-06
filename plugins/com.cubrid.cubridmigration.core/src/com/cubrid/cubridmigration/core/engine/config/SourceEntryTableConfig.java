@@ -42,7 +42,6 @@ import java.util.List;
  * @version 1.0 - 2011-9-8 created by Kevin Cao
  */
 public class SourceEntryTableConfig extends SourceTableConfig {
-
     /** Whether to create a Primary Key based on user config */
     private boolean createPK;
 
@@ -235,6 +234,9 @@ public class SourceEntryTableConfig extends SourceTableConfig {
     public void setCreateNewTable(boolean createNewTable) {
         boolean old = this.isCreateNewTable();
         super.setCreateNewTable(createNewTable);
+        if (old != createNewTable) {
+            setCreatePartition(createNewTable);
+        }
         if (!old && createNewTable) {
             boolean flag = false;
             for (SourceFKConfig fk : this.fks) {

@@ -31,6 +31,7 @@
 package com.cubrid.cubridmigration.ui.wizard.page.view;
 
 import com.cubrid.cubridmigration.core.dbobject.PartitionInfo;
+import com.cubrid.cubridmigration.core.dbobject.PartitionTable;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.engine.config.SourceEntryTableConfig;
 import com.cubrid.cubridmigration.ui.common.CompositeUtils;
@@ -47,6 +48,7 @@ import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Group;
+import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
 
 /**
@@ -61,10 +63,12 @@ public class PartitionMappingView extends AbstractMappingView {
     private Button btnCreate;
     private Group grpSource;
     private Group grpTarget;
+    private Label lblStatus;
     private Text txtSrcSQL;
     private Text txtTargetSQL;
 
     private SourceEntryTableConfig setc;
+    private Table sourceTable;
     private Table targetTable;
 
     public PartitionMappingView(Composite parent) {
@@ -100,8 +104,13 @@ public class PartitionMappingView extends AbstractMappingView {
 
                     public void widgetSelected(SelectionEvent ev) {
                         txtTargetSQL.setEditable(btnCreate.getSelection());
+                        updateStatusMessage();
                     }
                 });
+
+        lblStatus = new Label(container, SWT.WRAP);
+        lblStatus.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
+        lblStatus.setText("");
 
         SashForm form = new SashForm(container, SWT.VERTICAL);
         form.setLayout(new GridLayout());
@@ -161,30 +170,35 @@ public class PartitionMappingView extends AbstractMappingView {
 
         txtSrcSQL.setText("");
         txtTargetSQL.setText("");
+        lblStatus.setText("");
         btnCreate.setEnabled(false);
         txtTargetSQL.setEditable(false);
+        sourceTable = null;
         targetTable = null;
-        Table srcTable = config.getSrcTableSchema(setc.getOwner(), setc.getName());
-        if (srcTable == null || srcTable.getPartitionInfo() == null) {
+        sourceTable = config.getSrcTableSchema(setc.getOwner(), setc.getName());
+        if (sourceTable == null || sourceTable.getPartitionInfo() == null) {
             return;
         }
-        final String srcDDL = srcTable.getPartitionInfo().getDDL();
+        final String srcDDL = resolvePreviewDDL(sourceTable);
         txtSrcSQL.setText(srcDDL == null ? "" : srcDDL);
 
         targetTable = config.getTargetTableSchema(setc.getTarget());
         if (targetTable == null) {
+            updateStatusMessage();
             return;
         }
-        if (targetTable.getPartitionInfo() == null) {
-            PartitionInfo pi = new PartitionInfo();
-            pi.setDDL(srcDDL);
-            targetTable.setPartitionInfo(pi);
-        }
-        btnCreate.setEnabled(true);
-        btnCreate.setSelection(setc.isCreatePartition());
+        boolean targetSupported =
+                targetTable.getPartitionInfo() != null
+                        && StringUtils.isNotBlank(targetTable.getPartitionInfo().getDDL());
+        btnCreate.setEnabled(targetSupported);
+        btnCreate.setSelection(targetSupported && setc.isCreatePartition());
         txtTargetSQL.setEditable(btnCreate.getEnabled() && btnCreate.getSelection());
-        final String tarDDL = targetTable.getPartitionInfo().getDDL();
+        final String tarDDL =
+                targetTable.getPartitionInfo() == null
+                        ? null
+                        : targetTable.getPartitionInfo().getDDL();
         txtTargetSQL.setText(tarDDL == null ? "" : tarDDL);
+        updateStatusMessage();
     }
 
     /**
@@ -216,10 +230,53 @@ public class PartitionMappingView extends AbstractMappingView {
      * @param selection true if read only
      */
     public void setEditable(boolean selection) {
-        if (targetTable == null || targetTable.getPartitionInfo() == null) {
+        if (targetTable == null) {
             return;
         }
-        btnCreate.setEnabled(selection);
+        btnCreate.setEnabled(selection && btnCreate.getEnabled());
         txtTargetSQL.setEditable(btnCreate.getEnabled() && btnCreate.getSelection() && selection);
+    }
+
+    private String resolvePreviewDDL(Table srcTable) {
+        String sourceDDL = srcTable.getPartitionInfo().getDDL();
+        if (StringUtils.isNotBlank(sourceDDL)) {
+            return sourceDDL;
+        }
+        return config.getDBTransformHelper().getToCUBRIDPartitionDDL(srcTable);
+    }
+
+    private void updateStatusMessage() {
+        if (setc == null) {
+            lblStatus.setText("");
+            return;
+        }
+        if (hasListDefaultPartition(sourceTable)) {
+            lblStatus.setText(
+                    Messages.bind(
+                            Messages.msgWarnPartitionUnsupportedListDefault, setc.getTarget()));
+            return;
+        }
+        if (!btnCreate.getSelection() && targetTable != null) {
+            lblStatus.setText(Messages.msgInfoPartitionDisabled);
+            return;
+        }
+        lblStatus.setText("");
+    }
+
+    private boolean hasListDefaultPartition(Table table) {
+        if (table == null || table.getPartitionInfo() == null) {
+            return false;
+        }
+        PartitionInfo partitionInfo = table.getPartitionInfo();
+        if (!PartitionInfo.PARTITION_METHOD_LIST.equalsIgnoreCase(
+                partitionInfo.getPartitionMethod())) {
+            return false;
+        }
+        for (PartitionTable partition : partitionInfo.getPartitions()) {
+            if ("DEFAULT".equalsIgnoreCase(partition.getPartitionDesc())) {
+                return true;
+            }
+        }
+        return false;
     }
 }

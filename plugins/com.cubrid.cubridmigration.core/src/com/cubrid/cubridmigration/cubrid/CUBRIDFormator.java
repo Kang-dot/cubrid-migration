@@ -65,34 +65,34 @@ public class CUBRIDFormator { // NOPMD
     static {
         HashMap<String, String> dateTimeMap = new HashMap<String, String>();
         dateTimeMap.put("", "");
-        dateTimeMap.put("sysdatetime", "sysdatetime");
-        dateTimeMap.put("sys_datetime", "sysdatetime");
-        dateTimeMap.put("current_datetime", "current_datetime");
-        dateTimeMap.put("currentdatetime", "current_datetime");
+        dateTimeMap.put("sysdatetime", "SYS_DATETIME");
+        dateTimeMap.put("sys_datetime", "SYS_DATETIME");
+        dateTimeMap.put("current_datetime", "CURRENT_DATETIME");
+        dateTimeMap.put("currentdatetime", "CURRENT_DATETIME");
         formatQueryMap.put(DataTypeConstant.CUBRID_DT_DATETIME, dateTimeMap);
 
         HashMap<String, String> timeStampMap = new HashMap<String, String>();
         timeStampMap.put("", "");
-        timeStampMap.put("systimestamp", "systimestamp");
-        timeStampMap.put("sys_timestamp", "systimestamp");
-        timeStampMap.put("currenttimestamp", "current_timestamp");
-        timeStampMap.put("current_timestamp", "current_timestamp");
+        timeStampMap.put("systimestamp", "SYS_TIMESTAMP");
+        timeStampMap.put("sys_timestamp", "SYS_TIMESTAMP");
+        timeStampMap.put("currenttimestamp", "CURRENT_TIMESTAMP");
+        timeStampMap.put("current_timestamp", "CURRENT_TIMESTAMP");
         formatQueryMap.put(DataTypeConstant.CUBRID_DT_TIMESTAMP, timeStampMap);
 
         HashMap<String, String> dateMap = new HashMap<String, String>();
         dateMap.put("", "");
-        dateMap.put("sysdate", "sysdate");
-        dateMap.put("sys_date", "sysdate");
-        dateMap.put("currentdate", "current_date");
-        dateMap.put("current_date", "current_date");
+        dateMap.put("sysdate", "SYS_DATE");
+        dateMap.put("sys_date", "SYS_DATE");
+        dateMap.put("currentdate", "CURRENT_DATE");
+        dateMap.put("current_date", "CURRENT_DATE");
         formatQueryMap.put(DataTypeConstant.CUBRID_DT_DATE, dateMap);
 
         HashMap<String, String> timeMap = new HashMap<String, String>();
         timeMap.put("", "");
-        timeMap.put("systime", "systime");
-        timeMap.put("sys_time", "systime");
-        timeMap.put("currenttime", "current_time");
-        timeMap.put("current_time", "current_time");
+        timeMap.put("systime", "SYS_TIME");
+        timeMap.put("sys_time", "SYS_TIME");
+        timeMap.put("currenttime", "CURRENT_TIME");
+        timeMap.put("current_time", "CURRENT_TIME");
         formatQueryMap.put(DataTypeConstant.CUBRID_DT_TIME, timeMap);
     }
 

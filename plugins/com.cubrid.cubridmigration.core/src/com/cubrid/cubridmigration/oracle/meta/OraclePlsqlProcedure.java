@@ -29,7 +29,9 @@
  */
 package com.cubrid.cubridmigration.oracle.meta;
 
-public class OraclePlsqlProcedure {
+import com.cubrid.cubridmigration.core.dbobject.SourcePlsqlProcedure;
+
+public class OraclePlsqlProcedure implements SourcePlsqlProcedure {
 
     private final String owner;
     private final String name;

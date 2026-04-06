@@ -116,7 +116,7 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
         String catalogName;
 
         DatabaseType databaseType = cp.getDatabaseType();
-        if (DatabaseType.ORACLE == databaseType) {
+        if (DatabaseType.ORACLE == databaseType || DatabaseType.TIBERO == databaseType) {
             // If DB name is SID/schemaName pattern
             if (dbName.startsWith("/")) {
                 dbName = dbName.substring(1, dbName.length());
@@ -152,7 +152,7 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
         String dbName = cp.getDbName();
         String catalogName;
         DatabaseType databaseType = cp.getDatabaseType();
-        if (DatabaseType.ORACLE == databaseType) {
+        if (DatabaseType.ORACLE == databaseType || DatabaseType.TIBERO == databaseType) {
             // If DB name is SID/schemaName pattern
             if (dbName.startsWith("/")) {
                 dbName = dbName.substring(1, dbName.length());
@@ -233,7 +233,8 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
     private String resolveCatalogName(ConnParameters cp) {
         DatabaseType databaseType = cp.getDatabaseType();
         String dbName = cp.getDbName();
-        if (DatabaseType.ORACLE == databaseType && dbName != null) {
+        if ((DatabaseType.ORACLE == databaseType || DatabaseType.TIBERO == databaseType)
+                && dbName != null) {
             if (dbName.startsWith("/")) {
                 dbName = dbName.substring(1);
             }
@@ -1160,6 +1161,9 @@ public abstract class AbstractJDBCSchemaFetcher implements IDependOnDatabaseType
      */
     protected String getSourcePartitionDDL(Table sourceTable) {
         String ddl = sourceTable.getDDL();
+        if (ddl == null) {
+            return "";
+        }
         if (ddl.indexOf("PARTITION BY") > -1) {
             return ddl.substring(ddl.indexOf("PARTITION BY"), ddl.length());
         }

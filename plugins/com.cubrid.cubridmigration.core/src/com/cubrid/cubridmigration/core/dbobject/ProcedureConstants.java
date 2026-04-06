@@ -27,13 +27,19 @@
  * OF SUCH DAMAGE.
  *
  */
-package com.cubrid.cubridmigration.oracle.meta;
+package com.cubrid.cubridmigration.core.dbobject;
 
-public class OracleConstants {
+public class ProcedureConstants {
 
+    // Procedure types
     public static final String PROCEDURE = "PROCEDURE";
     public static final String FUNCTION = "FUNCTION";
 
-    public static final String PROCEDURE_AUTHID_DEFINER = "DEFINER";
-    public static final String PROCEDURE_AUTHID_CURRENT_USER = "CURRENT_USER";
+    // Oracle, Tibero authid
+    public static final String AUTHID_DEFINER = "DEFINER";
+    public static final String AUTHID_CURRENT_USER = "CURRENT_USER";
+
+    // CUBRID authid
+    public static final String AUTHID_OWNER = "OWNER";
+    public static final String AUTHID_CALLER = "CALLER";
 }

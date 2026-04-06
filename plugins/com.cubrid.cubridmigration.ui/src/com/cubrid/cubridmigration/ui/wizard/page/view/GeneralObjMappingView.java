@@ -314,7 +314,10 @@ public class GeneralObjMappingView extends AbstractMappingView {
                             TableItem ti, Object[] element, int columnIdx, Object value) {
                         Object[] obj = (Object[]) ti.getData();
                         final int crtIdx = CREATE_COLUMN_INDEX;
+                        final SourceEntryTableConfig setc =
+                                (SourceEntryTableConfig) obj[obj.length - 1];
                         if (columnIdx == crtIdx) {
+                            syncTableCreateOptions(setc, (Boolean) value);
                             for (int i = crtIdx + 1; i < obj.length; i++) {
                                 if (!(obj[i] instanceof Boolean)) {
                                     continue;
@@ -328,6 +331,7 @@ public class GeneralObjMappingView extends AbstractMappingView {
                                 && (Boolean) value) {
                             // If check create other part of the table,
                             // the create table option will be auto  checked.
+                            syncTableCreateOptions(setc, true);
                             obj[crtIdx] = value;
                             ti.setImage(crtIdx, CompositeUtils.getCheckImage((Boolean) value));
                             updateColumnImage(value, ti, crtIdx);
@@ -685,7 +689,7 @@ public class GeneralObjMappingView extends AbstractMappingView {
             config.changeTarget(setc, name);
             setc.setMigrateData((Boolean) obj[DATA_COLUMN_INDEX]);
             setc.setCondition(obj[CONDITION_COLUMN_INDEX].toString());
-            setc.setCreateNewTable((Boolean) obj[CREATE_COLUMN_INDEX]);
+            syncTableCreateOptions(setc, (Boolean) obj[CREATE_COLUMN_INDEX]);
             setc.setReplace((Boolean) obj[REPLACE_COLUMN_INDEX]);
             setc.setCreatePK((Boolean) obj[PK_COLUMN_INDEX]);
         }
@@ -1014,6 +1018,10 @@ public class GeneralObjMappingView extends AbstractMappingView {
         }
 
         return sqlMgrView.save();
+    }
+
+    private void syncTableCreateOptions(SourceEntryTableConfig setc, boolean newCreate) {
+        setc.setCreateNewTable(newCreate);
     }
 
     /**

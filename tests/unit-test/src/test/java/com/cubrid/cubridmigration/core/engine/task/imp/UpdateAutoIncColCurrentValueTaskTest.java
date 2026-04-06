@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2008 Search Solution Corporation.
  * Copyright (C) 2016 CUBRID Corporation.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -27,13 +28,35 @@
  * OF SUCH DAMAGE.
  *
  */
-package com.cubrid.cubridmigration.cubrid.meta;
+package com.cubrid.cubridmigration.core.engine.task.imp;
 
-public class CubridConstants {
+import static org.assertj.core.api.Assertions.assertThat;
 
-    public static final String PROCEDURE = "PROCEDURE";
-    public static final String FUNCTION = "FUNCTION";
+import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
 
-    public static final String PROCEDURE_AUTHID_OWNER = "OWNER";
-    public static final String PROCEDURE_AUTHID_CALLER = "CALLER";
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+@DisplayName("UpdateAutoIncColCurrentValueTask")
+class UpdateAutoIncColCurrentValueTaskTest {
+
+    @Test
+    @DisplayName("getSerialAttributeColumn() uses att_name for 11.3 and earlier")
+    void getSerialAttributeColumn_usesAttNameBefore114() {
+        MigrationConfiguration config = new MigrationConfiguration();
+        config.setTargetDBVersion("113");
+
+        assertThat(UpdateAutoIncColCurrentValueTask.getSerialAttributeColumn(config))
+                .isEqualTo("att_name");
+    }
+
+    @Test
+    @DisplayName("getSerialAttributeColumn() uses attr_name for 11.4 and later")
+    void getSerialAttributeColumn_usesAttrNameFrom114() {
+        MigrationConfiguration config = new MigrationConfiguration();
+        config.setTargetDBVersion("114");
+
+        assertThat(UpdateAutoIncColCurrentValueTask.getSerialAttributeColumn(config))
+                .isEqualTo("attr_name");
+    }
 }

@@ -477,8 +477,8 @@ public class TableMappingView extends AbstractMappingView {
 
                     public void widgetSelected(SelectionEvent ex) {
                         setPageControlStatus();
+                        setc.setCreateNewTable(btnCreate.getSelection());
                         setc.setCreatePK(btnCreate.getSelection());
-                        setc.setCreatePartition(btnCreate.getSelection());
                         if (btnCreate.getSelection()) {
                             selectAllColumns();
                             selectAllFSs();
