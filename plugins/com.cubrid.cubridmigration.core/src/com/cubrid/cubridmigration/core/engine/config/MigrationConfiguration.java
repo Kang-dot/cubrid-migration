@@ -843,20 +843,20 @@ public class MigrationConfiguration {
                     }
                 }
                 tempList.add(sc);
-                Sequence tseq = null;
-                if (sc.getOwner() == null) {
-                    tseq = getTargetSerialSchema(sc.getTarget());
-                } else {
-                    tseq = getTargetSerialSchema(sc.getTargetOwner(), sc.getTarget());
-                }
+                String sourceOwner =
+                        StringUtils.defaultIfBlank(
+                                sc.getOwner(),
+                                StringUtils.defaultIfBlank(
+                                        seq.getOwner(), sourceDBSchema.getName()));
+                Sequence tseq = getTargetSerialSchema(sc.getTargetOwner(), sc.getTarget());
                 if (tseq == null) {
                     tseq = (Sequence) seq.clone();
                     tseq.setName(sc.getTarget());
-                    tseq.setOwner(sc.getTargetOwner());
-                    tseq.setSourceOwner(sc.getOwner());
-                    tseq.setDDL(cubridddlUtil.getSequenceDDL(tseq, this.addUserSchema));
-                    tseq.setComment(seq.getComment());
                 }
+                tseq.setOwner(sc.getTargetOwner());
+                tseq.setSourceOwner(sourceOwner);
+                tseq.setDDL(cubridddlUtil.getSequenceDDL(tseq, this.addUserSchema));
+                tseq.setComment(seq.getComment());
                 tempSerials.add(tseq);
             }
         }
@@ -3889,7 +3889,8 @@ public class MigrationConfiguration {
         }
 
         for (Sequence seq : this.targetSequences) {
-            if (seq.getName().equalsIgnoreCase(target) && seq.getOwner().equalsIgnoreCase(owner)) {
+            if (seq.getName().equalsIgnoreCase(target)
+                    && StringUtils.equalsIgnoreCase(seq.getOwner(), owner)) {
                 return seq;
             }
         }
