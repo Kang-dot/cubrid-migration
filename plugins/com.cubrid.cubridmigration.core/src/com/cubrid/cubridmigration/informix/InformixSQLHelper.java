@@ -63,7 +63,6 @@ public class InformixSQLHelper extends SQLHelper {
 
     @Override
     public String getTestSelectSQL(String sql) {
-        // TODO Auto-generated method stub
         String sql2 = sql.trim();
         if (sql2.endsWith(";")) {
             sql2 = sql2.substring(0, sql2.length() - 1);
