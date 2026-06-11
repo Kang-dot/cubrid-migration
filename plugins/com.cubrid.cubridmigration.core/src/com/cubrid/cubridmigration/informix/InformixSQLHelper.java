@@ -64,6 +64,10 @@ public class InformixSQLHelper extends SQLHelper {
     @Override
     public String getTestSelectSQL(String sql) {
         // TODO Auto-generated method stub
-        return null;
+        String sql2 = sql.trim();
+        if (sql2.endsWith(";")) {
+            sql2 = sql2.substring(0, sql2.length() - 1);
+        }
+        return "SELECT * FROM ( " + sql2 + " ) AS tartbl WHERE 1<>1";
     }
 }
