@@ -81,15 +81,15 @@ public class InformixDatabase extends DatabaseType {
             if (jdbcData == null) {
                 return "";
             }
-            String cubridJdbcURLPattern;
-            cubridJdbcURLPattern = "jdbc:informix-sqli://%s:%s/%s:INFORMIXSERVER=informix";
+            String cubridJdbcURLPattern = "jdbc:informix-sqli://%s:%s/%s:INFORMIXSERVER=%s";
 
             String url =
                     String.format(
                             cubridJdbcURLPattern,
                             conParam.getHost(),
                             conParam.getPort(),
-                            conParam.getDbName());
+                            conParam.getDbName(),
+                            conParam.getConServer());
             return url;
         }
 

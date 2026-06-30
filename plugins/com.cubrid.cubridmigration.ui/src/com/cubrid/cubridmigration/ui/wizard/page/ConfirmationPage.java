@@ -114,8 +114,16 @@ public class ConfirmationPage extends BaseConfirmationPage {
                     .append(Messages.confirmDatabaseType)
                     .append("  ")
                     .append(getDatabaseTypeByID(srcConnParameters.getDbType()).getName())
-                    .append(lineSeparator)
-                    .append(tabSeparator)
+                    .append(lineSeparator);
+            // display server value only for INFORMIX
+            if (DatabaseType.INFORMIX.equals(srcConnParameters.getDatabaseType())) {
+                text.append(tabSeparator)
+                        .append(Messages.confirmServer)
+                        .append("  ")
+                        .append(srcConnParameters.getConServer())
+                        .append(lineSeparator);
+            }
+            text.append(tabSeparator)
                     .append(Messages.confirmDatabaseName)
                     .append("  ")
                     .append(srcConnParameters.getDbName())

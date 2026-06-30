@@ -39,6 +39,7 @@ import com.cubrid.cubridmigration.core.common.xml.IXMLMemento;
 import com.cubrid.cubridmigration.core.common.xml.XMLMemento;
 import com.cubrid.cubridmigration.core.dbobject.Catalog;
 import com.cubrid.cubridmigration.core.dbobject.SchemaCatalog;
+import com.cubrid.cubridmigration.core.dbtype.DBConstant;
 import com.cubrid.cubridmigration.core.dbtype.DatabaseType;
 import com.cubrid.cubridmigration.core.engine.config.SchemaSelection;
 
@@ -151,6 +152,7 @@ public final class CMTConParamManager implements IJDBCInfoChangedSubject {
                                     driverPath,
                                     schema);
                     cp.setUserJDBCURL(child.getString("user_jdbc_url"));
+                    cp.setConServer(child.getString("con_server"));
                     addConnection(cp, true);
                 }
             } finally {
@@ -187,6 +189,9 @@ public final class CMTConParamManager implements IJDBCInfoChangedSubject {
                 child.putString("port", cp.getPort() + "");
                 child.putString("driverPath", cp.getDriverFileName());
                 child.putString("user_jdbc_url", cp.getUserJDBCURL());
+                if (cp.getDatabaseType().getID() == DBConstant.DBTYPE_INFORMIX) {
+                    child.putString("con_server", cp.getConServer());
+                }
                 // child.putString("schema", cp.getSchema());
             }
             FileOutputStream writer = new FileOutputStream(defaultFile);
