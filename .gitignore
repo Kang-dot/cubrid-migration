@@ -31,3 +31,10 @@ target/
 
 testd
 tests/unit-test/logs/
+
+## E2E test
+
+tests/e2e/e2e-test.properties
+
+## Mac
+.DS_Store

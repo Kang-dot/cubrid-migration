@@ -1,0 +1,34 @@
+services:
+  e2e-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - maven-cache:/root/.m2
+      - ${CMT_CONSOLE_HOME:?Set CMT_CONSOLE_HOME to the extracted CMT Console directory}:/opt/cmt-console
+      # Mount whole project so /app/target stays writable for `mvn clean`.
+      - ./:/app
+      # Tibero license — defaults to ./tibero/license.xml; override the
+      # host path via TIBERO_LICENSE env var.
+      - ${TIBERO_LICENSE:-./tibero/license.xml}:/run/tibero-license.xml:ro
+    environment:
+      - CMT_CONSOLE_HOME=/opt/cmt-console
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal
+      - TESTCONTAINERS_RYUK_DISABLED=true
+      # Oracle 11g XE tz file (v4) → ORA-01882 on newer region IDs
+      # unless ojdbc sends UTC offset. Required for the CMT subprocess
+      # (which spawns its own JVM and won't inherit sysprops set by
+      # the test JVM in OracleContainer.start()).
+      - JAVA_TOOL_OPTIONS=-Doracle.jdbc.timezoneAsRegion=false
+    command: >
+      mvn clean test
+      -Dmaven.test.failure.ignore=true
+      -Dpicocli.ansi=false
+      -Dorg.fusesource.jansi.Ansi.disable=true
+      -De2e.tibero.license=/run/tibero-license.xml
+
+volumes:
+  maven-cache:
