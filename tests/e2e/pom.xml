@@ -16,10 +16,18 @@
         <junit-jupiter.version>6.0.3</junit-jupiter.version>
         <assertj.version>3.27.7</assertj.version>
         <testcontainers.version>2.0.5</testcontainers.version>
+        <testcontainers-cubrid.version>0.1.0</testcontainers-cubrid.version>
         <slf4j.version>2.0.17</slf4j.version>
         <logback.version>1.5.32</logback.version>
         <cubrid-jdbc.version>11.3.2.0053</cubrid-jdbc.version>
         <ojdbc8.version>21.9.0.0</ojdbc8.version>
+        <mysql-connector.version>8.4.0</mysql-connector.version>
+        <mariadb-connector.version>3.4.1</mariadb-connector.version>
+        <informix-jdbc.version>15.0.1.3</informix-jdbc.version>
+        <!-- 9.4.x defaults encrypt=false; 10.2+ flipped it to true. CMT's fixed MSSQL URL
+             (jdbc:sqlserver://host:port;databaseName=db) can't pass trustServerCertificate,
+             so a pre-10.2 driver is required to connect to the cert-less test container. -->
+        <mssql-jdbc.version>9.4.1.jre11</mssql-jdbc.version>
         <flyway.version>10.22.0</flyway.version>
         <jackson.version>2.21.3</jackson.version>
     </properties>
@@ -78,6 +86,50 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-mysql</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-mariadb</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-mssqlserver</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- JdbcDatabaseContainer (2.x): parent class of the CUBRID module below. -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-jdbc</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Exclude the module's legacy 1.x jdbc/database-commons: they duplicate JdbcDatabaseContainer
+             from testcontainers-jdbc (2.x) and would clash on the classpath. -->
+        <dependency>
+            <groupId>org.cubrid</groupId>
+            <artifactId>testcontainers-cubrid</artifactId>
+            <version>${testcontainers-cubrid.version}</version>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.testcontainers</groupId>
+                    <artifactId>jdbc</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.testcontainers</groupId>
+                    <artifactId>database-commons</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
         <!-- JDBC drivers -->
         <dependency>
             <groupId>com.oracle.database.jdbc</groupId>
@@ -93,7 +145,35 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Flyway -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <version>${mysql-connector.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mariadb.jdbc</groupId>
+            <artifactId>mariadb-java-client</artifactId>
+            <version>${mariadb-connector.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.ibm.informix</groupId>
+            <artifactId>jdbc</artifactId>
+            <version>${informix-jdbc.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.microsoft.sqlserver</groupId>
+            <artifactId>mssql-jdbc</artifactId>
+            <version>${mssql-jdbc.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Flyway (community edition has no Informix/MSSQL bootstrap here; both are seeded via direct JDBC) -->
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
@@ -101,7 +181,8 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Flyway database SPIs: register support for jdbc:cubrid: / jdbc:oracle: URLs -->
+        <!-- Flyway database SPIs: jdbc:cubrid: / jdbc:oracle: / jdbc:mysql: (flyway-mysql also covers jdbc:mariadb:) -->
+        <!-- flyway-mysql handles both MySQL and MariaDB, so no separate flyway-mariadb is needed. -->
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-database-cubrid</artifactId>
@@ -112,6 +193,13 @@
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-database-oracle</artifactId>
+            <version>${flyway.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
             <version>${flyway.version}</version>
             <scope>test</scope>
         </dependency>
@@ -179,6 +267,70 @@
                                     <version>${ojdbc8.version}</version>
                                     <outputDirectory>${project.build.testOutputDirectory}/driver</outputDirectory>
                                     <destFileName>ojdbc8-${ojdbc8.version}.jar</destFileName>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>copy-mysql-jdbc-driver</id>
+                        <phase>generate-test-resources</phase>
+                        <goals><goal>copy</goal></goals>
+                        <configuration>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>com.mysql</groupId>
+                                    <artifactId>mysql-connector-j</artifactId>
+                                    <version>${mysql-connector.version}</version>
+                                    <outputDirectory>${project.build.testOutputDirectory}/driver</outputDirectory>
+                                    <destFileName>mysql-connector-j-${mysql-connector.version}.jar</destFileName>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>copy-mariadb-jdbc-driver</id>
+                        <phase>generate-test-resources</phase>
+                        <goals><goal>copy</goal></goals>
+                        <configuration>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>org.mariadb.jdbc</groupId>
+                                    <artifactId>mariadb-java-client</artifactId>
+                                    <version>${mariadb-connector.version}</version>
+                                    <outputDirectory>${project.build.testOutputDirectory}/driver</outputDirectory>
+                                    <destFileName>mariadb-java-client-${mariadb-connector.version}.jar</destFileName>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>copy-informix-jdbc-driver</id>
+                        <phase>generate-test-resources</phase>
+                        <goals><goal>copy</goal></goals>
+                        <configuration>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>com.ibm.informix</groupId>
+                                    <artifactId>jdbc</artifactId>
+                                    <version>${informix-jdbc.version}</version>
+                                    <outputDirectory>${project.build.testOutputDirectory}/driver</outputDirectory>
+                                    <destFileName>informix-jdbc-${informix-jdbc.version}.jar</destFileName>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>copy-mssql-jdbc-driver</id>
+                        <phase>generate-test-resources</phase>
+                        <goals><goal>copy</goal></goals>
+                        <configuration>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>com.microsoft.sqlserver</groupId>
+                                    <artifactId>mssql-jdbc</artifactId>
+                                    <version>${mssql-jdbc.version}</version>
+                                    <outputDirectory>${project.build.testOutputDirectory}/driver</outputDirectory>
+                                    <destFileName>mssql-jdbc-${mssql-jdbc.version}.jar</destFileName>
                                 </artifactItem>
                             </artifactItems>
                         </configuration>
