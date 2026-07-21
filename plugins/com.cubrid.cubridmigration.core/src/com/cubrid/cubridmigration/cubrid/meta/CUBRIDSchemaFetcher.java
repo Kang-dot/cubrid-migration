@@ -50,6 +50,7 @@ import com.cubrid.cubridmigration.core.dbobject.PartitionInfo;
 import com.cubrid.cubridmigration.core.dbobject.PartitionTable;
 import com.cubrid.cubridmigration.core.dbobject.Procedure;
 import com.cubrid.cubridmigration.core.dbobject.Schema;
+import com.cubrid.cubridmigration.core.dbobject.SchemaCatalog;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
 import com.cubrid.cubridmigration.core.dbobject.Synonym;
 import com.cubrid.cubridmigration.core.dbobject.Table;
@@ -167,6 +168,25 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
 
         catalog.setDBAGroup(getPrivilege(conn, catalog));
 
+        return catalog;
+    }
+
+    /**
+     * Builds a Catalog with objects only for the given schemas. This is the "selected schemas
+     * only" fetch path (e.g. wizard's schema mapping refresh); unlike {@link #buildCatalog}, the
+     * base implementation doesn't build partitions on its own, so it must be done here too.
+     *
+     * @param conn Connection
+     * @param sc SchemaCatalog
+     * @param schemaNames List of schema names
+     * @return Catalog
+     * @throws SQLException e
+     */
+    @Override
+    public Catalog buildSchemaObjects(Connection conn, SchemaCatalog sc, List<String> schemaNames)
+            throws SQLException {
+        Catalog catalog = super.buildSchemaObjects(conn, sc, schemaNames);
+        buildPartitions(conn, catalog, catalog.getSchemas().get(0));
         return catalog;
     }
 
