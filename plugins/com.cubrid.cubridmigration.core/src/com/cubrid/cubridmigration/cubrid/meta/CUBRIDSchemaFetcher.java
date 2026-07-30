@@ -164,7 +164,7 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
         }
 
         // get partitions
-        buildPartitions(conn, catalog, catalog.getSchemas().get(0));
+        buildPartitions(conn, catalog);
 
         catalog.setDBAGroup(getPrivilege(conn, catalog));
 
@@ -173,20 +173,28 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
 
     /**
      * Builds a Catalog with objects only for the given schemas. This is the "selected schemas
-     * only" fetch path (e.g. wizard's schema mapping refresh); unlike {@link #buildCatalog}, the
-     * base implementation doesn't build partitions on its own, so it must be done here too.
+     * only" fetch path (e.g. wizard's schema mapping refresh, and the console's selected-schema
+     * fetch); unlike {@link #buildCatalog}, the base implementation doesn't build partitions on
+     * its own, so it must be done here too.
+     *
+     * <p>Overriding the 4-arg overload (rather than the 3-arg one) covers both callers: the 3-arg
+     * {@code buildSchemaObjects(conn, sc, schemaNames)} in the base class simply delegates to this
+     * one with a {@code null} filter, so overriding only this method avoids building partitions
+     * twice.
      *
      * @param conn Connection
      * @param sc SchemaCatalog
      * @param schemaNames List of schema names
+     * @param filter IBuildSchemaFilter
      * @return Catalog
      * @throws SQLException e
      */
     @Override
-    public Catalog buildSchemaObjects(Connection conn, SchemaCatalog sc, List<String> schemaNames)
+    public Catalog buildSchemaObjects(
+            Connection conn, SchemaCatalog sc, List<String> schemaNames, IBuildSchemaFilter filter)
             throws SQLException {
-        Catalog catalog = super.buildSchemaObjects(conn, sc, schemaNames);
-        buildPartitions(conn, catalog, catalog.getSchemas().get(0));
+        Catalog catalog = super.buildSchemaObjects(conn, sc, schemaNames, filter);
+        buildPartitions(conn, catalog);
         return catalog;
     }
 
@@ -1207,11 +1215,9 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
      *
      * @param conn Connection
      * @param catalog Catalog
-     * @param schema Schema
      * @throws SQLException e
      */
-    private void buildPartitions(final Connection conn, final Catalog catalog, final Schema schema)
-            throws SQLException {
+    private void buildPartitions(final Connection conn, final Catalog catalog) throws SQLException {
         ResultSet rs = null; // NOPMD
         Statement stmt = null; // NOPMD
         try {
@@ -1226,7 +1232,7 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
             List<Table> partitionTables = new ArrayList<Table>();
             while (rs.next()) {
                 String tableName = rs.getString("class_name");
-                Table table = schema.getTableByName(tableName);
+                Table table = getTableByName(catalog, tableName);
 
                 if (table == null) {
                     continue;
@@ -1300,6 +1306,21 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
             Closer.close(rs);
             Closer.close(stmt);
         }
+    }
+
+    private Table getTableByName(final Catalog catalog, final String tableName) {
+        Table matched = null;
+        for (Schema schema : catalog.getSchemas()) {
+            Table table = schema.getTableByName(tableName);
+            if (table == null) {
+                continue;
+            }
+            if (matched != null) {
+                return null;
+            }
+            matched = table;
+        }
+        return matched;
     }
 
     /**
