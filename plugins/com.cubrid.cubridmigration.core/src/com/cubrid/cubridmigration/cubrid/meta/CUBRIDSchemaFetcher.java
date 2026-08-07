@@ -50,7 +50,6 @@ import com.cubrid.cubridmigration.core.dbobject.PartitionInfo;
 import com.cubrid.cubridmigration.core.dbobject.PartitionTable;
 import com.cubrid.cubridmigration.core.dbobject.Procedure;
 import com.cubrid.cubridmigration.core.dbobject.Schema;
-import com.cubrid.cubridmigration.core.dbobject.SchemaCatalog;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
 import com.cubrid.cubridmigration.core.dbobject.Synonym;
 import com.cubrid.cubridmigration.core.dbobject.Table;
@@ -163,38 +162,8 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
             }
         }
 
-        // get partitions
-        buildPartitions(conn, catalog);
-
         catalog.setDBAGroup(getPrivilege(conn, catalog));
 
-        return catalog;
-    }
-
-    /**
-     * Builds a Catalog with objects only for the given schemas. This is the "selected schemas
-     * only" fetch path (e.g. wizard's schema mapping refresh, and the console's selected-schema
-     * fetch); unlike {@link #buildCatalog}, the base implementation doesn't build partitions on
-     * its own, so it must be done here too.
-     *
-     * <p>Overriding the 4-arg overload (rather than the 3-arg one) covers both callers: the 3-arg
-     * {@code buildSchemaObjects(conn, sc, schemaNames)} in the base class simply delegates to this
-     * one with a {@code null} filter, so overriding only this method avoids building partitions
-     * twice.
-     *
-     * @param conn Connection
-     * @param sc SchemaCatalog
-     * @param schemaNames List of schema names
-     * @param filter IBuildSchemaFilter
-     * @return Catalog
-     * @throws SQLException e
-     */
-    @Override
-    public Catalog buildSchemaObjects(
-            Connection conn, SchemaCatalog sc, List<String> schemaNames, IBuildSchemaFilter filter)
-            throws SQLException {
-        Catalog catalog = super.buildSchemaObjects(conn, sc, schemaNames, filter);
-        buildPartitions(conn, catalog);
         return catalog;
     }
 
@@ -1217,7 +1186,13 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
      * @param catalog Catalog
      * @throws SQLException e
      */
-    private void buildPartitions(final Connection conn, final Catalog catalog) throws SQLException {
+    @Override
+    protected void buildPartitions(
+            final Connection conn,
+            final Catalog catalog,
+            final Schema schema,
+            IBuildSchemaFilter filter)
+            throws SQLException {
         ResultSet rs = null; // NOPMD
         Statement stmt = null; // NOPMD
         try {
@@ -1234,7 +1209,7 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 String tableName = rs.getString("class_name");
                 Table table = getTableByName(catalog, tableName);
 
-                if (table == null) {
+                if (table == null || table.getSchema() != schema) {
                     continue;
                 }
 
