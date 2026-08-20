@@ -50,6 +50,7 @@ import com.cubrid.cubridmigration.core.dbobject.PartitionInfo;
 import com.cubrid.cubridmigration.core.dbobject.PartitionTable;
 import com.cubrid.cubridmigration.core.dbobject.Procedure;
 import com.cubrid.cubridmigration.core.dbobject.Schema;
+import com.cubrid.cubridmigration.core.dbobject.SchemaCatalog;
 import com.cubrid.cubridmigration.core.dbobject.Sequence;
 import com.cubrid.cubridmigration.core.dbobject.Synonym;
 import com.cubrid.cubridmigration.core.dbobject.Table;
@@ -141,6 +142,33 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
     public Catalog buildCatalog(Connection conn, ConnParameters cp, IBuildSchemaFilter filter)
             throws SQLException {
         Catalog catalog = super.buildCatalog(conn, cp, filter);
+        loadCUBRIDCatalogDetails(conn, catalog);
+        return catalog;
+    }
+
+    @Override
+    public Catalog buildSchemaObjects(
+            final Connection conn, final SchemaCatalog sc, List<String> schemaNames)
+            throws SQLException {
+        return buildSchemaObjects(conn, sc, schemaNames, null);
+    }
+
+    @Override
+    public Catalog buildSchemaObjects(
+            final Connection conn,
+            final SchemaCatalog sc,
+            List<String> schemaNames,
+            IBuildSchemaFilter filter)
+            throws SQLException {
+        Catalog catalog = super.buildSchemaObjects(conn, sc, schemaNames, filter);
+        if (catalog == null) {
+            return null;
+        }
+        loadCUBRIDCatalogDetails(conn, catalog);
+        return catalog;
+    }
+
+    private void loadCUBRIDCatalogDetails(Connection conn, Catalog catalog) throws SQLException {
         catalog.setDatabaseType(DatabaseType.CUBRID);
         catalog.setCreateSql(null);
         List<Schema> schemaList = catalog.getSchemas();
@@ -163,8 +191,6 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
         }
 
         catalog.setDBAGroup(getPrivilege(conn, catalog));
-
-        return catalog;
     }
 
     /**
