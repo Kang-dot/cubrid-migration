@@ -36,7 +36,6 @@ import com.cubrid.cubridmigration.core.engine.config.SourceEntryTableConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceTableConfig;
 import com.cubrid.cubridmigration.core.engine.task.ExportTask;
 
-import org.apache.commons.lang3.StringUtils;
 
 /**
  * TableSchemaExportTask responses to export a source table's schema for create table to target
@@ -67,18 +66,12 @@ public class TableSchemaExportTask extends ExportTask {
             return;
         }
         if (sourceTable instanceof SourceEntryTableConfig
-                && !((SourceEntryTableConfig) sourceTable).isCreatePartition()
-                && !hasPartitionDDL(target)) {
+                && !((SourceEntryTableConfig) sourceTable).isCreatePartition()) {
             target.setPartitionInfo(null);
         }
         importTaskExecutor.execute(
                 (Runnable)
                         taskFactory.createImportTableSchemaTask(
                                 target, sourceTable.isCreateNewTable(), sourceTable.isReplace()));
-    }
-
-    private boolean hasPartitionDDL(Table table) {
-        return table.getPartitionInfo() != null
-                && StringUtils.isNotBlank(table.getPartitionInfo().getDDL());
     }
 }
