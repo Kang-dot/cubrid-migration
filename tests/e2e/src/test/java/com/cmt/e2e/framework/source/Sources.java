@@ -50,4 +50,20 @@ public final class Sources {
     public static Source tiberoE2eSeed() {
         return new TiberoSource();
     }
+
+    public static Source mysqlE2eSeed() {
+        return new MySqlSource();
+    }
+
+    public static Source mariadbE2eSeed() {
+        return new MariaDbSource();
+    }
+
+    public static Source informixE2eSeed() {
+        return new InformixSource();
+    }
+
+    public static Source mssqlE2eSeed() {
+        return new MsSqlSource();
+    }
 }
