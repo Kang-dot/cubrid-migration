@@ -1220,22 +1220,39 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
             IBuildSchemaFilter filter)
             throws SQLException {
         ResultSet rs = null; // NOPMD
-        Statement stmt = null; // NOPMD
+        PreparedStatement stmt = null; // NOPMD
         try {
-            String sql =
-                    "SELECT class_name, partition_name, partition_class_name,"
-                            + " partition_type, partition_expr, partition_values"
-                            + " FROM db_partition";
+            Integer ver =
+                    Integer.parseInt(
+                            ""
+                                    + conn.getMetaData().getDatabaseMajorVersion()
+                                    + conn.getMetaData().getDatabaseMinorVersion());
+            // CUBRID < 11.2 has no user-schema concept: every class belongs to the single
+            // schema regardless of its actual owner, so the query must stay unscoped there.
+            boolean scopeByOwner = ver >= 112;
 
-            stmt = conn.createStatement();
-            rs = stmt.executeQuery(sql);
+            String sql =
+                    scopeByOwner
+                            ? "SELECT p.class_name, p.partition_name, p.partition_class_name,"
+                                    + " p.partition_type, p.partition_expr, p.partition_values"
+                                    + " FROM db_partition p, db_class c"
+                                    + " WHERE p.class_name = c.class_name AND c.owner_name = ?"
+                            : "SELECT class_name, partition_name, partition_class_name,"
+                                    + " partition_type, partition_expr, partition_values"
+                                    + " FROM db_partition";
+
+            stmt = conn.prepareStatement(sql);
+            if (scopeByOwner) {
+                stmt.setString(1, schema.getName().toUpperCase());
+            }
+            rs = stmt.executeQuery();
 
             List<Table> partitionTables = new ArrayList<Table>();
             while (rs.next()) {
                 String tableName = rs.getString("class_name");
-                Table table = getTableByName(catalog, tableName);
+                Table table = schema.getTableByName(tableName);
 
-                if (table == null || table.getSchema() != schema) {
+                if (table == null) {
                     continue;
                 }
 
@@ -1307,21 +1324,6 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
             Closer.close(rs);
             Closer.close(stmt);
         }
-    }
-
-    private Table getTableByName(final Catalog catalog, final String tableName) {
-        Table matched = null;
-        for (Schema schema : catalog.getSchemas()) {
-            Table table = schema.getTableByName(tableName);
-            if (table == null) {
-                continue;
-            }
-            if (matched != null) {
-                return null;
-            }
-            matched = table;
-        }
-        return matched;
     }
 
     /**

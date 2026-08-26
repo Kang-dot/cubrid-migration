@@ -36,7 +36,6 @@ import com.cubrid.cubridmigration.core.engine.config.SourceEntryTableConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceTableConfig;
 import com.cubrid.cubridmigration.core.engine.task.ExportTask;
 
-
 /**
  * TableSchemaExportTask responses to export a source table's schema for create table to target
  * database.
