@@ -1235,8 +1235,8 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
                     scopeByOwner
                             ? "SELECT p.class_name, p.partition_name, p.partition_class_name,"
                                     + " p.partition_type, p.partition_expr, p.partition_values"
-                                    + " FROM db_partition p, db_class c"
-                                    + " WHERE p.class_name = c.class_name AND c.owner_name = ?"
+                                    + " FROM db_partition p"
+                                    + " WHERE p.owner_name = ?"
                             : "SELECT class_name, partition_name, partition_class_name,"
                                     + " partition_type, partition_expr, partition_values"
                                     + " FROM db_partition";
