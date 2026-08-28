@@ -1222,14 +1222,9 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
         ResultSet rs = null; // NOPMD
         PreparedStatement stmt = null; // NOPMD
         try {
-            Integer ver =
-                    Integer.parseInt(
-                            ""
-                                    + conn.getMetaData().getDatabaseMajorVersion()
-                                    + conn.getMetaData().getDatabaseMinorVersion());
             // CUBRID < 11.2 has no user-schema concept: every class belongs to the single
             // schema regardless of its actual owner, so the query must stay unscoped there.
-            boolean scopeByOwner = ver >= 112;
+            boolean scopeByOwner = getDBVersion(conn) >= USERSCHEMA_VERSION;
 
             String sql =
                     scopeByOwner
@@ -1243,7 +1238,7 @@ public final class CUBRIDSchemaFetcher extends AbstractJDBCSchemaFetcher {
 
             stmt = conn.prepareStatement(sql);
             if (scopeByOwner) {
-                stmt.setString(1, schema.getName().toUpperCase());
+                stmt.setString(1, schema.getName().toUpperCase(Locale.US));
             }
             rs = stmt.executeQuery();
 
