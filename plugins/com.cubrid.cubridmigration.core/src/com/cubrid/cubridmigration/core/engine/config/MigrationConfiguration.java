@@ -268,6 +268,26 @@ public class MigrationConfiguration {
     private final Map<String, String> otherParams = new HashMap<String, String>();
 
     private int pageFetchCount = 1000;
+
+    // Above this max-range/ideal-range row-count ratio, TableSplitPlanner treats a table's
+    // parallel export range split as too skewed to be worth it. See TableSplitPlanner#validateSkew.
+    private double parallelExportSkewRatioThreshold = 3.0;
+
+    // Global switch for parallel range export. Per-table SourceEntryTableConfig#parallelDegree
+    // is intentionally ignored while this is the only control surface (UI wiring is a later
+    // step) - see MigrationTasksScheduler#resolveEffectiveDegree.
+    private boolean parallelExportEnabled = false;
+
+    // Degree of parallelism used for every table that qualifies (see
+    // parallelExportMinRowCount) when parallelExportEnabled is true.
+    private int parallelExportDefaultDegree = 4;
+
+    // A table's own row count (Table#getTableRowCount, already fetched with its metadata - no
+    // extra query) must be at least this many rows before parallel export is even attempted;
+    // below this, TableSplitPlanner#plan's connection + MIN/MAX/COUNT round trip would cost more
+    // than it could ever save.
+    private long parallelExportMinRowCount = 1_000_000L;
+
     private int reportLevel = RPT_LEVEL_INFO;
 
     private boolean implicitEstimate = false;
@@ -3202,6 +3222,22 @@ public class MigrationConfiguration {
         return pageFetchCount;
     }
 
+    public double getParallelExportSkewRatioThreshold() {
+        return parallelExportSkewRatioThreshold;
+    }
+
+    public boolean isParallelExportEnabled() {
+        return parallelExportEnabled;
+    }
+
+    public int getParallelExportDefaultDegree() {
+        return parallelExportDefaultDegree;
+    }
+
+    public long getParallelExportMinRowCount() {
+        return parallelExportMinRowCount;
+    }
+
     public int getReportLevel() {
         return reportLevel;
     }
@@ -5011,6 +5047,22 @@ public class MigrationConfiguration {
 
     public void setPageFetchCount(int pageFetchCount) {
         this.pageFetchCount = pageFetchCount;
+    }
+
+    public void setParallelExportSkewRatioThreshold(double parallelExportSkewRatioThreshold) {
+        this.parallelExportSkewRatioThreshold = parallelExportSkewRatioThreshold;
+    }
+
+    public void setParallelExportEnabled(boolean parallelExportEnabled) {
+        this.parallelExportEnabled = parallelExportEnabled;
+    }
+
+    public void setParallelExportDefaultDegree(int parallelExportDefaultDegree) {
+        this.parallelExportDefaultDegree = parallelExportDefaultDegree;
+    }
+
+    public void setParallelExportMinRowCount(long parallelExportMinRowCount) {
+        this.parallelExportMinRowCount = parallelExportMinRowCount;
     }
 
     public void setReportLevel(int reportLevel) {

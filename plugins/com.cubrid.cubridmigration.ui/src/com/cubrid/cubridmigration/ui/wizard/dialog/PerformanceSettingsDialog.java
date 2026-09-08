@@ -74,6 +74,12 @@ public class PerformanceSettingsDialog extends Dialog {
 
     private Button btnImplicitEstimate;
 
+    private Button btnParallelExportEnabled;
+
+    private Spinner txtParallelExportDefaultDegree;
+
+    private Spinner txtParallelExportMinRowCount;
+
     public PerformanceSettingsDialog(Shell parentShell, MigrationConfiguration config) {
         super(parentShell);
         this.config = config;
@@ -178,7 +184,76 @@ public class PerformanceSettingsDialog extends Dialog {
         //			btnImplicitEstimate.setSelection(false);
         //			btnImplicitEstimate.setEnabled(false);
         //		}
+
+        if (supportsParallelExport()) {
+            Label lblParallelExport = new Label(container, SWT.NONE);
+            lblParallelExport.setLayoutData(new GridData(SWT.RIGHT, SWT.CENTER, false, false));
+
+            btnParallelExportEnabled = new Button(container, SWT.CHECK);
+            btnParallelExportEnabled.setSelection(config.isParallelExportEnabled());
+            btnParallelExportEnabled.setText(Messages.lblParallelExportEnabled);
+
+            Label lblParallelExportDegree = new Label(container, SWT.NONE);
+            lblParallelExportDegree.setLayoutData(
+                    new GridData(SWT.RIGHT, SWT.CENTER, false, false));
+            lblParallelExportDegree.setText(Messages.lblParallelExportDefaultDegree);
+
+            txtParallelExportDefaultDegree = new Spinner(container, SWT.BORDER);
+            txtParallelExportDefaultDegree.setLayoutData(
+                    new GridData(SWT.FILL, SWT.CENTER, true, false));
+            txtParallelExportDefaultDegree.setValues(
+                    config.getParallelExportDefaultDegree(), 2, 64, 0, 1, 4);
+
+            Label lblParallelExportMinRowCount = new Label(container, SWT.NONE);
+            lblParallelExportMinRowCount.setLayoutData(
+                    new GridData(SWT.RIGHT, SWT.CENTER, false, false));
+            lblParallelExportMinRowCount.setText(Messages.lblParallelExportMinRowCount);
+
+            txtParallelExportMinRowCount = new Spinner(container, SWT.BORDER);
+            txtParallelExportMinRowCount.setLayoutData(
+                    new GridData(SWT.FILL, SWT.CENTER, true, false));
+            txtParallelExportMinRowCount.setValues(
+                    (int) Math.min(config.getParallelExportMinRowCount(), Integer.MAX_VALUE),
+                    0,
+                    Integer.MAX_VALUE,
+                    0,
+                    100_000,
+                    1_000_000);
+
+            txtParallelExportDefaultDegree.setEnabled(btnParallelExportEnabled.getSelection());
+            txtParallelExportMinRowCount.setEnabled(btnParallelExportEnabled.getSelection());
+
+            btnParallelExportEnabled.addSelectionListener(
+                    new SelectionListener() {
+                        public void widgetSelected(SelectionEvent ex) {
+                            boolean enabled = btnParallelExportEnabled.getSelection();
+                            txtParallelExportDefaultDegree.setEnabled(enabled);
+                            txtParallelExportMinRowCount.setEnabled(enabled);
+                            if (enabled) {
+                                UICommonTool.openInformationBox(
+                                        getShell(),
+                                        Messages.msgWarning,
+                                        Messages.msgParallelExport);
+                            }
+                        }
+
+                        public void widgetDefaultSelected(SelectionEvent ex) {}
+                    });
+        }
+
         return parent;
+    }
+
+    /**
+     * Parallel range export is only wired up for online JDBC sources, and not yet for CUBRID
+     * sources specifically (its exporter overrides the single-task export path with special-column
+     * handling that the range-based path doesn't go through yet).
+     *
+     * @return true if this migration's source can use parallel export
+     */
+    private boolean supportsParallelExport() {
+        return config.sourceIsOnline()
+                && config.getSourceDBType().getID() != DatabaseType.CUBRID.getID();
     }
 
     private boolean isSupportPageQuery() {
@@ -244,6 +319,14 @@ public class PerformanceSettingsDialog extends Dialog {
                     100,
                     1000);
             btnImplicitEstimate.setSelection(false);
+            if (btnParallelExportEnabled != null) {
+                btnParallelExportEnabled.setSelection(false);
+                txtParallelExportDefaultDegree.setValues(4, 2, 64, 0, 1, 4);
+                txtParallelExportDefaultDegree.setEnabled(false);
+                txtParallelExportMinRowCount.setValues(
+                        1_000_000, 0, Integer.MAX_VALUE, 0, 100_000, 1_000_000);
+                txtParallelExportMinRowCount.setEnabled(false);
+            }
         }
         super.buttonPressed(buttonId);
     }
@@ -260,6 +343,11 @@ public class PerformanceSettingsDialog extends Dialog {
             config.setMaxCountPerFile(txtFileMaxSize.getSelection());
         }
         config.setImplicitEstimate(btnImplicitEstimate.getSelection());
+        if (btnParallelExportEnabled != null) {
+            config.setParallelExportEnabled(btnParallelExportEnabled.getSelection());
+            config.setParallelExportDefaultDegree(txtParallelExportDefaultDegree.getSelection());
+            config.setParallelExportMinRowCount(txtParallelExportMinRowCount.getSelection());
+        }
         super.okPressed();
     }
 }

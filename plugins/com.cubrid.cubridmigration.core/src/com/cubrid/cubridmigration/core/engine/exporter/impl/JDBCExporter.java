@@ -50,6 +50,7 @@ import com.cubrid.cubridmigration.core.engine.exception.NormalMigrationException
 import com.cubrid.cubridmigration.core.engine.exporter.MigrationExporter;
 import com.cubrid.cubridmigration.core.export.DBExportHelper;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 
 import java.sql.Connection;
@@ -58,6 +59,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -230,6 +232,26 @@ public class JDBCExporter extends MigrationExporter {
      */
     public void exportTableRecords(
             SourceTableConfig stc, RecordExportedListener newRecordProcessor) {
+        exportTableRecords(stc, null, newRecordProcessor);
+    }
+
+    /**
+     * Export source data records, restricted to an extra caller-supplied predicate. Used by {@code
+     * TableRecordRangeExportTask} to read only one {@code TableSplitPlanner} range instead of the
+     * whole table; ordinary (unsplit) exports go through {@link
+     * #exportTableRecords(SourceTableConfig, RecordExportedListener)}, which delegates here with
+     * {@code extraCondition == null}, so this is the only copy of the export loop.
+     *
+     * @param stc source table configuration
+     * @param extraCondition a standalone boolean SQL predicate (e.g. from {@code
+     *     TableSplitPlanner#buildRangeCondition}) to AND onto the table's existing condition, or
+     *     {@code null}/blank for no extra restriction
+     * @param newRecordProcessor to process new records
+     */
+    public void exportTableRecords(
+            SourceTableConfig stc,
+            String extraCondition,
+            RecordExportedListener newRecordProcessor) {
         // Start normal exporting.
         if (LOG.isDebugEnabled()) {
             LOG.debug("[IN]exportTableRecordsByPaging()");
@@ -255,7 +277,7 @@ public class JDBCExporter extends MigrationExporter {
             List<SourceColumnConfig> expColConfs = stc.getColumnConfigList();
             long totalExported = 0L;
             long intPageCount = config.getPageFetchCount();
-            String sql = expHelper.getSelectSQL(stc, config);
+            String sql = combineCondition(expHelper.getSelectSQL(stc, config), extraCondition);
             while (true) {
                 if (interrupted) {
                     return;
@@ -425,6 +447,12 @@ public class JDBCExporter extends MigrationExporter {
                 rs = stmt.executeQuery(); // NOPMD
                 break;
             } catch (Exception ex) {
+                LOG.error(
+                        "[DEBUG-FETCHSIZE] getResultSet() attempt "
+                                + (retryCount + 1)
+                                + " failed for sql: "
+                                + sql,
+                        ex);
                 // Release statement and result set.
                 Closer.close(rs);
                 Closer.close(stmt);
@@ -451,6 +479,23 @@ public class JDBCExporter extends MigrationExporter {
         return config.getSourceDBType().getExportHelper();
     }
 
+    /**
+     * ANDs {@code extraCondition} onto {@code sql}, which may or may not already have a WHERE
+     * clause (added by {@code DBExportHelper#getSelectSQL} from the table's own condition).
+     *
+     * @param sql a SELECT statement, with or without a WHERE clause
+     * @param extraCondition a standalone boolean predicate, or {@code null}/blank for none
+     * @return {@code sql} unchanged if {@code extraCondition} is blank, otherwise {@code sql} with
+     *     {@code extraCondition} ANDed (or WHEREd) on
+     */
+    protected String combineCondition(String sql, String extraCondition) {
+        if (StringUtils.isBlank(extraCondition)) {
+            return sql;
+        }
+        String keyword = sql.toUpperCase(Locale.US).contains(" WHERE ") ? " AND " : " WHERE ";
+        return sql + keyword + "(" + extraCondition + ")";
+    }
+
     public void setConnManager(JDBCConManager connManager) {
         this.connManager = connManager;
     }
@@ -468,9 +513,19 @@ public class JDBCExporter extends MigrationExporter {
     protected boolean isLatestPage(
             Table sTable, long exportedRecords, long recordCountOfCurrentPage) {
         int sourceDBTypeID = config.getSourceDBType().getID();
-        if (config.isImplicitEstimate()
-                && (sourceDBTypeID == DatabaseType.ORACLE.getID()
-                        || sourceDBTypeID == DatabaseType.MYSQL.getID())) {
+        // OracleExportHelper/MySQLExportHelper#getPagedSelectSQL are no-op stubs (still a TODO -
+        // they just return the input SQL unchanged): a single execution already returns every row
+        // the query matches, so re-running it for a "next page" would just re-read (and
+        // re-import) the same rows. This has to be unconditional, not gated behind
+        // config.isImplicitEstimate() (a progress-bar-detail preference, unrelated to whether
+        // pagination actually works - see Messages.msgImplicitEstimate): the row-count check
+        // below only happened to terminate correctly for whole-table exports by coincidence
+        // (one un-paginated execution already returns sTable.getTableRowCount() rows); it stops
+        // being a coincidence - and silently re-imports the same rows N times - as soon as the
+        // query is restricted to less than the whole table, as TableSplitPlanner's range exports
+        // do.
+        if (sourceDBTypeID == DatabaseType.ORACLE.getID()
+                || sourceDBTypeID == DatabaseType.MYSQL.getID()) {
             return true;
         }
 

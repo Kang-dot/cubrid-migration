@@ -460,6 +460,9 @@ public class Messages extends NLS {
     public static String lblOutputFileDirQuestion;
     public static String lblOutputFilePrefix;
     public static String lblOverview;
+    public static String lblParallelExportEnabled;
+    public static String lblParallelExportDefaultDegree;
+    public static String lblParallelExportMinRowCount;
     public static String lblPassword;
     public static String lblPort;
     public static String lblPublicKeyFile;
@@ -648,6 +651,7 @@ public class Messages extends NLS {
     public static String msgNote;
     public static String msgOOMWarning;
     public static String msgOpenReportNow;
+    public static String msgParallelExport;
     public static String msgParsingCSVFiles;
     public static String msgSQLParameterSupport;
     public static String msgPkHAdatabaseAlert;

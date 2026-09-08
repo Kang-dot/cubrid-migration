@@ -116,6 +116,11 @@ public final class TemplateTags {
     public static final String ATTR_OUTPUT_FILE_PREFIX = "file_prefix";
     public static final String ATTR_PAGE_FETCH_COUNT = "page_fetch_count";
     public static final String ATTR_PAGE_SIZE = "page_size";
+    public static final String ATTR_PARALLEL_DEGREE = "parallel_degree";
+    public static final String ATTR_PARALLEL_EXPORT_ENABLED = "parallel_export_enabled";
+    public static final String ATTR_PARALLEL_EXPORT_DEFAULT_DEGREE =
+            "parallel_export_default_degree";
+    public static final String ATTR_PARALLEL_EXPORT_MIN_ROW_COUNT = "parallel_export_min_row_count";
     public static final String ATTR_PARTITION = "partition";
     public static final String ATTR_PASSWORD = "password";
     public static final String ATTR_PATH = "path";

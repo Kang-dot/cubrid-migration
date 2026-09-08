@@ -1,0 +1,706 @@
+/*
+ * Copyright (C) 2016 CUBRID Corporation.
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that the following conditions are met:
+ *
+ * - Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * - Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution
+ * - Neither the name of the <ORGANIZATION> nor the names of its contributors
+ *   may be used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
+ * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY
+ * OF SUCH DAMAGE.
+ *
+ */
+package com.cubrid.cubridmigration.core.export;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.data.Offset.offset;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+import com.cubrid.cubridmigration.core.dbobject.Column;
+import com.cubrid.cubridmigration.core.dbobject.Index;
+import com.cubrid.cubridmigration.core.dbobject.PK;
+import com.cubrid.cubridmigration.core.dbobject.Table;
+import com.cubrid.cubridmigration.core.dbtype.DatabaseType;
+import com.cubrid.cubridmigration.core.export.TableSplitPlanner.ParallelExportPlan;
+import com.cubrid.cubridmigration.core.export.TableSplitPlanner.SkewResult;
+import com.cubrid.cubridmigration.core.export.TableSplitPlanner.SplitBasis;
+import com.cubrid.cubridmigration.core.export.TableSplitPlanner.SplitRange;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
+@DisplayName("TableSplitPlanner")
+class TableSplitPlannerTest {
+
+    // Matches MigrationConfiguration's default so these tests reflect real behavior; individual
+    // tests can pass a different value if they need to exercise the threshold itself.
+    private static final double SKEW_RATIO_THRESHOLD = 3.0;
+
+    private final TableSplitPlanner planner = new TableSplitPlanner();
+
+    // ---------------------------------------------------------------
+    // determineSplitColumn(): metadata-only, no DB round trip involved
+    // ---------------------------------------------------------------
+
+    @Test
+    @DisplayName("single numeric PK column is used directly")
+    void determineSplitColumn_singleNumericPk_returnsPkColumn() {
+        Table table = createTable("orders");
+        Column id = addColumn(table, "id", "BIGINT");
+        setSinglePk(table, "id");
+
+        assertThat(planner.determineSplitColumn(table, DatabaseType.MYSQL)).isEqualTo(id);
+    }
+
+    @Test
+    @DisplayName("single non-numeric PK with no index anywhere yields no split column")
+    void determineSplitColumn_singleNonNumericPkNoIndex_returnsNull() {
+        Table table = createTable("orders");
+        addColumn(table, "code", "VARCHAR");
+        setSinglePk(table, "code");
+
+        assertThat(planner.determineSplitColumn(table, DatabaseType.MYSQL)).isNull();
+    }
+
+    @Test
+    @DisplayName("single non-numeric PK falls back to a usable index if one exists")
+    void determineSplitColumn_singleNonNumericPkWithIndexFallback_returnsIndexColumn() {
+        Table table = createTable("orders");
+        addColumn(table, "code", "VARCHAR");
+        Column seq = addColumn(table, "seq", "BIGINT");
+        setSinglePk(table, "code");
+        addIndex(table, "ix_seq", true, "seq");
+
+        assertThat(planner.determineSplitColumn(table, DatabaseType.MYSQL)).isEqualTo(seq);
+    }
+
+    @Test
+    @DisplayName("composite PK: a usable index is preferred over the composite key itself")
+    void determineSplitColumn_compositePkWithIndex_prefersIndexOverCompositePk() {
+        Table table = createTable("order_items");
+        addColumn(table, "tenant_id", "INT");
+        Column seq = addColumn(table, "seq", "BIGINT");
+        setCompositePk(table, "tenant_id", "seq");
+        addIndex(table, "ix_seq", true, "seq");
+
+        assertThat(planner.determineSplitColumn(table, DatabaseType.MYSQL)).isEqualTo(seq);
+    }
+
+    @Test
+    @DisplayName("composite PK with no usable index falls back to the leading PK column")
+    void determineSplitColumn_compositePkNoIndex_returnsLeadingPkColumn() {
+        Table table = createTable("order_items");
+        Column tenantId = addColumn(table, "tenant_id", "INT");
+        addColumn(table, "seq", "BIGINT");
+        setCompositePk(table, "tenant_id", "seq");
+
+        assertThat(planner.determineSplitColumn(table, DatabaseType.MYSQL)).isEqualTo(tenantId);
+    }
+
+    @Test
+    @DisplayName("composite PK whose leading column isn't splittable, and no index, yields nothing")
+    void determineSplitColumn_compositePkLeadingColumnNotSplittable_returnsNull() {
+        Table table = createTable("order_items");
+        addColumn(table, "code", "VARCHAR");
+        addColumn(table, "seq", "BIGINT");
+        setCompositePk(table, "code", "seq");
+
+        assertThat(planner.determineSplitColumn(table, DatabaseType.MYSQL)).isNull();
+    }
+
+    @Test
+    @DisplayName("no PK at all: a unique index is used")
+    void determineSplitColumn_noPkWithUniqueIndex_returnsUniqueIndexColumn() {
+        Table table = createTable("logs");
+        Column seq = addColumn(table, "seq", "BIGINT");
+        addIndex(table, "ix_seq", true, "seq");
+
+        assertThat(planner.determineSplitColumn(table, DatabaseType.MYSQL)).isEqualTo(seq);
+    }
+
+    @Test
+    @DisplayName("no PK at all: falls back to a non-unique index if no unique one exists")
+    void determineSplitColumn_noPkNonUniqueIndexOnly_returnsNonUniqueIndexColumn() {
+        Table table = createTable("logs");
+        Column createdAt = addColumn(table, "created_at", "DATE");
+        addIndex(table, "ix_created_at", false, "created_at");
+
+        assertThat(planner.determineSplitColumn(table, DatabaseType.MYSQL)).isEqualTo(createdAt);
+    }
+
+    @Test
+    @DisplayName("no PK and no index at all: no usable split column")
+    void determineSplitColumn_noPkNoIndex_returnsNull() {
+        Table table = createTable("logs");
+        addColumn(table, "message", "VARCHAR");
+
+        assertThat(planner.determineSplitColumn(table, DatabaseType.MYSQL)).isNull();
+    }
+
+    @Test
+    @DisplayName("a unique index is preferred over a non-unique one")
+    void determineSplitColumn_prefersUniqueIndexOverNonUnique() {
+        Table table = createTable("logs");
+        addColumn(table, "created_at", "DATE");
+        Column seq = addColumn(table, "seq", "BIGINT");
+        addIndex(table, "ix_created_at", false, "created_at");
+        addIndex(table, "ix_seq", true, "seq");
+
+        assertThat(planner.determineSplitColumn(table, DatabaseType.MYSQL)).isEqualTo(seq);
+    }
+
+    @Test
+    @DisplayName("a composite (multi-column) index is skipped, same as a composite PK")
+    void determineSplitColumn_compositeIndexIsSkipped() {
+        Table table = createTable("logs");
+        addColumn(table, "tenant_id", "INT");
+        addColumn(table, "seq", "BIGINT");
+        Column createdAt = addColumn(table, "created_at", "DATE");
+        addIndex(table, "ux_tenant_seq", true, "tenant_id", "seq");
+        addIndex(table, "ix_created_at", false, "created_at");
+
+        assertThat(planner.determineSplitColumn(table, DatabaseType.MYSQL)).isEqualTo(createdAt);
+    }
+
+    @Test
+    @DisplayName("null source DB type yields no split column instead of guessing")
+    void determineSplitColumn_nullDatabaseType_returnsNull() {
+        Table table = createTable("orders");
+        addColumn(table, "id", "BIGINT");
+        setSinglePk(table, "id");
+
+        assertThat(planner.determineSplitColumn(table, null)).isNull();
+    }
+
+    @Test
+    @DisplayName(
+            "regression: Oracle's INTERVAL YEAR TO MONTH is not misclassified as numeric just"
+                    + " because its name contains \"INT\"")
+    void determineSplitColumn_oracleIntervalTypeIsNotMisclassifiedAsNumeric() {
+        Table table = createTable("contracts");
+        addColumn(table, "duration", "INTERVAL YEAR TO MONTH");
+        setSinglePk(table, "duration");
+
+        assertThat(planner.determineSplitColumn(table, DatabaseType.ORACLE)).isNull();
+    }
+
+    @Test
+    @DisplayName(
+            "regression: MySQL's spatial POINT type is not misclassified as numeric just because"
+                    + " its name contains \"INT\"")
+    void determineSplitColumn_mysqlPointTypeIsNotMisclassifiedAsNumeric() {
+        Table table = createTable("geo_features");
+        addColumn(table, "location", "point");
+        setSinglePk(table, "location");
+
+        assertThat(planner.determineSplitColumn(table, DatabaseType.MYSQL)).isNull();
+    }
+
+    // ---------------------------------------------------------------
+    // buildRangeCondition(): the WHERE predicate a scheduler ANDs onto a table's export SQL
+    // ---------------------------------------------------------------
+
+    @Test
+    @DisplayName("numeric bounds are emitted as unquoted literals")
+    void buildRangeCondition_numericBounds_areUnquoted() {
+        Column id = new Column();
+        id.setName("id");
+
+        String condition = planner.buildRangeCondition(id, new SplitRange(1L, 1000L));
+
+        assertThat(condition).isEqualTo("id BETWEEN 1 AND 1000");
+    }
+
+    @Test
+    @DisplayName("non-numeric bounds are quoted, and embedded quotes are escaped")
+    void buildRangeCondition_nonNumericBounds_areQuotedAndEscaped() {
+        Column code = new Column();
+        code.setName("code");
+
+        String condition = planner.buildRangeCondition(code, new SplitRange("A", "O'Brien"));
+
+        assertThat(condition).isEqualTo("code BETWEEN 'A' AND 'O''Brien'");
+    }
+
+    // ---------------------------------------------------------------
+    // calculateRanges(): MIN/MAX only, mocked JDBC objects
+    // ---------------------------------------------------------------
+
+    @Test
+    @DisplayName("degree <= 1 short-circuits without touching the connection")
+    void calculateRanges_degreeOne_returnsEmptyWithoutQuerying() throws Exception {
+        Connection conn = mock(Connection.class);
+        Table table = createTable("orders");
+        Column id = addColumn(table, "id", "BIGINT");
+
+        assertThat(planner.calculateRanges(conn, table, id, 1)).isEmpty();
+        verifyNoInteractions(conn);
+    }
+
+    @Test
+    @DisplayName("null split column short-circuits without touching the connection")
+    void calculateRanges_nullSplitColumn_returnsEmptyWithoutQuerying() throws Exception {
+        Connection conn = mock(Connection.class);
+        Table table = createTable("orders");
+
+        assertThat(planner.calculateRanges(conn, table, null, 4)).isEmpty();
+        verifyNoInteractions(conn);
+    }
+
+    @Test
+    @DisplayName("numeric MIN/MAX is split into the requested number of contiguous ranges")
+    void calculateRanges_numericMinMax_splitsIntoRequestedRanges() throws Exception {
+        Table table = createTable("orders");
+        Column id = addColumn(table, "id", "BIGINT");
+
+        Connection conn = mock(Connection.class);
+        Statement stmt = mock(Statement.class);
+        ResultSet rs = mock(ResultSet.class);
+        when(conn.createStatement()).thenReturn(stmt);
+        when(stmt.executeQuery(anyString())).thenReturn(rs);
+        when(rs.next()).thenReturn(true);
+        when(rs.getObject(1)).thenReturn(1L);
+        when(rs.getObject(2)).thenReturn(1000L);
+
+        List<SplitRange> ranges = planner.calculateRanges(conn, table, id, 4);
+
+        assertThat(ranges).hasSize(4);
+        assertThat(ranges.get(0).getLowerBound()).isEqualTo(1L);
+        assertThat(ranges.get(ranges.size() - 1).getUpperBound()).isEqualTo(1000L);
+        for (int i = 1; i < ranges.size(); i++) {
+            long previousUpper = (Long) ranges.get(i - 1).getUpperBound();
+            long currentLower = (Long) ranges.get(i).getLowerBound();
+            assertThat(currentLower).isEqualTo(previousUpper + 1);
+        }
+    }
+
+    @Test
+    @DisplayName("an empty table (no MIN/MAX row) yields no ranges")
+    void calculateRanges_noRows_returnsEmpty() throws Exception {
+        Table table = createTable("orders");
+        Column id = addColumn(table, "id", "BIGINT");
+
+        Connection conn = mock(Connection.class);
+        Statement stmt = mock(Statement.class);
+        ResultSet rs = mock(ResultSet.class);
+        when(conn.createStatement()).thenReturn(stmt);
+        when(stmt.executeQuery(anyString())).thenReturn(rs);
+        when(rs.next()).thenReturn(false);
+
+        assertThat(planner.calculateRanges(conn, table, id, 4)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("non-numeric MIN/MAX (e.g. DATE) is not split, and comes back as one range")
+    void calculateRanges_nonNumericMinMax_returnsSingleUnsplitRange() throws Exception {
+        Table table = createTable("logs");
+        Column createdAt = addColumn(table, "created_at", "DATE");
+
+        Connection conn = mock(Connection.class);
+        Statement stmt = mock(Statement.class);
+        ResultSet rs = mock(ResultSet.class);
+        when(conn.createStatement()).thenReturn(stmt);
+        when(stmt.executeQuery(anyString())).thenReturn(rs);
+        when(rs.next()).thenReturn(true);
+        when(rs.getObject(1)).thenReturn("2020-01-01");
+        when(rs.getObject(2)).thenReturn("2026-01-01");
+
+        List<SplitRange> ranges = planner.calculateRanges(conn, table, createdAt, 4);
+
+        assertThat(ranges).hasSize(1);
+        assertThat(ranges.get(0).getLowerBound()).isEqualTo("2020-01-01");
+        assertThat(ranges.get(0).getUpperBound()).isEqualTo("2026-01-01");
+    }
+
+    // ---------------------------------------------------------------
+    // validateSkew(): one COUNT(*) per range, mocked JDBC objects
+    // ---------------------------------------------------------------
+
+    @Test
+    @DisplayName("no ranges is trivially acceptable and never touches the connection")
+    void validateSkew_emptyRanges_isAcceptable() throws Exception {
+        Connection conn = mock(Connection.class);
+        Table table = createTable("orders");
+        Column id = addColumn(table, "id", "BIGINT");
+
+        SkewResult result =
+                planner.validateSkew(
+                        conn, table, id, Collections.emptyList(), SKEW_RATIO_THRESHOLD);
+
+        assertThat(result.isAcceptable()).isTrue();
+        assertThat(result.getRangeCounts()).isEmpty();
+        verifyNoInteractions(conn);
+    }
+
+    @Test
+    @DisplayName("evenly distributed row counts across ranges are acceptable")
+    void validateSkew_uniformCounts_isAcceptable() throws Exception {
+        Table table = createTable("orders");
+        Column id = addColumn(table, "id", "BIGINT");
+        List<SplitRange> ranges =
+                Arrays.asList(
+                        new SplitRange(1L, 250L),
+                        new SplitRange(251L, 500L),
+                        new SplitRange(501L, 750L),
+                        new SplitRange(751L, 1000L));
+
+        ResultSet rs1 = countResultSet(25L);
+        ResultSet rs2 = countResultSet(25L);
+        ResultSet rs3 = countResultSet(25L);
+        ResultSet rs4 = countResultSet(25L);
+
+        Connection conn = mock(Connection.class);
+        PreparedStatement ps = mock(PreparedStatement.class);
+        when(conn.prepareStatement(anyString())).thenReturn(ps);
+        when(ps.executeQuery()).thenReturn(rs1, rs2, rs3, rs4);
+
+        SkewResult result = planner.validateSkew(conn, table, id, ranges, SKEW_RATIO_THRESHOLD);
+
+        assertThat(result.isAcceptable()).isTrue();
+        assertThat(result.getSkewRatio()).isCloseTo(1.0, offset(0.0001));
+    }
+
+    @Test
+    @DisplayName("a heavily skewed distribution (90/2/2/6) is flagged as not acceptable")
+    void validateSkew_skewedCounts_isNotAcceptable() throws Exception {
+        Table table = createTable("order_items");
+        Column tenantId = addColumn(table, "tenant_id", "INT");
+        List<SplitRange> ranges =
+                Arrays.asList(
+                        new SplitRange(1, 25), new SplitRange(26, 50),
+                        new SplitRange(51, 75), new SplitRange(76, 100));
+
+        ResultSet rs1 = countResultSet(90L);
+        ResultSet rs2 = countResultSet(2L);
+        ResultSet rs3 = countResultSet(2L);
+        ResultSet rs4 = countResultSet(6L);
+
+        Connection conn = mock(Connection.class);
+        PreparedStatement ps = mock(PreparedStatement.class);
+        when(conn.prepareStatement(anyString())).thenReturn(ps);
+        when(ps.executeQuery()).thenReturn(rs1, rs2, rs3, rs4);
+
+        SkewResult result =
+                planner.validateSkew(conn, table, tenantId, ranges, SKEW_RATIO_THRESHOLD);
+
+        assertThat(result.isAcceptable()).isFalse();
+        assertThat(result.getSkewRatio()).isCloseTo(3.6, offset(0.0001));
+    }
+
+    @Test
+    @DisplayName("a stricter (lower) threshold can reject a split a looser one would accept")
+    void validateSkew_stricterThreshold_rejectsSplitLooserThresholdWouldAccept() throws Exception {
+        Table table = createTable("orders");
+        Column id = addColumn(table, "id", "BIGINT");
+        List<SplitRange> ranges =
+                Arrays.asList(new SplitRange(1L, 500L), new SplitRange(501L, 1000L));
+
+        ResultSet rs1 = countResultSet(80L);
+        ResultSet rs2 = countResultSet(20L);
+
+        Connection conn = mock(Connection.class);
+        PreparedStatement ps = mock(PreparedStatement.class);
+        when(conn.prepareStatement(anyString())).thenReturn(ps);
+        when(ps.executeQuery()).thenReturn(rs1, rs2);
+
+        // ratio = 80 / 50 = 1.6: acceptable under the default 3.0 threshold, not under 1.5.
+        SkewResult result = planner.validateSkew(conn, table, id, ranges, 1.5);
+
+        assertThat(result.isAcceptable()).isFalse();
+    }
+
+    // ---------------------------------------------------------------
+    // plan(): the end-to-end entry point
+    // ---------------------------------------------------------------
+
+    @Test
+    @DisplayName("requested degree <= 1 disables parallel export without touching the connection")
+    void plan_requestedDegreeOne_disabled() throws Exception {
+        Connection conn = mock(Connection.class);
+        Table table = createTable("orders");
+        addColumn(table, "id", "BIGINT");
+        setSinglePk(table, "id");
+
+        ParallelExportPlan plan =
+                planner.plan(conn, table, DatabaseType.MYSQL, 1, SKEW_RATIO_THRESHOLD);
+
+        assertThat(plan.isParallelizable()).isFalse();
+        assertThat(plan.getDisabledReason()).isNotBlank();
+        verifyNoInteractions(conn);
+    }
+
+    @Test
+    @DisplayName("no usable split column disables parallel export without touching the connection")
+    void plan_noSplitColumn_disabled() throws Exception {
+        Connection conn = mock(Connection.class);
+        Table table = createTable("logs");
+        addColumn(table, "message", "VARCHAR");
+
+        ParallelExportPlan plan =
+                planner.plan(conn, table, DatabaseType.MYSQL, 4, SKEW_RATIO_THRESHOLD);
+
+        assertThat(plan.isParallelizable()).isFalse();
+        assertThat(plan.getDisabledReason()).isNotBlank();
+        verifyNoInteractions(conn);
+    }
+
+    @Test
+    @DisplayName("a table with a single distinct split value can't be split, and is disabled")
+    void plan_singleComputedRange_disabled() throws Exception {
+        Table table = createTable("orders");
+        addColumn(table, "id", "BIGINT");
+        setSinglePk(table, "id");
+
+        ResultSet minMaxRs = countResultSet(5L, 5L);
+
+        Connection conn = mock(Connection.class);
+        Statement stmt = mock(Statement.class);
+        when(conn.createStatement()).thenReturn(stmt);
+        when(stmt.executeQuery(anyString())).thenReturn(minMaxRs);
+
+        ParallelExportPlan plan =
+                planner.plan(conn, table, DatabaseType.MYSQL, 4, SKEW_RATIO_THRESHOLD);
+
+        assertThat(plan.isParallelizable()).isFalse();
+        assertThat(plan.getDisabledReason()).isNotBlank();
+        verify(conn, never()).prepareStatement(anyString());
+    }
+
+    @Test
+    @DisplayName("a heavily skewed split disables parallel export, even though ranges exist")
+    void plan_skewedRanges_disabled() throws Exception {
+        Table table = createTable("orders");
+        addColumn(table, "id", "BIGINT");
+        setSinglePk(table, "id");
+
+        ResultSet minMaxRs = countResultSet(1L, 1000L);
+        ResultSet rs1 = countResultSet(900L);
+        ResultSet rs2 = countResultSet(33L);
+        ResultSet rs3 = countResultSet(33L);
+        ResultSet rs4 = countResultSet(34L);
+
+        Connection conn = mock(Connection.class);
+        Statement stmt = mock(Statement.class);
+        when(conn.createStatement()).thenReturn(stmt);
+        when(stmt.executeQuery(anyString())).thenReturn(minMaxRs);
+
+        PreparedStatement ps = mock(PreparedStatement.class);
+        when(conn.prepareStatement(anyString())).thenReturn(ps);
+        when(ps.executeQuery()).thenReturn(rs1, rs2, rs3, rs4);
+
+        ParallelExportPlan plan =
+                planner.plan(conn, table, DatabaseType.MYSQL, 4, SKEW_RATIO_THRESHOLD);
+
+        assertThat(plan.isParallelizable()).isFalse();
+        assertThat(plan.getDisabledReason()).isNotBlank();
+    }
+
+    @Test
+    @DisplayName("a well-distributed numeric PK produces an enabled plan with 4 ranges")
+    void plan_allChecksPass_returnsEnabledPlan() throws Exception {
+        Table table = createTable("orders");
+        Column id = addColumn(table, "id", "BIGINT");
+        setSinglePk(table, "id");
+
+        ResultSet minMaxRs = countResultSet(1L, 1000L);
+        ResultSet rs1 = countResultSet(25L);
+        ResultSet rs2 = countResultSet(25L);
+        ResultSet rs3 = countResultSet(25L);
+        ResultSet rs4 = countResultSet(25L);
+
+        Connection conn = mock(Connection.class);
+        Statement stmt = mock(Statement.class);
+        when(conn.createStatement()).thenReturn(stmt);
+        when(stmt.executeQuery(anyString())).thenReturn(minMaxRs);
+
+        PreparedStatement ps = mock(PreparedStatement.class);
+        when(conn.prepareStatement(anyString())).thenReturn(ps);
+        when(ps.executeQuery()).thenReturn(rs1, rs2, rs3, rs4);
+
+        ParallelExportPlan plan =
+                planner.plan(conn, table, DatabaseType.MYSQL, 4, SKEW_RATIO_THRESHOLD);
+
+        assertThat(plan.isParallelizable()).isTrue();
+        assertThat(plan.getSplitColumn()).isEqualTo(id);
+        assertThat(plan.getSplitBasis()).isEqualTo(SplitBasis.SINGLE_COLUMN_PK);
+        assertThat(plan.getRanges()).hasSize(4);
+        assertThat(plan.getSkewResult().isAcceptable()).isTrue();
+        assertThat(plan.getDisabledReason()).isNull();
+    }
+
+    @Test
+    @DisplayName("plan() reports UNIQUE_INDEX as the basis when that's what was used")
+    void plan_unusedPkFallsBackToUniqueIndex_reportsUniqueIndexBasis() throws Exception {
+        Table table = createTable("logs");
+        Column seq = addColumn(table, "seq", "BIGINT");
+        addIndex(table, "ix_seq", true, "seq");
+
+        ResultSet minMaxRs = countResultSet(1L, 100L);
+        ResultSet rs1 = countResultSet(50L);
+        ResultSet rs2 = countResultSet(50L);
+
+        Connection conn = mock(Connection.class);
+        Statement stmt = mock(Statement.class);
+        when(conn.createStatement()).thenReturn(stmt);
+        when(stmt.executeQuery(anyString())).thenReturn(minMaxRs);
+
+        PreparedStatement ps = mock(PreparedStatement.class);
+        when(conn.prepareStatement(anyString())).thenReturn(ps);
+        when(ps.executeQuery()).thenReturn(rs1, rs2);
+
+        ParallelExportPlan plan =
+                planner.plan(conn, table, DatabaseType.MYSQL, 2, SKEW_RATIO_THRESHOLD);
+
+        assertThat(plan.isParallelizable()).isTrue();
+        assertThat(plan.getSplitColumn()).isEqualTo(seq);
+        assertThat(plan.getSplitBasis()).isEqualTo(SplitBasis.UNIQUE_INDEX);
+    }
+
+    @Test
+    @DisplayName("plan() reports NON_UNIQUE_INDEX as the basis when that's what was used")
+    void plan_noPkNoUniqueIndex_reportsNonUniqueIndexBasis() throws Exception {
+        Table table = createTable("logs");
+        Column seq = addColumn(table, "seq", "BIGINT");
+        addIndex(table, "ix_seq", false, "seq");
+
+        ResultSet minMaxRs = countResultSet(1L, 100L);
+        ResultSet rs1 = countResultSet(50L);
+        ResultSet rs2 = countResultSet(50L);
+
+        Connection conn = mock(Connection.class);
+        Statement stmt = mock(Statement.class);
+        when(conn.createStatement()).thenReturn(stmt);
+        when(stmt.executeQuery(anyString())).thenReturn(minMaxRs);
+
+        PreparedStatement ps = mock(PreparedStatement.class);
+        when(conn.prepareStatement(anyString())).thenReturn(ps);
+        when(ps.executeQuery()).thenReturn(rs1, rs2);
+
+        ParallelExportPlan plan =
+                planner.plan(conn, table, DatabaseType.MYSQL, 2, SKEW_RATIO_THRESHOLD);
+
+        assertThat(plan.isParallelizable()).isTrue();
+        assertThat(plan.getSplitColumn()).isEqualTo(seq);
+        assertThat(plan.getSplitBasis()).isEqualTo(SplitBasis.NON_UNIQUE_INDEX);
+    }
+
+    @Test
+    @DisplayName(
+            "plan() reports COMPOSITE_PK_LEADING_COLUMN as the basis when no index was available")
+    void plan_compositePkNoIndex_reportsCompositePkLeadingColumnBasis() throws Exception {
+        Table table = createTable("order_items");
+        Column tenantId = addColumn(table, "tenant_id", "INT");
+        addColumn(table, "seq", "BIGINT");
+        setCompositePk(table, "tenant_id", "seq");
+
+        ResultSet minMaxRs = countResultSet(1L, 100L);
+        ResultSet rs1 = countResultSet(50L);
+        ResultSet rs2 = countResultSet(50L);
+
+        Connection conn = mock(Connection.class);
+        Statement stmt = mock(Statement.class);
+        when(conn.createStatement()).thenReturn(stmt);
+        when(stmt.executeQuery(anyString())).thenReturn(minMaxRs);
+
+        PreparedStatement ps = mock(PreparedStatement.class);
+        when(conn.prepareStatement(anyString())).thenReturn(ps);
+        when(ps.executeQuery()).thenReturn(rs1, rs2);
+
+        ParallelExportPlan plan =
+                planner.plan(conn, table, DatabaseType.MYSQL, 2, SKEW_RATIO_THRESHOLD);
+
+        assertThat(plan.isParallelizable()).isTrue();
+        assertThat(plan.getSplitColumn()).isEqualTo(tenantId);
+        assertThat(plan.getSplitBasis()).isEqualTo(SplitBasis.COMPOSITE_PK_LEADING_COLUMN);
+    }
+
+    // ---------------------------------------------------------------
+    // fixture helpers
+    // ---------------------------------------------------------------
+
+    private static Table createTable(String name) {
+        Table table = new Table();
+        table.setName(name);
+        table.setOwner("owner");
+        return table;
+    }
+
+    private static Column addColumn(Table table, String name, String dataType) {
+        Column column = new Column();
+        column.setName(name);
+        column.setDataType(dataType);
+        table.addColumn(column);
+        return column;
+    }
+
+    private static void setSinglePk(Table table, String columnName) {
+        PK pk = new PK(table);
+        pk.addColumn(columnName);
+        table.setPk(pk);
+    }
+
+    private static void setCompositePk(Table table, String... columnNames) {
+        PK pk = new PK(table);
+        for (String columnName : columnNames) {
+            pk.addColumn(columnName);
+        }
+        table.setPk(pk);
+    }
+
+    private static void addIndex(
+            Table table, String indexName, boolean unique, String... columnNames) {
+        Index index = new Index(table);
+        index.setName(indexName);
+        index.setUnique(unique);
+        for (String columnName : columnNames) {
+            index.addColumn(columnName, true);
+        }
+        table.addIndex(index);
+    }
+
+    /** A ResultSet mock that returns a single row containing {@code value} in column 1. */
+    private static ResultSet countResultSet(long value) throws Exception {
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.next()).thenReturn(true);
+        when(rs.getLong(1)).thenReturn(value);
+        return rs;
+    }
+
+    /** A ResultSet mock that returns a single row containing {@code min}/{@code max}. */
+    private static ResultSet countResultSet(long min, long max) throws Exception {
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.next()).thenReturn(true);
+        when(rs.getObject(1)).thenReturn(min);
+        when(rs.getObject(2)).thenReturn(max);
+        return rs;
+    }
+}

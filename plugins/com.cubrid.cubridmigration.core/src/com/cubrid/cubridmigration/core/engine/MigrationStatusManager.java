@@ -123,13 +123,40 @@ public class MigrationStatusManager {
      *
      * @param owner of the object
      * @param source name
-     * @return true if the source is finished to export
+     * @return true once every export range for this source has reported finished (a table that was
+     *     never split into parallel ranges has exactly one range, so this behaves exactly as the
+     *     old single-flag version did)
      */
     public boolean getExpFlag(String owner, String source) {
         synchronized (lockObj) {
             String src = (owner == null ? "" : owner) + "." + source;
             DataMigrationStatus dms = dataMigrationStatus.get(src);
-            return dms != null && dms.isExpDoneFlag();
+            return dms != null && dms.isExportFinished();
+        }
+    }
+
+    /**
+     * Registers how many parallel export ranges/tasks a source was split into. Callers that split a
+     * table via {@code TableSplitPlanner} must call this with the actual range count *before*
+     * dispatching any of those range tasks, so that {@link #setExpFinished} only reports the source
+     * as done once every range has finished - otherwise the first range to finish would mark the
+     * whole source done while the others are still exporting. Sources that are not split (the
+     * default, single-task-per-table behavior) don't need to call this at all.
+     *
+     * @param owner of the object
+     * @param source name
+     * @param totalRanges total number of export tasks/ranges this source was split into, &gt;= 1
+     */
+    public void registerExportRangeCount(String owner, String source, int totalRanges) {
+        synchronized (lockObj) {
+            String src = (owner == null ? "" : owner) + "." + source;
+            DataMigrationStatus dms = dataMigrationStatus.get(src);
+            if (dms == null) {
+                dms = new DataMigrationStatus();
+                dms.setSource(src);
+                dataMigrationStatus.put(src, dms);
+            }
+            dms.setTotalExportRanges(totalRanges);
         }
     }
 
@@ -209,7 +236,11 @@ public class MigrationStatusManager {
     }
 
     /**
-     * Set all of the records from source is exported
+     * Reports that one export range/task for this source has finished. A source that was never
+     * registered via {@link #registerExportRangeCount} defaults to a single range, so the first
+     * (and only) call marks it done immediately - matching the old one-task-per-table behavior. A
+     * source split into N ranges only becomes "done" (per {@link #getExpFlag}) once this has been
+     * called N times.
      *
      * @param owner of the object
      * @param source name
@@ -223,7 +254,7 @@ public class MigrationStatusManager {
                 dms.setSource(src);
                 dataMigrationStatus.put(src, dms);
             }
-            dms.setExpDoneFlag(true);
+            dms.finishExportRange();
         }
     }
 

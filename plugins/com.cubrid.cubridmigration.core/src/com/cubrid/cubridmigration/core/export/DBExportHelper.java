@@ -78,7 +78,7 @@ import java.util.Map;
 public abstract class DBExportHelper implements IDependOnDatabaseType {
     protected static final Logger LOG = LogUtil.getLogger(CUBRIDExportHelper.class);
 
-    protected static final int DEFAULT_FETCH_SIZE = 500;
+    protected static final int DEFAULT_FETCH_SIZE = 1000;
 
     public static final int LONGNVARCHAR = -16;
     public static final int NCHAR = -15;
@@ -441,7 +441,20 @@ public abstract class DBExportHelper implements IDependOnDatabaseType {
     public void configStatement(Statement stmt) {
         try {
             stmt.setFetchSize(DEFAULT_FETCH_SIZE);
+            LOG.info(
+                    "[DEBUG-FETCHSIZE] configStatement() on "
+                            + getClass().getSimpleName()
+                            + ": requested="
+                            + DEFAULT_FETCH_SIZE
+                            + ", actual stmt.getFetchSize()="
+                            + stmt.getFetchSize());
         } catch (SQLException e) {
+            LOG.error(
+                    "[DEBUG-FETCHSIZE] setFetchSize("
+                            + DEFAULT_FETCH_SIZE
+                            + ") failed on "
+                            + getClass().getSimpleName(),
+                    e);
             throw new RuntimeException(e);
         }
     }

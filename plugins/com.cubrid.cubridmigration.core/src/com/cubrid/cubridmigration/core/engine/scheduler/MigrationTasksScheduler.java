@@ -30,8 +30,10 @@
  */
 package com.cubrid.cubridmigration.core.engine.scheduler;
 
+import com.cubrid.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.common.PathUtils;
 import com.cubrid.cubridmigration.core.dbobject.Schema;
+import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.engine.MigrationContext;
 import com.cubrid.cubridmigration.core.engine.ThreadUtils;
 import com.cubrid.cubridmigration.core.engine.UserDefinedDataHandlerManager;
@@ -50,10 +52,16 @@ import com.cubrid.cubridmigration.core.engine.config.SourceViewConfig;
 import com.cubrid.cubridmigration.core.engine.exception.BreakMigrationException;
 import com.cubrid.cubridmigration.core.engine.task.IMigrationTask;
 import com.cubrid.cubridmigration.core.engine.task.MigrationTaskFactory;
+import com.cubrid.cubridmigration.core.export.TableSplitPlanner;
+import com.cubrid.cubridmigration.core.export.TableSplitPlanner.ParallelExportPlan;
+import com.cubrid.cubridmigration.core.export.TableSplitPlanner.SplitRange;
 
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
 
 import java.io.File;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -68,6 +76,8 @@ import java.util.Map;
  * @version 1.0 - 2011-8-30 created by Kevin Cao
  */
 public class MigrationTasksScheduler {
+
+    private static final Logger LOG = LogUtil.getLogger(MigrationTasksScheduler.class);
 
     private final int USERSCHEMA_VERSION = 112;
 
@@ -460,12 +470,15 @@ public class MigrationTasksScheduler {
                 if (!table.isMigrateData()) {
                     continue;
                 }
-                executeTask2(taskFactory.createExportTableRecordsTask(table));
+                scheduleTableExport(config, (SourceEntryTableConfig) table);
             }
             for (SourceTableConfig table : sqlTables) {
                 if (!table.isMigrateData()) {
                     continue;
                 }
+                // Custom SQL source tables can't be safely restricted to a range predicate
+                // (DBExportHelper explicitly refuses to paginate them), so they always run as a
+                // single unsplit task regardless of any parallel-export setting.
                 executeTask2(taskFactory.createExportTableRecordsTask(table));
             }
         } else if (config.sourceIsXMLDump()) {
@@ -476,6 +489,127 @@ public class MigrationTasksScheduler {
             }
         }
         await();
+    }
+
+    /**
+     * Schedules one table's export as either a single unsplit task (the default, and the fallback
+     * whenever parallel export isn't usable for this table) or, when parallel export qualifies, as
+     * N parallel range tasks.
+     *
+     * <p>Driven entirely by the three global {@code MigrationConfiguration} knobs for now - {@code
+     * SourceEntryTableConfig#getParallelDegree()} (a per-table override) is intentionally not
+     * consulted yet, so every table is judged the same way: {@link
+     * MigrationConfiguration#isParallelExportEnabled()} must be on, and the table's own row count
+     * (already-fetched metadata, no extra query) must meet {@link
+     * MigrationConfiguration#getParallelExportMinRowCount()} - this is checked *before* touching a
+     * connection, so tables that don't qualify never pay for {@code TableSplitPlanner#plan}'s
+     * MIN/MAX + COUNT round trip.
+     *
+     * @param config migration configuration
+     * @param table the table to schedule; must be a {@code SourceEntryTableConfig} (custom SQL
+     *     tables never reach this method - see {@link #createRecords()})
+     */
+    private void scheduleTableExport(MigrationConfiguration config, SourceEntryTableConfig table) {
+        if (!config.isParallelExportEnabled()) {
+            executeTask2(taskFactory.createExportTableRecordsTask(table));
+            return;
+        }
+
+        Table srcTable = config.getSrcTableSchema(table.getOwner(), table.getName());
+        if (srcTable == null
+                || srcTable.getTableRowCount() < config.getParallelExportMinRowCount()) {
+            executeTask2(taskFactory.createExportTableRecordsTask(table));
+            return;
+        }
+
+        ParallelExportPlan plan =
+                planParallelExport(
+                        config, table, srcTable, config.getParallelExportDefaultDegree());
+        if (plan == null || !plan.isParallelizable()) {
+            if (plan != null) {
+                LOG.info(
+                        "[DEBUG-SPLIT] Parallel export disabled for "
+                                + table.getOwner()
+                                + "."
+                                + table.getName()
+                                + ": "
+                                + plan.getDisabledReason());
+            }
+            executeTask2(taskFactory.createExportTableRecordsTask(table));
+            return;
+        }
+
+        List<SplitRange> ranges = plan.getRanges();
+        LOG.info(
+                "[DEBUG-SPLIT] Parallel export ENABLED for "
+                        + table.getOwner()
+                        + "."
+                        + table.getName()
+                        + ": splitColumn="
+                        + plan.getSplitColumn().getName()
+                        + " (basis="
+                        + plan.getSplitBasis().getDescription()
+                        + "), ranges="
+                        + ranges.size()
+                        + ", skewRatio="
+                        + plan.getSkewResult().getSkewRatio());
+        context.getStatusMgr()
+                .registerExportRangeCount(table.getOwner(), table.getName(), ranges.size());
+        TableSplitPlanner planner = new TableSplitPlanner();
+        for (SplitRange range : ranges) {
+            String rangeCondition = planner.buildRangeCondition(plan.getSplitColumn(), range);
+            LOG.info(
+                    "[DEBUG-SPLIT] "
+                            + table.getOwner()
+                            + "."
+                            + table.getName()
+                            + " range condition: "
+                            + rangeCondition);
+            executeTask2(taskFactory.createExportTableRecordsRangeTask(table, rangeCondition));
+        }
+    }
+
+    /**
+     * Runs {@code TableSplitPlanner#plan} for one table over a short-lived source connection,
+     * acquired and released the same way each individual export task acquires its own connection.
+     *
+     * @param srcTable the table's metadata, already resolved by the caller
+     * @param degree requested degree of parallelism (currently always {@link
+     *     MigrationConfiguration#getParallelExportDefaultDegree()} - see {@link
+     *     #scheduleTableExport})
+     * @return the plan, or {@code null} if it could not even be attempted (e.g. the planning
+     *     connection/queries failed) - callers should treat this the same as a non-parallelizable
+     *     plan and fall back to a single task
+     */
+    private ParallelExportPlan planParallelExport(
+            MigrationConfiguration config,
+            SourceEntryTableConfig table,
+            Table srcTable,
+            int degree) {
+        Connection conn = null; // NOPMD
+        try {
+            conn = context.getConnManager().getSourceConnection();
+            TableSplitPlanner planner = new TableSplitPlanner();
+            return planner.plan(
+                    conn,
+                    srcTable,
+                    config.getSourceDBType(),
+                    degree,
+                    config.getParallelExportSkewRatioThreshold());
+        } catch (SQLException ex) {
+            LOG.warn(
+                    "Failed to plan parallel export for "
+                            + table.getOwner()
+                            + "."
+                            + table.getName()
+                            + "; falling back to a single unsplit task.",
+                    ex);
+            return null;
+        } finally {
+            if (conn != null) {
+                context.getConnManager().closeSrc(conn);
+            }
+        }
     }
 
     /** Schedule export Primary Key tasks. */
