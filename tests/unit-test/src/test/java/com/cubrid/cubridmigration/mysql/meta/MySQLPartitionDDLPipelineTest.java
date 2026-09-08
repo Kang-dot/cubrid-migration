@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2008 Search Solution Corporation.
  * Copyright (C) 2016 CUBRID Corporation.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -27,6 +28,7 @@
  * OF SUCH DAMAGE.
  *
  */
+
 package com.cubrid.cubridmigration.mysql.meta;
 
 import static org.assertj.core.api.Assertions.assertThat;
