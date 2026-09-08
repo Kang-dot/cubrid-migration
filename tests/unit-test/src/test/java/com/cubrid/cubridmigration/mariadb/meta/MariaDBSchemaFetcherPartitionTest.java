@@ -9,7 +9,8 @@
  *
  * - Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
- *   and/or other materials provided with the distribution
+ *   and/or other materials provided with the distribution.
+ *
  * - Neither the name of the <ORGANIZATION> nor the names of its contributors
  *   may be used to endorse or promote products derived from this software without
  *   specific prior written permission.
@@ -65,7 +66,7 @@ class MariaDBSchemaFetcherPartitionTest {
     private static final String TODO_PARTITION_EXPR = "col1";
     private static final String TODO_TABLE_DDL =
             "CREATE TABLE `tbl1` (`col1` int(11) DEFAULT NULL) ENGINE=InnoDB PARTITION BY RANGE"
-                + " (col1) (PARTITION p_under_2000 VALUES LESS THAN (2000))\n";
+                    + " (col1) (PARTITION p_under_2000 VALUES LESS THAN (2000))\n";
 
     @Test
     @DisplayName(
