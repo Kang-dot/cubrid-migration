@@ -518,6 +518,18 @@ public class MigrationTasksScheduler {
         Table srcTable = config.getSrcTableSchema(table.getOwner(), table.getName());
         if (srcTable == null
                 || srcTable.getTableRowCount() < config.getParallelExportMinRowCount()) {
+            LOG.info(
+                    "[DEBUG-SPLIT] Parallel export skipped for "
+                            + table.getOwner()
+                            + "."
+                            + table.getName()
+                            + ": row count "
+                            + (srcTable == null
+                                    ? "unknown (table metadata not found)"
+                                    : srcTable.getTableRowCount())
+                            + " below configured minimum "
+                            + config.getParallelExportMinRowCount()
+                            + ".");
             executeTask2(taskFactory.createExportTableRecordsTask(table));
             return;
         }

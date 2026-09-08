@@ -274,8 +274,8 @@ public class MigrationConfiguration {
     private double parallelExportSkewRatioThreshold = 3.0;
 
     // Global switch for parallel range export. Per-table SourceEntryTableConfig#parallelDegree
-    // is intentionally ignored while this is the only control surface (UI wiring is a later
-    // step) - see MigrationTasksScheduler#resolveEffectiveDegree.
+    // is intentionally ignored while these three global knobs are the only control surface -
+    // see MigrationTasksScheduler#scheduleTableExport.
     private boolean parallelExportEnabled = false;
 
     // Degree of parallelism used for every table that qualifies (see
