@@ -31,6 +31,7 @@
 package com.cubrid.cubridmigration.core.engine.exporter.impl;
 
 import com.cubrid.cubridmigration.core.common.Closer;
+import com.cubrid.cubridmigration.core.dbobject.Column;
 import com.cubrid.cubridmigration.core.dbobject.PK;
 import com.cubrid.cubridmigration.core.dbobject.Record;
 import com.cubrid.cubridmigration.core.dbobject.Table;
@@ -216,6 +217,7 @@ public class CUBRIDJDBCExporter extends JDBCExporter {
             newRecsHandler.startExportTable(setc.getName());
             List<Record> records = new ArrayList<Record>();
             List<SourceColumnConfig> expColConfs = setc.getColumnConfigList();
+            Column[] sCols = resolveSourceColumns(sTable, expColConfs);
 
             String startSQL = getPagingSQL(setc, spCols, true);
             String noStartSQL = getPagingSQL(setc, spCols, false);
@@ -249,7 +251,15 @@ public class CUBRIDJDBCExporter extends JDBCExporter {
                 getResultSet(finalSQL, params.toArray(new Object[] {}), joc);
                 // Start handle result set.
                 handleResultSet(
-                        joc, setc, sTable, expColConfs, records, newRecsHandler, expStatus, spCols);
+                        joc,
+                        setc,
+                        sTable,
+                        expColConfs,
+                        sCols,
+                        records,
+                        newRecsHandler,
+                        expStatus,
+                        spCols);
                 // If end fetching.
                 if (isEndFetching(expStatus)) {
                     break;
@@ -476,6 +486,8 @@ public class CUBRIDJDBCExporter extends JDBCExporter {
      * @param stc SourceTableConfig
      * @param sTable Source Table
      * @param expColConfs List<SourceColumnConfig> of Source Table
+     * @param sCols {@code expColConfs[i]}'s resolved {@link Column}, from {@link
+     *     #resolveSourceColumns} - same order/index as {@code expColConfs}
      * @param records data cache
      * @param newRecordProcessor processor
      * @param expStatus ExportingStatus. In method, some properties will be changed.
@@ -486,6 +498,7 @@ public class CUBRIDJDBCExporter extends JDBCExporter {
             SourceEntryTableConfig stc,
             Table sTable,
             List<SourceColumnConfig> expColConfs,
+            Column[] sCols,
             List<Record> records,
             RecordExportedListener newRecordProcessor,
             ExportingStatus expStatus,
@@ -514,7 +527,7 @@ public class CUBRIDJDBCExporter extends JDBCExporter {
                 }
 
                 thisTimeRecords++;
-                Record record = createNewRecord(sTable, expColConfs, rs);
+                Record record = createNewRecord(sTable, expColConfs, sCols, rs);
                 if (record == null) {
                     continue;
                 }

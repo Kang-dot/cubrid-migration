@@ -134,21 +134,44 @@ public class JDBCExporter extends MigrationExporter {
     }
 
     /**
+     * Resolves each export column's {@link Column} once per table instead of once per row. {@code
+     * st.getColumnByName(...)} is a linear, case-insensitive scan over all of the table's columns
+     * ({@link com.cubrid.cubridmigration.core.dbobject.TableOrView#getColumnByName(String)}), so
+     * for a wide table (hundreds of columns) doing this per row/per column is the dominant cost of
+     * {@link #createNewRecord}. The column list a table exports never changes mid-export, so the
+     * resolved array can be computed once and reused for every row/page.
+     *
+     * @param st source table
+     * @param expCols source table's export columns, in the same order the caller will iterate them
+     * @return one resolved {@link Column} per {@code expCols} entry, same order/index
+     */
+    protected Column[] resolveSourceColumns(Table st, List<SourceColumnConfig> expCols) {
+        Column[] cols = new Column[expCols.size()];
+        for (int i = 0; i < expCols.size(); i++) {
+            cols[i] = st.getColumnByName(expCols.get(i).getName());
+        }
+        return cols;
+    }
+
+    /**
      * Create a new record with target table columns configurations and source values
      *
      * @param st source table
      * @param expCols source table's export columns
+     * @param sCols {@code expCols[i]}'s resolved {@link Column}, from {@link #resolveSourceColumns}
+     *     - same order/index as {@code expCols}
      * @param rs result set
      * @return new record object
      */
-    protected Record createNewRecord(Table st, List<SourceColumnConfig> expCols, ResultSet rs) {
+    protected Record createNewRecord(
+            Table st, List<SourceColumnConfig> expCols, Column[] sCols, ResultSet rs) {
         Column sCol = null;
         Record record = new Record();
         try {
             final DBExportHelper srcDBExportHelper = getSrcDBExportHelper();
             for (int ci = 1; ci <= expCols.size(); ci++) {
                 SourceColumnConfig cc = expCols.get(ci - 1);
-                sCol = st.getColumnByName(cc.getName());
+                sCol = sCols[ci - 1];
                 Object value = srcDBExportHelper.getJdbcObject(rs, sCol);
 
                 if (value instanceof LobMigrationErrorEvent) {
@@ -275,6 +298,7 @@ public class JDBCExporter extends MigrationExporter {
             newRecordProcessor.startExportTable(stc.getName());
             List<Record> records = new ArrayList<Record>();
             List<SourceColumnConfig> expColConfs = stc.getColumnConfigList();
+            Column[] sCols = resolveSourceColumns(sTable, expColConfs);
             long totalExported = 0L;
             long intPageCount = config.getPageFetchCount();
             String sql = combineCondition(expHelper.getSelectSQL(stc, config), extraCondition);
@@ -299,6 +323,7 @@ public class JDBCExporter extends MigrationExporter {
                                 stc,
                                 sTable,
                                 expColConfs,
+                                sCols,
                                 records,
                                 newRecordProcessor);
                 totalExported = totalExported + recordCountOfQuery;
@@ -362,6 +387,8 @@ public class JDBCExporter extends MigrationExporter {
      * @param stc SourceTableConfig
      * @param sTable Source Table
      * @param expColConfs List<SourceColumnConfig> of Source Table
+     * @param sCols {@code expColConfs[i]}'s resolved {@link Column}, from {@link
+     *     #resolveSourceColumns} - same order/index as {@code expColConfs}
      * @param records data cache
      * @param newRecsHandler processor
      * @return how many records were handled.
@@ -372,6 +399,7 @@ public class JDBCExporter extends MigrationExporter {
             SourceTableConfig stc,
             Table sTable,
             List<SourceColumnConfig> expColConfs,
+            Column[] sCols,
             List<Record> records,
             RecordExportedListener newRecsHandler) {
         JDBCObjContainer joc = new JDBCObjContainer();
@@ -388,7 +416,7 @@ public class JDBCExporter extends MigrationExporter {
                     return totalExported;
                 }
                 totalExported++;
-                Record record = createNewRecord(sTable, expColConfs, joc.getRs());
+                Record record = createNewRecord(sTable, expColConfs, sCols, joc.getRs());
                 if (record == null) {
                     continue;
                 }
