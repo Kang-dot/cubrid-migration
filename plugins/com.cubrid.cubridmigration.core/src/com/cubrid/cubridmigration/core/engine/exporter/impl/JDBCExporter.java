@@ -150,6 +150,17 @@ public class JDBCExporter extends MigrationExporter {
         for (int i = 0; i < expCols.size(); i++) {
             cols[i] = st.getColumnByName(expCols.get(i).getName());
         }
+        // This should log exactly once per table export (never once per row/page) - if it shows
+        // up more than once for the same table in one run, the column cache isn't actually being
+        // reused and something upstream is calling this per row again.
+        LOG.info(
+                "[DEBUG-COLCACHE] resolveSourceColumns() for "
+                        + st.getOwner()
+                        + "."
+                        + st.getName()
+                        + ": resolved "
+                        + cols.length
+                        + " column(s) once for this export.");
         return cols;
     }
 
