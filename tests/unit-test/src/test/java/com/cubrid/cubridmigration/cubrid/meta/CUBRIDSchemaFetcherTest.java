@@ -55,26 +55,66 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 
-@DisplayName("CUBRIDSchemaFetcher partition metadata")
-class CUBRIDSchemaFetcherPartitionTest {
+@DisplayName("CUBRIDSchemaFetcher")
+class CUBRIDSchemaFetcherTest {
 
-    private static final String TODO_SCHEMA_NAME = "TEST_SCHEMA";
-    private static final String TODO_OTHER_SCHEMA_NAME = "OTHER_SCHEMA";
-    private static final String TODO_TABLE_NAME = "tbl1";
-    private static final String TODO_COLUMN_NAME = "col1";
-    private static final String TODO_COLUMN_TYPE = "INTEGER";
-    private static final String TODO_PARTITION_NAME = "UNDER_2000";
-    private static final String TODO_PARTITION_METHOD = "RANGE";
-    private static final String TODO_PARTITION_EXPR = "col1";
+    private static final CUBRIDSchemaFetcher FETCHER = new CUBRIDSchemaFetcher();
+
+    private static final String SCHEMA_NAME = "TEST_SCHEMA";
+    private static final String OTHER_SCHEMA_NAME = "OTHER_SCHEMA";
+    private static final String TABLE_NAME = "tbl1";
+    private static final String COLUMN_NAME = "col1";
+    private static final String COLUMN_TYPE = "INTEGER";
+    private static final String PARTITION_NAME = "UNDER_2000";
+    private static final String PARTITION_METHOD = "RANGE";
+    private static final String PARTITION_EXPR = "col1";
+
+    @Test
+    @DisplayName("buildPartitions() maps db_partition rows to table PartitionInfo")
+    void buildPartitions_mapsDbPartitionRowsToTablePartitionInfo() throws Exception {
+        Catalog catalog = createCatalog();
+        Schema schema = createSchema(SCHEMA_NAME);
+        Table table = createTable(TABLE_NAME, COLUMN_NAME, COLUMN_TYPE);
+        catalog.addSchema(schema);
+        schema.addTable(table);
+
+        Connection conn = mockConnection(11, 2);
+        PreparedStatement stmt = mock(PreparedStatement.class);
+        ResultSet rs = mock(ResultSet.class);
+        when(conn.prepareStatement(anyString())).thenReturn(stmt);
+        when(stmt.executeQuery()).thenReturn(rs);
+        stubPartitionRow(rs, TABLE_NAME);
+
+        FETCHER.buildPartitions(conn, catalog, schema, null);
+
+        PartitionInfo partitionInfo = table.getPartitionInfo();
+
+        assertAll(
+                () -> assertThat(partitionInfo).isNotNull(),
+                () -> assertThat(partitionInfo.getPartitionMethod()).isEqualTo(PARTITION_METHOD),
+                () -> assertThat(partitionInfo.getPartitionExp()).isEqualTo(PARTITION_EXPR),
+                () ->
+                        assertThat(partitionInfo.getPartitionColumns())
+                                .extracting(Column::getName)
+                                .containsExactly(COLUMN_NAME),
+                () -> assertThat(partitionInfo.getPartitionCount()).isEqualTo(1),
+                () -> assertThat(partitionInfo.getPartitions()).hasSize(1),
+                () ->
+                        assertThat(partitionInfo.getPartitions().get(0).getPartitionName())
+                                .isEqualTo(PARTITION_NAME),
+                () ->
+                        assertThat(partitionInfo.getPartitions().get(0).getPartitionDesc())
+                                .isEqualTo("2000"),
+                () -> assertThat(partitionInfo.getDDL()).contains("PARTITION BY RANGE"));
+    }
 
     @Test
     @DisplayName(
             "buildPartitions() scopes the db_partition query by owner_name on CUBRID 11.2+"
                     + " (user-schema support)")
     void buildPartitions_scopesQueryByOwnerName_whenUserSchemaSupported() throws Exception {
-        CUBRIDSchemaFetcher fetcher = new CUBRIDSchemaFetcher();
         Catalog catalog = createCatalog();
-        Schema schema = createSchema(TODO_SCHEMA_NAME);
+        Schema schema = createSchema(SCHEMA_NAME);
         catalog.addSchema(schema);
 
         Connection conn = mockConnection(11, 2);
@@ -85,11 +125,11 @@ class CUBRIDSchemaFetcherPartitionTest {
         when(stmt.executeQuery()).thenReturn(rs);
         when(rs.next()).thenReturn(false);
 
-        fetcher.buildPartitions(conn, catalog, schema, null);
+        FETCHER.buildPartitions(conn, catalog, schema, null);
 
         assertAll(
                 () -> assertThat(sqlCaptor.getValue()).contains("owner_name"),
-                () -> verify(stmt).setString(1, TODO_SCHEMA_NAME));
+                () -> verify(stmt).setString(1, SCHEMA_NAME));
     }
 
     @Test
@@ -97,9 +137,8 @@ class CUBRIDSchemaFetcherPartitionTest {
             "buildPartitions() does not scope or bind owner_name on CUBRID versions before 11.2"
                     + " (no user-schema concept)")
     void buildPartitions_doesNotBindOwnerName_whenUserSchemaNotSupported() throws Exception {
-        CUBRIDSchemaFetcher fetcher = new CUBRIDSchemaFetcher();
         Catalog catalog = createCatalog();
-        Schema schema = createSchema(TODO_SCHEMA_NAME);
+        Schema schema = createSchema(SCHEMA_NAME);
         catalog.addSchema(schema);
 
         Connection conn = mockConnection(10, 1);
@@ -110,53 +149,11 @@ class CUBRIDSchemaFetcherPartitionTest {
         when(stmt.executeQuery()).thenReturn(rs);
         when(rs.next()).thenReturn(false);
 
-        fetcher.buildPartitions(conn, catalog, schema, null);
+        FETCHER.buildPartitions(conn, catalog, schema, null);
 
         assertAll(
                 () -> assertThat(sqlCaptor.getValue()).doesNotContain("owner_name"),
                 () -> verify(stmt, never()).setString(anyInt(), anyString()));
-    }
-
-    @Test
-    @DisplayName("buildPartitions() maps db_partition rows to table PartitionInfo")
-    void buildPartitions_mapsDbPartitionRowsToTablePartitionInfo() throws Exception {
-        CUBRIDSchemaFetcher fetcher = new CUBRIDSchemaFetcher();
-        Catalog catalog = createCatalog();
-        Schema schema = createSchema(TODO_SCHEMA_NAME);
-        Table table = createTable(TODO_TABLE_NAME, TODO_COLUMN_NAME, TODO_COLUMN_TYPE);
-        catalog.addSchema(schema);
-        schema.addTable(table);
-
-        Connection conn = mockConnection(11, 2);
-        PreparedStatement stmt = mock(PreparedStatement.class);
-        ResultSet rs = mock(ResultSet.class);
-        when(conn.prepareStatement(anyString())).thenReturn(stmt);
-        when(stmt.executeQuery()).thenReturn(rs);
-        stubPartitionRow(rs, TODO_TABLE_NAME);
-
-        fetcher.buildPartitions(conn, catalog, schema, null);
-
-        PartitionInfo partitionInfo = table.getPartitionInfo();
-
-        assertAll(
-                () -> assertThat(partitionInfo).isNotNull(),
-                () ->
-                        assertThat(partitionInfo.getPartitionMethod())
-                                .isEqualTo(TODO_PARTITION_METHOD),
-                () -> assertThat(partitionInfo.getPartitionExp()).isEqualTo(TODO_PARTITION_EXPR),
-                () ->
-                        assertThat(partitionInfo.getPartitionColumns())
-                                .extracting(Column::getName)
-                                .containsExactly(TODO_COLUMN_NAME),
-                () -> assertThat(partitionInfo.getPartitionCount()).isEqualTo(1),
-                () -> assertThat(partitionInfo.getPartitions()).hasSize(1),
-                () ->
-                        assertThat(partitionInfo.getPartitions().get(0).getPartitionName())
-                                .isEqualTo(TODO_PARTITION_NAME),
-                () ->
-                        assertThat(partitionInfo.getPartitions().get(0).getPartitionDesc())
-                                .isEqualTo("2000"),
-                () -> assertThat(partitionInfo.getDDL()).contains("PARTITION BY RANGE"));
     }
 
     @Test
@@ -165,13 +162,11 @@ class CUBRIDSchemaFetcherPartitionTest {
                     + " another schema has a table with the same name (regression guard)")
     void buildPartitions_doesNotLeakPartitionInfoAcrossSchemas_whenTableNameIsDuplicated()
             throws Exception {
-        CUBRIDSchemaFetcher fetcher = new CUBRIDSchemaFetcher();
         Catalog catalog = createCatalog();
-        Schema schema = createSchema(TODO_SCHEMA_NAME);
-        Schema otherSchema = createSchema(TODO_OTHER_SCHEMA_NAME);
-        Table table = createTable(TODO_TABLE_NAME, TODO_COLUMN_NAME, TODO_COLUMN_TYPE);
-        Table sameNamedTableInOtherSchema =
-                createTable(TODO_TABLE_NAME, TODO_COLUMN_NAME, TODO_COLUMN_TYPE);
+        Schema schema = createSchema(SCHEMA_NAME);
+        Schema otherSchema = createSchema(OTHER_SCHEMA_NAME);
+        Table table = createTable(TABLE_NAME, COLUMN_NAME, COLUMN_TYPE);
+        Table sameNamedTableInOtherSchema = createTable(TABLE_NAME, COLUMN_NAME, COLUMN_TYPE);
         catalog.addSchema(schema);
         catalog.addSchema(otherSchema);
         schema.addTable(table);
@@ -182,9 +177,9 @@ class CUBRIDSchemaFetcherPartitionTest {
         ResultSet rs = mock(ResultSet.class);
         when(conn.prepareStatement(anyString())).thenReturn(stmt);
         when(stmt.executeQuery()).thenReturn(rs);
-        stubPartitionRow(rs, TODO_TABLE_NAME);
+        stubPartitionRow(rs, TABLE_NAME);
 
-        fetcher.buildPartitions(conn, catalog, schema, null);
+        FETCHER.buildPartitions(conn, catalog, schema, null);
 
         assertAll(
                 () -> assertThat(table.getPartitionInfo()).isNotNull(),
@@ -194,10 +189,10 @@ class CUBRIDSchemaFetcherPartitionTest {
     private static void stubPartitionRow(ResultSet rs, String tableName) throws Exception {
         when(rs.next()).thenReturn(true, false);
         when(rs.getString("class_name")).thenReturn(tableName);
-        when(rs.getString("partition_type")).thenReturn(TODO_PARTITION_METHOD);
-        when(rs.getString("partition_expr")).thenReturn(TODO_PARTITION_EXPR);
+        when(rs.getString("partition_type")).thenReturn(PARTITION_METHOD);
+        when(rs.getString("partition_expr")).thenReturn(PARTITION_EXPR);
         when(rs.getObject("partition_values")).thenReturn(new Object[] {"0", "2000"});
-        when(rs.getString("partition_name")).thenReturn(TODO_PARTITION_NAME);
+        when(rs.getString("partition_name")).thenReturn(PARTITION_NAME);
     }
 
     private static Connection mockConnection(int majorVersion, int minorVersion) throws Exception {
@@ -211,7 +206,7 @@ class CUBRIDSchemaFetcherPartitionTest {
 
     private static Catalog createCatalog() {
         Catalog catalog = new Catalog();
-        catalog.setName("TODO_CATALOG");
+        catalog.setName("TEST_CATALOG");
         catalog.setDatabaseType(DatabaseType.CUBRID);
         return catalog;
     }

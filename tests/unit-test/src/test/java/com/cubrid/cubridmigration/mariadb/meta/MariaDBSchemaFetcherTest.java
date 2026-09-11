@@ -52,53 +52,32 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 
-@DisplayName("MariaDBSchemaFetcher partition metadata")
-class MariaDBSchemaFetcherPartitionTest {
+@DisplayName("MariaDBSchemaFetcher")
+class MariaDBSchemaFetcherTest {
+
+    private static final MariaDBSchemaFetcher FETCHER = new MariaDBSchemaFetcher();
 
     // Intentionally use different catalog/schema names so a regression (falling back to
     // schema.getName()) can be detected
-    private static final String TODO_CATALOG_NAME = "mydb";
-    private static final String TODO_SCHEMA_NAME = "some_schema";
-    private static final String TODO_TABLE_NAME = "tbl1";
-    private static final String TODO_COLUMN_NAME = "col1";
-    private static final String TODO_COLUMN_TYPE = "INT";
-    private static final String TODO_PARTITION_NAME = "p_under_2000";
-    private static final String TODO_PARTITION_METHOD = "RANGE";
-    private static final String TODO_PARTITION_EXPR = "col1";
-    private static final String TODO_TABLE_DDL =
+    private static final String CATALOG_NAME = "mydb";
+    private static final String SCHEMA_NAME = "some_schema";
+    private static final String TABLE_NAME = "tbl1";
+    private static final String COLUMN_NAME = "col1";
+    private static final String COLUMN_TYPE = "INT";
+    private static final String PARTITION_NAME = "p_under_2000";
+    private static final String PARTITION_METHOD = "RANGE";
+    private static final String PARTITION_EXPR = "col1";
+    private static final String TABLE_DDL =
             "CREATE TABLE `tbl1` (`col1` int(11) DEFAULT NULL) ENGINE=InnoDB PARTITION BY RANGE"
                     + " (col1) (PARTITION p_under_2000 VALUES LESS THAN (2000))\n";
 
     @Test
-    @DisplayName(
-            "buildPartitions() queries INFORMATION_SCHEMA.PARTITIONS by catalog name, not schema"
-                    + " name (regression guard)")
-    void buildPartitions_queriesByCatalogName() throws Exception {
-        MariaDBSchemaFetcher fetcher = new MariaDBSchemaFetcher();
-        Catalog catalog = createCatalog(TODO_CATALOG_NAME);
-        Schema schema = createSchema(TODO_SCHEMA_NAME);
-        catalog.addSchema(schema);
-
-        Connection conn = mock(Connection.class);
-        PreparedStatement stmt = mock(PreparedStatement.class);
-        ResultSet rs = mock(ResultSet.class);
-        when(conn.prepareStatement(anyString())).thenReturn(stmt);
-        when(stmt.executeQuery()).thenReturn(rs);
-        when(rs.next()).thenReturn(false);
-
-        fetcher.buildPartitions(conn, catalog, schema, null);
-
-        verify(stmt).setString(1, TODO_CATALOG_NAME);
-    }
-
-    @Test
     @DisplayName("buildPartitions() maps INFORMATION_SCHEMA.PARTITIONS rows to table PartitionInfo")
     void buildPartitions_mapsPartitionRowsToTablePartitionInfo() throws Exception {
-        MariaDBSchemaFetcher fetcher = new MariaDBSchemaFetcher();
-        Catalog catalog = createCatalog(TODO_CATALOG_NAME);
-        Schema schema = createSchema(TODO_SCHEMA_NAME);
-        Table table = createTable(TODO_TABLE_NAME, TODO_COLUMN_NAME, TODO_COLUMN_TYPE);
-        table.setDDL(TODO_TABLE_DDL);
+        Catalog catalog = createCatalog(CATALOG_NAME);
+        Schema schema = createSchema(SCHEMA_NAME);
+        Table table = createTable(TABLE_NAME, COLUMN_NAME, COLUMN_TYPE);
+        table.setDDL(TABLE_DDL);
         catalog.addSchema(schema);
         schema.addTable(table);
 
@@ -108,10 +87,10 @@ class MariaDBSchemaFetcherPartitionTest {
         when(conn.prepareStatement(anyString())).thenReturn(stmt);
         when(stmt.executeQuery()).thenReturn(rs);
         when(rs.next()).thenReturn(true, false);
-        when(rs.getString("TABLE_NAME")).thenReturn(TODO_TABLE_NAME);
-        when(rs.getString("PARTITION_NAME")).thenReturn(TODO_PARTITION_NAME);
-        when(rs.getString("PARTITION_METHOD")).thenReturn(TODO_PARTITION_METHOD);
-        when(rs.getString("PARTITION_EXPRESSION")).thenReturn(TODO_PARTITION_EXPR);
+        when(rs.getString("TABLE_NAME")).thenReturn(TABLE_NAME);
+        when(rs.getString("PARTITION_NAME")).thenReturn(PARTITION_NAME);
+        when(rs.getString("PARTITION_METHOD")).thenReturn(PARTITION_METHOD);
+        when(rs.getString("PARTITION_EXPRESSION")).thenReturn(PARTITION_EXPR);
         when(rs.getInt("PARTITION_ORDINAL_POSITION")).thenReturn(1);
         when(rs.getString("PARTITION_DESCRIPTION")).thenReturn("2000");
         when(rs.getString("SUBPARTITION_NAME")).thenReturn(null);
@@ -119,25 +98,44 @@ class MariaDBSchemaFetcherPartitionTest {
         when(rs.getString("SUBPARTITION_EXPRESSION")).thenReturn(null);
         when(rs.getInt("SUBPARTITION_ORDINAL_POSITION")).thenReturn(0);
 
-        fetcher.buildPartitions(conn, catalog, schema, null);
+        FETCHER.buildPartitions(conn, catalog, schema, null);
 
         PartitionInfo partitionInfo = table.getPartitionInfo();
 
         assertAll(
                 () -> assertThat(partitionInfo).isNotNull(),
-                () ->
-                        assertThat(partitionInfo.getPartitionMethod())
-                                .isEqualTo(TODO_PARTITION_METHOD),
-                () -> assertThat(partitionInfo.getPartitionExp()).isEqualTo(TODO_PARTITION_EXPR),
+                () -> assertThat(partitionInfo.getPartitionMethod()).isEqualTo(PARTITION_METHOD),
+                () -> assertThat(partitionInfo.getPartitionExp()).isEqualTo(PARTITION_EXPR),
                 () ->
                         assertThat(partitionInfo.getPartitionColumns())
                                 .extracting(Column::getName)
-                                .containsExactly(TODO_COLUMN_NAME),
+                                .containsExactly(COLUMN_NAME),
                 () -> assertThat(partitionInfo.getPartitions()).hasSize(1),
                 () ->
                         assertThat(partitionInfo.getPartitions().get(0).getPartitionName())
-                                .isEqualTo(TODO_PARTITION_NAME),
+                                .isEqualTo(PARTITION_NAME),
                 () -> assertThat(partitionInfo.getDDL()).contains("PARTITION BY RANGE"));
+    }
+
+    @Test
+    @DisplayName(
+            "buildPartitions() queries INFORMATION_SCHEMA.PARTITIONS by catalog name, not schema"
+                    + " name (regression guard)")
+    void buildPartitions_queriesByCatalogName() throws Exception {
+        Catalog catalog = createCatalog(CATALOG_NAME);
+        Schema schema = createSchema(SCHEMA_NAME);
+        catalog.addSchema(schema);
+
+        Connection conn = mock(Connection.class);
+        PreparedStatement stmt = mock(PreparedStatement.class);
+        ResultSet rs = mock(ResultSet.class);
+        when(conn.prepareStatement(anyString())).thenReturn(stmt);
+        when(stmt.executeQuery()).thenReturn(rs);
+        when(rs.next()).thenReturn(false);
+
+        FETCHER.buildPartitions(conn, catalog, schema, null);
+
+        verify(stmt).setString(1, CATALOG_NAME);
     }
 
     @Test
@@ -145,11 +143,10 @@ class MariaDBSchemaFetcherPartitionTest {
             "getSourcePartitionDDL() returns empty string when table DDL is null (regression"
                     + " guard)")
     void getSourcePartitionDDL_returnsEmptyString_whenTableDDLIsNull() {
-        MariaDBSchemaFetcher fetcher = new MariaDBSchemaFetcher();
-        Table table = createTable(TODO_TABLE_NAME, TODO_COLUMN_NAME, TODO_COLUMN_TYPE);
+        Table table = createTable(TABLE_NAME, COLUMN_NAME, COLUMN_TYPE);
         // table.setDDL(...) is intentionally not called, reproducing a null getDDL()
 
-        String result = fetcher.getSourcePartitionDDL(table);
+        String result = FETCHER.getSourcePartitionDDL(table);
 
         assertThat(result).isEmpty();
     }
