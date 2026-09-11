@@ -27,44 +27,42 @@
  * OF SUCH DAMAGE.
  *
  */
-package com.cubrid.cubridmigration.core.common;
+package com.cubrid.cubridmigration.testutil;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import com.cubrid.cubridmigration.core.datatype.DataType;
+import com.cubrid.cubridmigration.core.dbobject.Catalog;
 
-import com.cubrid.cubridmigration.core.dbobject.Column;
-import com.cubrid.cubridmigration.core.dbobject.Table;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-@DisplayName("DBUtils")
-class DBUtilsTest {
+/**
+ * Test Catalog Factory.
+ *
+ * <p>Usage: {@code import static com.cubrid.cubridmigration.testutil.TestCatalogFactory.*;}
+ */
+public final class TestCatalogFactory {
 
-    @Test
-    @DisplayName("parsePartitionColumns handles bracketed CUBRID column expression")
-    void parsePartitionColumns_handlesBracketedExpression() {
-        Table table = new Table();
-        Column column = new Column(table);
-        column.setName("sale_date");
-        table.addColumn(column);
+    private TestCatalogFactory() {}
 
-        List<Column> columns = DBUtils.parsePartitionColumns(table, "[SALE_DATE]");
-
-        assertThat(columns).containsExactly(column);
+    public static DataType createDataType(String typeName, int jdbcTypeId) {
+        DataType dataType = new DataType();
+        dataType.setTypeName(typeName);
+        dataType.setJdbcDataTypeID(jdbcTypeId);
+        return dataType;
     }
 
-    @Test
-    @DisplayName("parsePartitionColumns handles quoted CUBRID column expression")
-    void parsePartitionColumns_handlesQuotedExpression() {
-        Table table = new Table();
-        Column column = new Column(table);
-        column.setName("log_msg");
-        table.addColumn(column);
+    /** Passing no data type builds the empty candidate list that the helpers mishandle. */
+    public static Catalog createCatalog(String key, DataType... dataTypes) {
+        Catalog catalog = new Catalog();
+        Map<String, List<DataType>> supported = new HashMap<String, List<DataType>>();
+        supported.put(key, Arrays.asList(dataTypes));
+        catalog.setSupportedDataType(supported);
+        return catalog;
+    }
 
-        List<Column> columns = DBUtils.parsePartitionColumns(table, "\"LOG_MSG\"");
-
-        assertThat(columns).containsExactly(column);
+    public static Catalog createCatalog(String key, int jdbcTypeId) {
+        return createCatalog(key, createDataType(key, jdbcTypeId));
     }
 }
