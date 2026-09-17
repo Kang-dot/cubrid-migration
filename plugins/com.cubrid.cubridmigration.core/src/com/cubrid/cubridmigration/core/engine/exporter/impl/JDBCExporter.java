@@ -57,6 +57,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -79,7 +80,7 @@ public class JDBCExporter extends MigrationExporter {
      */
     protected static class JDBCObjContainer {
         private Connection conn = null;
-        private PreparedStatement stmt = null; // NOPMD
+        private Statement stmt = null; // NOPMD
         private ResultSet rs = null; // NOPMD
 
         public Connection getConn() {
@@ -90,11 +91,11 @@ public class JDBCExporter extends MigrationExporter {
             this.conn = conn;
         }
 
-        public PreparedStatement getStmt() {
+        public Statement getStmt() {
             return stmt;
         }
 
-        public void setStmt(PreparedStatement stmt) {
+        public void setStmt(Statement stmt) {
             this.stmt = stmt;
         }
 
@@ -455,6 +456,15 @@ public class JDBCExporter extends MigrationExporter {
     /**
      * Get result set with retry.
      *
+     * <p>A {@code null}/empty {@code params} uses a plain {@link Statement} instead of an unbound
+     * {@link PreparedStatement}: the CUBRID JDBC driver's {@code CUBRIDPreparedStatement
+     * #executeQuery()} can throw "The query is not applicable to the executeQuery()" for a
+     * PreparedStatement that was never given any {@code setXxx(...)} call, even though the same
+     * literal-only SELECT runs fine as a plain {@code Statement} (see {@code
+     * CUBRIDJDBCExporter#initExportingStatus}, which already does this for its MIN/MAX/COUNT
+     * query). Every caller of this method builds the query's literals directly into {@code sql}
+     * rather than binding them, so {@code params} is {@code null} far more often than not.
+     *
      * @param sql to be executed.
      * @param params parameters to be set to execute SQL
      * @param joc to return result set and statement.
@@ -463,27 +473,38 @@ public class JDBCExporter extends MigrationExporter {
         if (joc.getConn() == null) {
             throw new IllegalArgumentException("Connection can't be NULL.");
         }
+        boolean hasParams = params != null && params.length > 0;
         // Reset objects.
         joc.setStmt(null);
         joc.setRs(null);
-        PreparedStatement stmt = null; // NOPMD
+        Statement stmt = null; // NOPMD
         ResultSet rs = null; // NOPMD
         int retryCount = 0;
         while (true) {
             try {
-                stmt =
-                        joc.getConn()
-                                .prepareStatement(
-                                        sql,
-                                        ResultSet.TYPE_FORWARD_ONLY,
-                                        ResultSet.CONCUR_READ_ONLY); // NOPMD
-                getSrcDBExportHelper().configStatement(stmt);
-                if (params != null && params.length > 0) {
+                if (hasParams) {
+                    PreparedStatement pstmt =
+                            joc.getConn()
+                                    .prepareStatement(
+                                            sql,
+                                            ResultSet.TYPE_FORWARD_ONLY,
+                                            ResultSet.CONCUR_READ_ONLY); // NOPMD
+                    getSrcDBExportHelper().configStatement(pstmt);
                     for (int i = 0; i < params.length; i++) {
-                        stmt.setObject(i + 1, params[i]);
+                        pstmt.setObject(i + 1, params[i]);
                     }
+                    rs = pstmt.executeQuery(); // NOPMD
+                    stmt = pstmt;
+                } else {
+                    Statement plainStmt =
+                            joc.getConn()
+                                    .createStatement(
+                                            ResultSet.TYPE_FORWARD_ONLY,
+                                            ResultSet.CONCUR_READ_ONLY); // NOPMD
+                    getSrcDBExportHelper().configStatement(plainStmt);
+                    rs = plainStmt.executeQuery(sql); // NOPMD
+                    stmt = plainStmt;
                 }
-                rs = stmt.executeQuery(); // NOPMD
                 break;
             } catch (Exception ex) {
                 LOG.error(

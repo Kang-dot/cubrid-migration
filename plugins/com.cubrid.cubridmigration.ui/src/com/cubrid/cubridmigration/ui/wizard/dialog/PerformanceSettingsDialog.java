@@ -245,15 +245,16 @@ public class PerformanceSettingsDialog extends Dialog {
     }
 
     /**
-     * Parallel range export is only wired up for online JDBC sources, and not yet for CUBRID
-     * sources specifically (its exporter overrides the single-task export path with special-column
-     * handling that the range-based path doesn't go through yet).
+     * Parallel range export is only wired up for online JDBC sources. CUBRID sources are supported
+     * too: {@code CUBRIDJDBCExporter} overrides the range-based export path (not just the
+     * single-task path) so its special-column PK optimization and incremental "resume from target
+     * max" logic still apply per range; the latter is additionally excluded per-table by {@code
+     * MigrationTasksScheduler#scheduleTableExport} since it cannot be range-split.
      *
      * @return true if this migration's source can use parallel export
      */
     private boolean supportsParallelExport() {
-        return config.sourceIsOnline()
-                && config.getSourceDBType().getID() != DatabaseType.CUBRID.getID();
+        return config.sourceIsOnline();
     }
 
     private boolean isSupportPageQuery() {

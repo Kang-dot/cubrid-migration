@@ -85,6 +85,7 @@ import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.io.Writer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -165,6 +166,7 @@ public abstract class OfflineImporter extends Importer {
             try {
                 // The template LOB files path in local.
                 List<String> lobFiles = new ArrayList<String>();
+                Map<String, ColumnMapping> columnMappings = resolveColumnMappings(stc, tt);
                 int total = 0;
                 for (Record re : records) {
                     if (re == null) {
@@ -173,7 +175,7 @@ public abstract class OfflineImporter extends Importer {
                     String res =
                             unloadFileUtil.getRecordString(
                                     re.getColumnValueList(),
-                                    getRecordString(stc, tt, re, lobFiles));
+                                    getRecordString(stc, tt, re, lobFiles, columnMappings));
                     if (res == null) {
                         continue;
                     }
@@ -225,12 +227,13 @@ public abstract class OfflineImporter extends Importer {
                             config.getCsvSettings().getLineSeparator());
             try {
                 List<String> lobFiles = new ArrayList<String>();
+                Map<String, ColumnMapping> columnMappings = resolveColumnMappings(stc, tt);
                 int total = 0;
                 for (Record re : records) {
                     if (re == null) {
                         continue;
                     }
-                    List<String> res = getRecordString(stc, tt, re, lobFiles);
+                    List<String> res = getRecordString(stc, tt, re, lobFiles, columnMappings);
                     if (res == null) {
                         continue;
                     }
@@ -274,11 +277,12 @@ public abstract class OfflineImporter extends Importer {
             int recordNo = 0;
             try {
                 List<String> lobFiles = new ArrayList<String>();
+                Map<String, ColumnMapping> columnMappings = resolveColumnMappings(stc, tt);
                 for (Record re : records) {
                     if (re == null) {
                         continue;
                     }
-                    List<String> res = getRecordString(stc, tt, re, lobFiles);
+                    List<String> res = getRecordString(stc, tt, re, lobFiles, columnMappings);
                     if (res == null) {
                         continue;
                     }
@@ -345,6 +349,7 @@ public abstract class OfflineImporter extends Importer {
                             CUBRIDIOUtils.DEFAULT_MEMORY_CACHE_SIZE);
             try {
                 List<String> lobFiles = new ArrayList<String>();
+                Map<String, ColumnMapping> columnMappings = resolveColumnMappings(stc, tt);
                 int total = 0;
                 for (Record re : records) {
                     if (re == null) {
@@ -357,8 +362,8 @@ public abstract class OfflineImporter extends Importer {
                     boolean isFirst = true;
                     for (ColumnValue cv : re.getColumnValueList()) {
                         // Find target column configuration
-                        SourceColumnConfig tColCfg = stc.getColumnConfig(cv.getColumn().getName());
-                        if (tColCfg == null) {
+                        ColumnMapping mapping = columnMappings.get(cv.getColumn().getName());
+                        if (mapping == null) {
                             continue;
                         }
                         if (isFirst) {
@@ -366,10 +371,12 @@ public abstract class OfflineImporter extends Importer {
                         } else {
                             sb.append(',');
                         }
-                        sb.append('"').append(tColCfg.getTarget()).append('"');
+                        sb.append('"')
+                                .append(mapping.getSourceColumnConfig().getTarget())
+                                .append('"');
                     }
                     sb.append(")VALUES(");
-                    List<String> values = getRecordString(stc, tt, re, lobFiles);
+                    List<String> values = getRecordString(stc, tt, re, lobFiles, columnMappings);
                     if (CollectionUtils.isEmpty(values)) {
                         continue;
                     }
@@ -602,26 +609,78 @@ public abstract class OfflineImporter extends Importer {
     }
 
     /**
+     * A source column's {@link SourceColumnConfig} and resolved target {@link Column}, cached
+     * together so a batch's column resolution ({@code stc.getColumnConfig(name)} and {@code
+     * tt.getColumnByName(name)}, both linear scans) runs once per table instead of once per row.
+     * See {@link #resolveColumnMappings}.
+     */
+    protected static final class ColumnMapping {
+        private final SourceColumnConfig sourceColumnConfig;
+        private final Column targetColumn;
+
+        ColumnMapping(SourceColumnConfig sourceColumnConfig, Column targetColumn) {
+            this.sourceColumnConfig = sourceColumnConfig;
+            this.targetColumn = targetColumn;
+        }
+
+        SourceColumnConfig getSourceColumnConfig() {
+            return sourceColumnConfig;
+        }
+
+        Column getTargetColumn() {
+            return targetColumn;
+        }
+    }
+
+    /**
+     * Resolves every export column's {@link SourceColumnConfig} and target {@link Column} once per
+     * batch (table), keyed by source column name. {@code stc.getColumnConfig(name)} and {@code
+     * tt.getColumnByName(name)} are both linear, case-(in)sensitive scans over the whole column
+     * list - for a wide table, redoing both once per row per column (as the callers of {@link
+     * #getRecordString} used to) is the dominant cost. This computes each once per column (still
+     * one {@code tt.getColumnByName} call per column, but only once - not once per row) and looks
+     * it up by a hash map afterwards.
+     *
+     * @param stc source table configuration
+     * @param tt target table
+     * @return one {@link ColumnMapping} per export column, keyed by source column name
+     */
+    protected Map<String, ColumnMapping> resolveColumnMappings(SourceTableConfig stc, Table tt) {
+        Map<String, ColumnMapping> mappings = new HashMap<String, ColumnMapping>();
+        for (SourceColumnConfig scc : stc.getColumnConfigList()) {
+            Column targetColumn = tt.getColumnByName(scc.getTarget());
+            mappings.put(scc.getName(), new ColumnMapping(scc, targetColumn));
+        }
+        return mappings;
+    }
+
+    /**
      * Retrieves the string for load DB command of record.
      *
      * @param stc SourceTableConfig
      * @param tt target Table
      * @param re source Record
      * @param lobFiles to be uploaded
+     * @param columnMappings this batch's column mappings, from {@link #resolveColumnMappings}
      * @return string of record
      */
     protected List<String> getRecordString(
-            SourceTableConfig stc, Table tt, Record re, List<String> lobFiles) {
+            SourceTableConfig stc,
+            Table tt,
+            Record re,
+            List<String> lobFiles,
+            Map<String, ColumnMapping> columnMappings) {
         try {
             List<String> dataList = new ArrayList<String>();
             // get target table
             Map<String, Object> recordMap = re.getColumnValueMap();
             for (Record.ColumnValue cv : re.getColumnValueList()) {
-                SourceColumnConfig scc = stc.getColumnConfig(cv.getColumn().getName());
-                if (scc == null) {
+                ColumnMapping mapping = columnMappings.get(cv.getColumn().getName());
+                if (mapping == null) {
                     throw new NormalMigrationException("Column not found.");
                 }
-                Column targetColumn = tt.getColumnByName(scc.getTarget());
+                SourceColumnConfig scc = mapping.getSourceColumnConfig();
+                Column targetColumn = mapping.getTargetColumn();
                 if (targetColumn == null) {
                     throw new NormalMigrationException("Column not found.");
                 }

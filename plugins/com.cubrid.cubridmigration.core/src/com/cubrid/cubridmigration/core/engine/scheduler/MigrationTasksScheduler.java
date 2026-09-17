@@ -34,6 +34,7 @@ import com.cubrid.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.common.PathUtils;
 import com.cubrid.cubridmigration.core.dbobject.Schema;
 import com.cubrid.cubridmigration.core.dbobject.Table;
+import com.cubrid.cubridmigration.core.dbtype.DatabaseType;
 import com.cubrid.cubridmigration.core.engine.MigrationContext;
 import com.cubrid.cubridmigration.core.engine.ThreadUtils;
 import com.cubrid.cubridmigration.core.engine.UserDefinedDataHandlerManager;
@@ -530,6 +531,26 @@ public class MigrationTasksScheduler {
                             + " below configured minimum "
                             + config.getParallelExportMinRowCount()
                             + ".");
+            executeTask2(taskFactory.createExportTableRecordsTask(table));
+            return;
+        }
+
+        // CUBRID's "resume from target's max ID" incremental mode (CUBRIDJDBCExporter#
+        // isStartFromTargetMax) seeds its single starting bound from the target table, not from
+        // this table's own MIN(splitColumn) - TableSplitPlanner#calculateRanges always starts
+        // from the source's own MIN, so range-splitting it would re-cover already-migrated rows.
+        // Excluded here rather than in TableSplitPlanner, which stays database/config-agnostic.
+        if (config.getSourceDBType().getID() == DatabaseType.CUBRID.getID()
+                && !table.isCreateNewTable()
+                && !table.isReplace()
+                && table.isStartFromTargetMax()) {
+            LOG.info(
+                    "[DEBUG-SPLIT] Parallel export skipped for "
+                            + table.getOwner()
+                            + "."
+                            + table.getName()
+                            + ": incremental resume (start from target max) is not compatible"
+                            + " with range splitting.");
             executeTask2(taskFactory.createExportTableRecordsTask(table));
             return;
         }

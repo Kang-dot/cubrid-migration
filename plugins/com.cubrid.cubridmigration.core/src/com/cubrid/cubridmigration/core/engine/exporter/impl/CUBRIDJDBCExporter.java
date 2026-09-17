@@ -38,6 +38,7 @@ import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.engine.RecordExportedListener;
 import com.cubrid.cubridmigration.core.engine.config.SourceColumnConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceEntryTableConfig;
+import com.cubrid.cubridmigration.core.engine.config.SourceSQLTableConfig;
 import com.cubrid.cubridmigration.core.engine.config.SourceTableConfig;
 import com.cubrid.cubridmigration.core.engine.exception.NormalMigrationException;
 import com.cubrid.cubridmigration.core.export.DBExportHelper;
@@ -172,6 +173,40 @@ public class CUBRIDJDBCExporter extends JDBCExporter {
      * @param newRecsHandler RecordExportedListener
      */
     public void exportTableRecords(SourceTableConfig stc, RecordExportedListener newRecsHandler) {
+        exportTableRecords(stc, null, newRecsHandler);
+    }
+
+    /**
+     * Export source data records by paging query, restricted to an extra caller-supplied predicate.
+     * Used by {@code TableRecordRangeExportTask} to read only one {@code TableSplitPlanner} range
+     * instead of the whole table; ordinary (unsplit) exports go through {@link
+     * #exportTableRecords(SourceTableConfig, RecordExportedListener)}, which delegates here with
+     * {@code extraCondition == null}.
+     *
+     * <p>A non-blank {@code extraCondition} is handled by {@link #exportRangeInOneShot}, not by the
+     * special-column keyset paging below: {@code TableSplitPlanner} has already restricted the row
+     * set to one small range, so re-paging it every {@code pageFetchCount} rows (this class's own
+     * {@code FOR ORDERBY_NUM()} keyset paging, or the generic path's {@code
+     * CUBRIDExportHelper#getPagedSelectSQL} OFFSET-based paging) would not shrink the total
+     * round-trip count - it would just add one MIN/MAX/COUNT query per range on top of it, since
+     * {@code TableSplitPlanner#validateSkew} already ran a COUNT(*) per range while planning.
+     * {@code MigrationTasksScheduler#scheduleTableExport} already excludes "resume from target max"
+     * tables from ever reaching here, so there is no start cursor this shortcut could break.
+     *
+     * @param stc SourceTableConfig
+     * @param extraCondition a standalone boolean SQL predicate (e.g. from {@code
+     *     TableSplitPlanner#buildRangeCondition}) to AND onto the table's existing condition, or
+     *     {@code null}/blank for no extra restriction
+     * @param newRecsHandler RecordExportedListener
+     */
+    @Override
+    public void exportTableRecords(
+            SourceTableConfig stc, String extraCondition, RecordExportedListener newRecsHandler) {
+        if (StringUtils.isNotBlank(extraCondition)) {
+            exportRangeInOneShot(stc, extraCondition, newRecsHandler);
+            return;
+        }
+
         Table sTable = config.getSrcTableSchema(stc.getOwner(), stc.getName());
         if (sTable == null) {
             throw new NormalMigrationException("Table " + stc.getName() + " was not found.");
@@ -194,6 +229,50 @@ public class CUBRIDJDBCExporter extends JDBCExporter {
         }
 
         super.exportTableRecords(stc, newRecsHandler);
+    }
+
+    /**
+     * Exports one {@code TableSplitPlanner} range in a single query/{@link ResultSet}, the same way
+     * {@code JDBCExporter#isLatestPage} already treats a whole Oracle/MySQL export: one execution
+     * streams every matching row via the driver's fetch size, instead of re-querying every {@code
+     * pageFetchCount} rows. A range is already small by construction (roughly {@code tableRowCount
+     * / degree}), so there is nothing to page within it.
+     *
+     * @param stc SourceTableConfig
+     * @param extraCondition the range predicate to AND onto the table's existing condition
+     * @param newRecsHandler RecordExportedListener
+     */
+    private void exportRangeInOneShot(
+            SourceTableConfig stc, String extraCondition, RecordExportedListener newRecsHandler) {
+        Table sTable;
+        if (stc instanceof SourceSQLTableConfig) {
+            sTable = config.getSrcSQLSchema(stc.getName());
+        } else {
+            sTable = config.getSrcTableSchema(stc.getOwner(), stc.getName());
+        }
+        if (sTable == null) {
+            throw new NormalMigrationException("Table " + stc.getName() + " was not found.");
+        }
+        Connection conn = connManager.getSourceConnection(); // NOPMD
+        try {
+            newRecsHandler.startExportTable(stc.getName());
+            List<SourceColumnConfig> expColConfs = stc.getColumnConfigList();
+            Column[] sCols = resolveSourceColumns(sTable, expColConfs);
+            List<Record> records = new ArrayList<Record>();
+            String sql =
+                    combineCondition(
+                            getSrcDBExportHelper().getSelectSQL(stc, config), extraCondition);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("[SQL]RANGE(one-shot)=" + sql);
+            }
+            handleSQL(conn, sql, stc, sTable, expColConfs, sCols, records, newRecsHandler);
+            if (!records.isEmpty()) {
+                newRecsHandler.processRecords(stc.getName(), records);
+            }
+        } finally {
+            newRecsHandler.endExportTable(stc.getName());
+            connManager.closeSrc(conn);
+        }
     }
 
     /**
