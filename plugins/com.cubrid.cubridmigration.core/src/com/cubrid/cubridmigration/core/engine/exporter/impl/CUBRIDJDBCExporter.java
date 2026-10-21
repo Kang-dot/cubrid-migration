@@ -228,7 +228,9 @@ public class CUBRIDJDBCExporter extends JDBCExporter {
             }
         }
 
-        super.exportTableRecords(stc, newRecsHandler);
+        // Must be the 3-argument form: JDBCExporter's 2-argument overload delegates back to the
+        // overridable 3-argument one, so calling it from here re-enters this method forever.
+        super.exportTableRecords(stc, extraCondition, newRecsHandler);
     }
 
     /**
