@@ -30,6 +30,11 @@
  */
 package com.cubrid.cubridmigration.core.engine.executors;
 
+import com.cubrid.common.log.LogUtil;
+import com.cubrid.cubridmigration.core.engine.task.ITableKeyedTask;
+
+import org.slf4j.Logger;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -42,8 +47,10 @@ import java.util.Map;
  */
 public class MultiQueueExecutor implements IRunnableExecutor {
 
-    private final Map<Long, IRunnableExecutor> executors =
-            Collections.synchronizedMap(new HashMap<Long, IRunnableExecutor>());
+    private static final Logger LOG = LogUtil.getLogger(MultiQueueExecutor.class);
+
+    private final Map<Object, IRunnableExecutor> executors =
+            Collections.synchronizedMap(new HashMap<Object, IRunnableExecutor>());
 
     private boolean interrupted;
 
@@ -66,7 +73,7 @@ public class MultiQueueExecutor implements IRunnableExecutor {
      * @param tk is the migration task to be executed.
      */
     public void execute(Runnable tk) {
-        IRunnableExecutor es = getExecutor();
+        IRunnableExecutor es = getExecutor(tk);
         if (interrupted) {
             throw new RuntimeException("Interrupted");
         }
@@ -75,19 +82,74 @@ public class MultiQueueExecutor implements IRunnableExecutor {
     }
 
     /**
-     * Retrieves executor of current thread
+     * Retrieves the executor that owns this task's work.
      *
+     * <p>A {@link ITableKeyedTask} (e.g. a record-import task) is keyed by its table, so every
+     * export range/thread feeding the same table shares one {@code importThreadCount}-sized queue
+     * instead of each claiming its own - otherwise a split table's import parallelism silently
+     * scales with its split degree instead of staying at the configured value. Anything else falls
+     * back to the original per-calling-thread key.
+     *
+     * @param tk the task about to be submitted
      * @return IRunnableExecutor
      */
-    private IRunnableExecutor getExecutor() {
+    private IRunnableExecutor getExecutor(Runnable tk) {
         synchronized (lockObj) {
-            final long id = Thread.currentThread().getId();
-            IRunnableExecutor es = executors.get(id);
+            final Object key =
+                    (tk instanceof ITableKeyedTask && ((ITableKeyedTask) tk).getTableKey() != null)
+                            ? ((ITableKeyedTask) tk).getTableKey()
+                            : Thread.currentThread().getId();
+            IRunnableExecutor es = executors.get(key);
             if (es == null) {
                 es = new SingleQueueExecutor(executorPoolSize, limitTaskCount);
-                executors.put(id, es);
+                executors.put(key, es);
+                // One line per NEW queue only (not per task), so counting these lines for a given
+                // key in the log directly measures how many import queues that key ended up with.
+                // For a table key this should stay 1 no matter how many split ranges feed it; for
+                // a plain thread-id fallback key, it stays 1 per distinct calling thread.
+                LOG.info(
+                        "[DEBUG-IMPORTQUEUE] New import queue #"
+                                + executors.size()
+                                + " created for key="
+                                + key
+                                + " (size="
+                                + executorPoolSize
+                                + ")");
             }
             return es;
+        }
+    }
+
+    /**
+     * Releases and disposes the queue for one key once its producer(s) are known to be finished -
+     * e.g. once {@code MigrationStatusManager#getExpFlag} confirms a table's export has fully
+     * completed (all ranges done), so a table-keyed queue (see {@link ITableKeyedTask}) doesn't sit
+     * alive, idle, for the rest of the migration; without this, keying by table instead of by
+     * calling thread trades the split-degree thread multiplication this class was fixed for a
+     * table-count-proportional one, since nothing else ever removes a map entry before {@link
+     * #dispose()}/{@link #interrupt()} at whole-migration teardown.
+     *
+     * <p>Uses a plain {@link IRunnableExecutor#dispose()} (graceful shutdown), not {@link
+     * #interrupt()}: any batch already queued or running under this key at the moment of the call
+     * still finishes normally - the caller is only expected to call this once it already knows
+     * nothing will ever be submitted under this key again, not that the key is idle right now.
+     *
+     * @param key the same key {@link #getExecutor} would have resolved for that producer
+     */
+    @Override
+    public void releaseKey(Object key) {
+        final IRunnableExecutor es;
+        synchronized (lockObj) {
+            es = executors.remove(key);
+        }
+        if (es != null) {
+            es.dispose();
+            LOG.info(
+                    "[DEBUG-IMPORTQUEUE] Released import queue for key="
+                            + key
+                            + " ("
+                            + executors.size()
+                            + " still open)");
         }
     }
 
@@ -103,6 +165,18 @@ public class MultiQueueExecutor implements IRunnableExecutor {
         interrupted = true;
         for (IRunnableExecutor et : executors.values()) {
             et.interrupt();
+        }
+    }
+
+    /**
+     * Test-only: how many distinct keyed queues are currently live, for verifying {@link
+     * #getExecutor}/{@link #releaseKey}'s bookkeeping without depending on timing.
+     *
+     * @return the number of keys with a live queue right now
+     */
+    int queueCount() {
+        synchronized (lockObj) {
+            return executors.size();
         }
     }
 
