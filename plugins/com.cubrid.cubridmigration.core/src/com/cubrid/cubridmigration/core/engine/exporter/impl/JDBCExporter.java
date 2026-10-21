@@ -32,6 +32,7 @@ package com.cubrid.cubridmigration.core.engine.exporter.impl;
 
 import com.cubrid.common.log.LogUtil;
 import com.cubrid.cubridmigration.core.common.Closer;
+import com.cubrid.cubridmigration.core.datatype.DataTypeConstant;
 import com.cubrid.cubridmigration.core.dbobject.Column;
 import com.cubrid.cubridmigration.core.dbobject.PK;
 import com.cubrid.cubridmigration.core.dbobject.Record;
@@ -49,6 +50,9 @@ import com.cubrid.cubridmigration.core.engine.event.MigrationErrorEvent;
 import com.cubrid.cubridmigration.core.engine.exception.NormalMigrationException;
 import com.cubrid.cubridmigration.core.engine.exporter.MigrationExporter;
 import com.cubrid.cubridmigration.core.export.DBExportHelper;
+import com.cubrid.cubridmigration.core.trans.DBTransformHelper;
+import com.cubrid.cubridmigration.cubrid.CUBRIDDataTypeHelper;
+import com.cubrid.cubridmigration.cubrid.Data2StrTranslator;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -111,6 +115,13 @@ public class JDBCExporter extends MigrationExporter {
     protected JDBCConManager connManager;
     protected MigrationStatusManager msm;
 
+    // Only set when config.isRecordSerializationEnabled() && config.targetIsDBDump() - see
+    // MigrationProcessManager#buildTaskFactory, which hands this exporter the *same*
+    // Data2StrTranslator instance the dump-file importer already builds for itself, rather than
+    // constructing a second one. Data2StrTranslator's own caches are already safe for concurrent
+    // use by multiple export range threads (see its dataTypeIdCache).
+    protected Data2StrTranslator unloadFileUtil;
+
     /**
      * Export all records of all tables
      *
@@ -163,6 +174,204 @@ public class JDBCExporter extends MigrationExporter {
                         + cols.length
                         + " column(s) once for this export.");
         return cols;
+    }
+
+    /**
+     * Resolves each export column's *target* {@link Column} once per table - the export-side
+     * counterpart of {@link #resolveSourceColumns}, needed only when record serialization (see
+     * {@link #isRecordSerializationEligible}) is in play, since that is the only path that needs to
+     * know the target type before the record ever reaches the importer.
+     *
+     * @param targetTable the resolved target table, or {@code null} if it doesn't exist yet
+     * @param expCols source table's export columns, in the same order the caller will iterate them
+     * @return one resolved target {@link Column} per {@code expCols} entry (possibly {@code null}
+     *     if a target column can't be found), same order/index - empty if {@code targetTable} is
+     *     {@code null}
+     */
+    protected Column[] resolveTargetColumns(Table targetTable, List<SourceColumnConfig> expCols) {
+        if (targetTable == null) {
+            return new Column[0];
+        }
+        Column[] cols = new Column[expCols.size()];
+        for (int i = 0; i < expCols.size(); i++) {
+            cols[i] = targetTable.getColumnByName(expCols.get(i).getTarget());
+        }
+        return cols;
+    }
+
+    /**
+     * Decides, once per table (never once per row), whether this export can convert each record to
+     * its final dump-file string immediately instead of leaving that to the importer.
+     *
+     * <p>Requires all of:
+     *
+     * <ul>
+     *   <li>{@code config.isRecordSerializationEnabled()} - the opt-in user setting
+     *   <li>{@code config.targetIsDBDump()} - {@link #unloadFileUtil} is only wired up for this
+     *       target (see {@code MigrationProcessManager#buildTaskFactory}); binding a value to an
+     *       online target needs the original typed value, not a pre-joined string
+     *   <li>no export column uses a user-defined data handler - its output can only be known by
+     *       actually running it, which still has to happen wherever the handler runs today
+     *   <li>no export column's target type is a CUBRID collection, BLOB or CLOB - {@link
+     *       Data2StrTranslator#stringValueOf} would write a LOB file as a side effect for those,
+     *       and the file's directory is only known to the importer, not this exporter
+     * </ul>
+     *
+     * @param tableLabel {@code owner.name} of the table being exported, for the {@code
+     *     [DEBUG-RECORDSERIALIZE]} log line only
+     * @param expCols source table's export columns
+     * @param targetCols {@code expCols[i]}'s resolved target {@link Column}, from {@link
+     *     #resolveTargetColumns} - same order/index as {@code expCols}
+     * @return true if every record from this table can be pre-serialized during export
+     */
+    protected boolean isRecordSerializationEligible(
+            String tableLabel, List<SourceColumnConfig> expCols, Column[] targetCols) {
+        if (!config.isRecordSerializationEnabled() || !config.targetIsDBDump()) {
+            return false;
+        }
+        if (unloadFileUtil == null || targetCols.length != expCols.size()) {
+            LOG.info(
+                    "[DEBUG-RECORDSERIALIZE] Disabled for "
+                            + tableLabel
+                            + ": target table/columns could not be resolved.");
+            return false;
+        }
+        for (SourceColumnConfig scc : expCols) {
+            if (StringUtils.isNotBlank(scc.getUserDataHandler())) {
+                LOG.info(
+                        "[DEBUG-RECORDSERIALIZE] Disabled for "
+                                + tableLabel
+                                + ": column "
+                                + scc.getName()
+                                + " has a user-defined data handler.");
+                return false;
+            }
+        }
+        CUBRIDDataTypeHelper dataTypeHelper = CUBRIDDataTypeHelper.getInstance(null);
+        for (int i = 0; i < targetCols.length; i++) {
+            Column targetColumn = targetCols[i];
+            if (targetColumn == null) {
+                LOG.info(
+                        "[DEBUG-RECORDSERIALIZE] Disabled for "
+                                + tableLabel
+                                + ": target column for "
+                                + expCols.get(i).getName()
+                                + " was not found.");
+                return false;
+            }
+            String dataType = targetColumn.getDataType();
+            if (dataTypeHelper.isCollection(dataType)) {
+                LOG.info(
+                        "[DEBUG-RECORDSERIALIZE] Disabled for "
+                                + tableLabel
+                                + ": column "
+                                + targetColumn.getName()
+                                + " is a collection type ("
+                                + dataType
+                                + ").");
+                return false;
+            }
+            int dataTypeId = dataTypeHelper.getCUBRIDDataTypeID(dataType);
+            if (dataTypeId == DataTypeConstant.CUBRID_DT_BLOB
+                    || dataTypeId == DataTypeConstant.CUBRID_DT_CLOB) {
+                LOG.info(
+                        "[DEBUG-RECORDSERIALIZE] Disabled for "
+                                + tableLabel
+                                + ": column "
+                                + targetColumn.getName()
+                                + " is a LOB type ("
+                                + dataType
+                                + ").");
+                return false;
+            }
+        }
+        LOG.info(
+                "[DEBUG-RECORDSERIALIZE] Enabled for "
+                        + tableLabel
+                        + ": "
+                        + expCols.size()
+                        + " column(s) will be pre-serialized during export.");
+        return true;
+    }
+
+    /**
+     * Decides, once per table, whether its records can be pre-serialized during export and, if so,
+     * resolves the target columns {@link #serializeRecord} needs. Every export loop that builds
+     * records calls this instead of repeating the check, so none of them can forget it: {@link
+     * #handleSQL} and {@code CUBRIDJDBCExporter}'s keyset-paging loop both do.
+     *
+     * <p>Call it once per table export, never per page or per row: {@link
+     * #isRecordSerializationEligible} logs a line and looks up the target table each time.
+     *
+     * @param stc source table configuration (its target name locates the target table)
+     * @param tableLabel {@code owner.name} of the table being exported, for log lines only
+     * @param expCols source table's export columns
+     * @return one resolved target {@link Column} per {@code expCols} entry (same order) when every
+     *     record of this table can be pre-serialized; {@code null} when it cannot - serialization
+     *     disabled, a non-dump target, or an ineligible table - so callers use the {@code null}
+     *     check as their "serialize or not" switch
+     */
+    protected Column[] resolveSerializationTargetColumns(
+            SourceTableConfig stc, String tableLabel, List<SourceColumnConfig> expCols) {
+        if (!config.isRecordSerializationEnabled() || !config.targetIsDBDump()) {
+            return null;
+        }
+        Table targetTable = config.getTargetTableSchema(stc.getTarget());
+        Column[] targetCols = resolveTargetColumns(targetTable, expCols);
+        return isRecordSerializationEligible(tableLabel, expCols, targetCols) ? targetCols : null;
+    }
+
+    /**
+     * Converts {@code record} to its final dump-file line and stores it on the record itself, so
+     * the importer can skip its own per-column convert+format work for it (see {@code
+     * OfflineImporter.UnloadFileWriter#writeData}). Only called when {@link
+     * #isRecordSerializationEligible} already confirmed this table qualifies.
+     *
+     * <p>Failures here fall back silently (the record is left without a serialized string, so
+     * the importer just does the conversion itself as usual) rather than propagating - this is an
+     * opt-in performance path, not a correctness-critical one, and an uncaught exception here would
+     * otherwise be treated as a fatal, whole-migration-aborting error (see {@code
+     * ExportTask#run}/{@code MigrationErrorEvent#isFatalError}).
+     *
+     * @param record the already-built record (see {@link #createNewRecord}) to serialize in place
+     * @param expCols source table's export columns
+     * @param targetCols {@code expCols[i]}'s resolved target {@link Column}, from {@link
+     *     #resolveTargetColumns} - same order/index as {@code expCols}
+     */
+    protected void serializeRecord(
+            Record record, List<SourceColumnConfig> expCols, Column[] targetCols) {
+        try {
+            final DBTransformHelper dbTransformHelper = config.getDBTransformHelper();
+            final Map<String, Object> recordMap = record.getColumnValueMap();
+            final List<Record.ColumnValue> columnValues = record.getColumnValueList();
+            final List<String> lobFiles = new ArrayList<String>();
+            final List<String> columnStrings = new ArrayList<String>(expCols.size());
+            for (int i = 0; i < expCols.size(); i++) {
+                SourceColumnConfig scc = expCols.get(i);
+                Column targetColumn = targetCols[i];
+                Record.ColumnValue cv = columnValues.get(i);
+                Object targetValue =
+                        dbTransformHelper.convertValueToTargetDBValue(
+                                config,
+                                recordMap,
+                                scc,
+                                cv.getColumn(),
+                                targetColumn,
+                                cv.getValue());
+                columnStrings.add(
+                        unloadFileUtil.stringValueOf(targetValue, targetColumn, lobFiles));
+            }
+            if (!lobFiles.isEmpty()) {
+                // Should be unreachable given isRecordSerializationEligible's checks - defensive
+                // only: a LOB file was written as a side effect that nothing here tracks, so don't
+                // hand back a string that silently drops it.
+                return;
+            }
+            record.setSerializedString(
+                    unloadFileUtil.getRecordString(columnValues, columnStrings));
+        } catch (RuntimeException ex) {
+            LOG.warn("[RECORD SERIALIZATION] Falling back to normal import-side conversion.", ex);
+        }
     }
 
     /**
@@ -416,6 +625,12 @@ public class JDBCExporter extends MigrationExporter {
             RecordExportedListener newRecsHandler) {
         JDBCObjContainer joc = new JDBCObjContainer();
         joc.setConn(conn);
+        // Cheap no-op unless the feature is actually on: the target table/columns are only
+        // looked up when there's a chance record serialization applies at all.
+        String tableLabel = sTable.getOwner() + "." + sTable.getName();
+        Column[] targetCols = resolveSerializationTargetColumns(stc, tableLabel, expColConfs);
+        boolean serialize = targetCols != null;
+        long serializedCount = 0;
         try {
             long totalExported = 0;
             // Execute SQL with retry
@@ -432,11 +647,25 @@ public class JDBCExporter extends MigrationExporter {
                 if (record == null) {
                     continue;
                 }
+                if (serialize) {
+                    serializeRecord(record, expColConfs, targetCols);
+                    if (record.getSerializedString() != null) {
+                        serializedCount++;
+                    }
+                }
                 records.add(record);
                 handleCommit(stc, newRecsHandler, sTable, records);
             }
             return totalExported;
         } finally {
+            if (serialize) {
+                LOG.info(
+                        "[DEBUG-RECORDSERIALIZE] "
+                                + tableLabel
+                                + ": "
+                                + serializedCount
+                                + " record(s) pre-serialized during export this call.");
+            }
             Closer.close(joc.getRs());
             Closer.close(joc.getStmt());
         }
@@ -562,6 +791,10 @@ public class JDBCExporter extends MigrationExporter {
 
     public void setStatusManager(MigrationStatusManager msm) {
         this.msm = msm;
+    }
+
+    public void setUnloadFileUtil(Data2StrTranslator unloadFileUtil) {
+        this.unloadFileUtil = unloadFileUtil;
     }
 
     /**

@@ -172,10 +172,15 @@ public abstract class OfflineImporter extends Importer {
                     if (re == null) {
                         continue;
                     }
-                    String res =
-                            unloadFileUtil.getRecordString(
-                                    re.getColumnValueList(),
-                                    getRecordString(stc, tt, re, lobFiles, columnMappings));
+                    // Already converted during export (see JDBCExporter#serializeRecord) - skip
+                    // redoing the same per-column convert+format work here.
+                    String res = re.getSerializedString();
+                    if (res == null) {
+                        res =
+                                unloadFileUtil.getRecordString(
+                                        re.getColumnValueList(),
+                                        getRecordString(stc, tt, re, lobFiles, columnMappings));
+                    }
                     if (res == null) {
                         continue;
                     }
@@ -417,6 +422,18 @@ public abstract class OfflineImporter extends Importer {
         } else {
             importFileWriter = new UnloadFileWriter();
         }
+    }
+
+    /**
+     * Retrieves this importer's {@link Data2StrTranslator}, so the exporter can reuse the very same
+     * instance for export-side record serialization (see {@code JDBCExporter#setUnloadFileUtil})
+     * instead of constructing a second one.
+     *
+     * @return this importer's Data2StrTranslator, built unconditionally by {@code
+     *     LoadFileImporter}'s constructor regardless of target file format
+     */
+    public Data2StrTranslator getUnloadFileUtil() {
+        return unloadFileUtil;
     }
 
     /**

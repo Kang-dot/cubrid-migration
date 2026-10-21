@@ -38,6 +38,7 @@ import static com.cubrid.cubridmigration.core.engine.template.TemplateTags.ATTR_
 import static com.cubrid.cubridmigration.core.engine.template.TemplateTags.ATTR_PARALLEL_EXPORT_DEFAULT_DEGREE;
 import static com.cubrid.cubridmigration.core.engine.template.TemplateTags.ATTR_PARALLEL_EXPORT_ENABLED;
 import static com.cubrid.cubridmigration.core.engine.template.TemplateTags.ATTR_PARALLEL_EXPORT_MIN_ROW_COUNT;
+import static com.cubrid.cubridmigration.core.engine.template.TemplateTags.ATTR_RECORD_SERIALIZATION_ENABLED;
 import static com.cubrid.cubridmigration.core.engine.template.TemplateTags.ATTR_UPDATE_STATISTICS;
 
 import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
@@ -73,6 +74,9 @@ public class ParametersNodeHandler {
         if (parallelMinRowCount != null) {
             config.setParallelExportMinRowCount(Long.parseLong(parallelMinRowCount));
         }
+        // Optional/new: absent on templates saved before record serialization existed.
+        config.setRecordSerializationEnabled(
+                getBoolean(attributes.getValue(ATTR_RECORD_SERIALIZATION_ENABLED), false));
 
         setOtherParamIfPresent(config, attributes, MySQL2CUBRIDMigParas.UNPARSED_TIME);
         setOtherParamIfPresent(config, attributes, MySQL2CUBRIDMigParas.UNPARSED_DATE);

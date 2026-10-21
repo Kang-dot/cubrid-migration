@@ -72,6 +72,7 @@ public class CUBRIDJDBCExporter extends JDBCExporter {
     private static class ExportingStatus {
         private long totalTobeExported;
         private long totalExported;
+        private long serializedCount;
         private int rsSize;
         // NULL means starting from head.
         private Object[] startIDValueForNextFetching;
@@ -130,6 +131,15 @@ public class CUBRIDJDBCExporter extends JDBCExporter {
 
         public void setTotalTobeExported(long totalTobeExported) {
             this.totalTobeExported = totalTobeExported;
+        }
+
+        /** Counts one record that was pre-serialized during export (see record serialization). */
+        public void countSerialized() {
+            serializedCount++;
+        }
+
+        public long getSerializedCount() {
+            return serializedCount;
         }
 
         //		public void setTotalExported(long totalExported) {
@@ -299,6 +309,12 @@ public class CUBRIDJDBCExporter extends JDBCExporter {
             List<Record> records = new ArrayList<Record>();
             List<SourceColumnConfig> expColConfs = setc.getColumnConfigList();
             Column[] sCols = resolveSourceColumns(sTable, expColConfs);
+            // Decided once per table here, not per page in handleResultSet: this keyset-paging
+            // path builds its records itself instead of going through handleSQL, so without this
+            // call record serialization would silently never apply to it.
+            final Column[] serialCols =
+                    resolveSerializationTargetColumns(
+                            setc, sTable.getOwner() + "." + sTable.getName(), expColConfs);
 
             String startSQL = getPagingSQL(setc, spCols, true);
             String noStartSQL = getPagingSQL(setc, spCols, false);
@@ -340,11 +356,25 @@ public class CUBRIDJDBCExporter extends JDBCExporter {
                         records,
                         newRecsHandler,
                         expStatus,
-                        spCols);
+                        spCols,
+                        serialCols);
                 // If end fetching.
                 if (isEndFetching(expStatus)) {
                     break;
                 }
+            }
+            if (serialCols != null) {
+                LOG.info(
+                        "[DEBUG-RECORDSERIALIZE] "
+                                + sTable.getOwner()
+                                + "."
+                                + sTable.getName()
+                                + ": "
+                                + expStatus.getSerializedCount()
+                                // Same wording as JDBCExporter#handleSQL's line, and LOG is the
+                                // inherited JDBCExporter logger, so this suffix is the only way to
+                                // tell from the log which of the two export loops ran.
+                                + " record(s) pre-serialized during export (keyset paging).");
             }
             if (!records.isEmpty()) {
                 newRecsHandler.processRecords(setc.getName(), records);
@@ -573,6 +603,8 @@ public class CUBRIDJDBCExporter extends JDBCExporter {
      * @param newRecordProcessor processor
      * @param expStatus ExportingStatus. In method, some properties will be changed.
      * @param spCols special columns
+     * @param serialCols the target columns record serialization needs (see {@link
+     *     #resolveSerializationTargetColumns}), or {@code null} to leave conversion to the importer
      */
     private void handleResultSet(
             JDBCObjContainer joc,
@@ -583,7 +615,8 @@ public class CUBRIDJDBCExporter extends JDBCExporter {
             List<Record> records,
             RecordExportedListener newRecordProcessor,
             ExportingStatus expStatus,
-            String[] spCols) {
+            String[] spCols,
+            Column[] serialCols) {
         try {
             ResultSet rs = joc.getRs();
             if (rs == null) {
@@ -611,6 +644,12 @@ public class CUBRIDJDBCExporter extends JDBCExporter {
                 Record record = createNewRecord(sTable, expColConfs, sCols, rs);
                 if (record == null) {
                     continue;
+                }
+                if (serialCols != null) {
+                    serializeRecord(record, expColConfs, serialCols);
+                    if (record.getSerializedString() != null) {
+                        expStatus.countSerialized();
+                    }
                 }
                 records.add(record);
                 handleCommit(stc, newRecordProcessor, sTable, records);

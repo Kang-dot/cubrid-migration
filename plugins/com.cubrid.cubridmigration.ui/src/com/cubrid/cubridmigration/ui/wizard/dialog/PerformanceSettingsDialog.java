@@ -80,6 +80,8 @@ public class PerformanceSettingsDialog extends Dialog {
 
     private Spinner txtParallelExportMinRowCount;
 
+    private Button btnRecordSerializationEnabled;
+
     public PerformanceSettingsDialog(Shell parentShell, MigrationConfiguration config) {
         super(parentShell);
         this.config = config;
@@ -241,6 +243,28 @@ public class PerformanceSettingsDialog extends Dialog {
                     });
         }
 
+        if (supportsRecordSerialization()) {
+            Label lblRecordSerialization = new Label(container, SWT.NONE);
+            lblRecordSerialization.setLayoutData(new GridData(SWT.RIGHT, SWT.CENTER, false, false));
+
+            btnRecordSerializationEnabled = new Button(container, SWT.CHECK);
+            btnRecordSerializationEnabled.setSelection(config.isRecordSerializationEnabled());
+            btnRecordSerializationEnabled.setText(Messages.lblRecordSerializationEnabled);
+            btnRecordSerializationEnabled.addSelectionListener(
+                    new SelectionListener() {
+                        public void widgetSelected(SelectionEvent ex) {
+                            if (btnRecordSerializationEnabled.getSelection()) {
+                                UICommonTool.openInformationBox(
+                                        getShell(),
+                                        Messages.msgWarning,
+                                        Messages.msgRecordSerialization);
+                            }
+                        }
+
+                        public void widgetDefaultSelected(SelectionEvent ex) {}
+                    });
+        }
+
         return parent;
     }
 
@@ -255,6 +279,18 @@ public class PerformanceSettingsDialog extends Dialog {
      */
     private boolean supportsParallelExport() {
         return config.sourceIsOnline();
+    }
+
+    /**
+     * Serializing records to dump-file strings during export only makes sense - and is only safe -
+     * for the CUBRID unload/dump target: {@code JDBCExporter} reuses the same {@code
+     * Data2StrTranslator} the dump-file importer already builds, and binding a value to an online
+     * target still needs the original typed value, not a pre-joined string.
+     *
+     * @return true if this migration's target can use export-side record serialization
+     */
+    private boolean supportsRecordSerialization() {
+        return config.targetIsDBDump();
     }
 
     private boolean isSupportPageQuery() {
@@ -328,6 +364,9 @@ public class PerformanceSettingsDialog extends Dialog {
                         1_000_000, 0, Integer.MAX_VALUE, 0, 100_000, 1_000_000);
                 txtParallelExportMinRowCount.setEnabled(false);
             }
+            if (btnRecordSerializationEnabled != null) {
+                btnRecordSerializationEnabled.setSelection(false);
+            }
         }
         super.buttonPressed(buttonId);
     }
@@ -348,6 +387,9 @@ public class PerformanceSettingsDialog extends Dialog {
             config.setParallelExportEnabled(btnParallelExportEnabled.getSelection());
             config.setParallelExportDefaultDegree(txtParallelExportDefaultDegree.getSelection());
             config.setParallelExportMinRowCount(txtParallelExportMinRowCount.getSelection());
+        }
+        if (btnRecordSerializationEnabled != null) {
+            config.setRecordSerializationEnabled(btnRecordSerializationEnabled.getSelection());
         }
         super.okPressed();
     }

@@ -288,6 +288,14 @@ public class MigrationConfiguration {
     // than it could ever save.
     private long parallelExportMinRowCount = 1_000_000L;
 
+    // Opt-in: convert each record to its final dump-file string during export (reusing the same
+    // Data2StrTranslator/DBTransformHelper the dump-file importer already uses) instead of during
+    // import, so the conversion work runs on however many export range threads a split table has
+    // instead of being fixed to the import thread pool. Only takes effect for targetIsDBDump() -
+    // see JDBCExporter#isRecordSerializationEligible - and only for tables with no LOB/collection
+    // columns and no per-column user data handler, since those need more than a joined string.
+    private boolean recordSerializationEnabled = false;
+
     private int reportLevel = RPT_LEVEL_INFO;
 
     private boolean implicitEstimate = false;
@@ -3238,6 +3246,10 @@ public class MigrationConfiguration {
         return parallelExportMinRowCount;
     }
 
+    public boolean isRecordSerializationEnabled() {
+        return recordSerializationEnabled;
+    }
+
     public int getReportLevel() {
         return reportLevel;
     }
@@ -5063,6 +5075,10 @@ public class MigrationConfiguration {
 
     public void setParallelExportMinRowCount(long parallelExportMinRowCount) {
         this.parallelExportMinRowCount = parallelExportMinRowCount;
+    }
+
+    public void setRecordSerializationEnabled(boolean recordSerializationEnabled) {
+        this.recordSerializationEnabled = recordSerializationEnabled;
     }
 
     public void setReportLevel(int reportLevel) {

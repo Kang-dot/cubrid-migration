@@ -60,6 +60,9 @@ public class ParametersNodeWriter {
         writer.writeAttribute(
                 ATTR_PARALLEL_EXPORT_MIN_ROW_COUNT,
                 String.valueOf(config.getParallelExportMinRowCount()));
+        writer.writeAttribute(
+                ATTR_RECORD_SERIALIZATION_ENABLED,
+                getBooleanString(config.isRecordSerializationEnabled()));
 
         if (config.hasOtherParam()) {
             String s1 = config.getOtherParam(MySQL2CUBRIDMigParas.UNPARSED_TIME);

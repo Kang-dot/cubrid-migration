@@ -128,6 +128,7 @@ public final class TemplateTags {
     public static final String ATTR_PORT = "port";
     public static final String ATTR_PRIVILEGE = "privilege";
     public static final String ATTR_PROCEDURE_DDL = "procedure_ddl";
+    public static final String ATTR_RECORD_SERIALIZATION_ENABLED = "record_serialization_enabled";
     public static final String ATTR_REF_FIELDS = "ref_fields";
     public static final String ATTR_REF_TABLE = "ref_table";
     public static final String ATTR_RENAME = "rename";

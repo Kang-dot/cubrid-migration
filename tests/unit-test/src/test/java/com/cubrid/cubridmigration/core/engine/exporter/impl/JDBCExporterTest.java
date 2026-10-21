@@ -29,18 +29,31 @@
 package com.cubrid.cubridmigration.core.engine.exporter.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.cubrid.cubridmigration.core.dbobject.Column;
 import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbtype.DatabaseType;
 import com.cubrid.cubridmigration.core.engine.config.MigrationConfiguration;
+import com.cubrid.cubridmigration.core.engine.config.SourceColumnConfig;
+import com.cubrid.cubridmigration.core.engine.config.SourceEntryTableConfig;
+import com.cubrid.cubridmigration.cubrid.Data2StrTranslator;
+import com.cubrid.cubridmigration.testutil.TestColumnFactory;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 /**
- * Covers {@link JDBCExporter#combineCondition} and {@link JDBCExporter#isLatestPage}.
+ * Covers {@link JDBCExporter#combineCondition}, {@link JDBCExporter#isLatestPage} and {@link
+ * JDBCExporter#resolveSerializationTargetColumns}.
  *
  * <p>{@code isLatestPage} regression note: {@code OracleExportHelper}/{@code MySQLExportHelper}
  * #getPagedSelectSQL are no-op stubs (never actually implemented), so a single query execution
@@ -160,5 +173,144 @@ class JDBCExporterTest {
         assertThat(exporter.isLatestPage(table, 200_000, 1000)).isTrue();
         // A short page (fewer rows than a full page) always signals the last page.
         assertThat(exporter.isLatestPage(table, 500, 500)).isTrue();
+    }
+
+    @Test
+    @DisplayName("serialization switched off: no target lookup at all, and the table is not"
+            + " serialized")
+    void resolveSerializationTargetColumns_serializationDisabled_returnsNullWithoutLookup() {
+        MigrationConfiguration config = mock(MigrationConfiguration.class);
+        when(config.isRecordSerializationEnabled()).thenReturn(false);
+        when(config.targetIsDBDump()).thenReturn(true);
+        exporter.setConfig(config);
+
+        Column[] result =
+                exporter.resolveSerializationTargetColumns(
+                        entryTable("orders"), "HR.orders", exportColumns("ID"));
+
+        assertThat(result).isNull();
+        verify(config, never()).getTargetTableSchema(anyString());
+    }
+
+    @Test
+    @DisplayName("a non-dump (online) target is never serialized, even when the option is on")
+    void resolveSerializationTargetColumns_onlineTarget_returnsNull() {
+        MigrationConfiguration config = mock(MigrationConfiguration.class);
+        when(config.isRecordSerializationEnabled()).thenReturn(true);
+        when(config.targetIsDBDump()).thenReturn(false);
+        exporter.setConfig(config);
+
+        Column[] result =
+                exporter.resolveSerializationTargetColumns(
+                        entryTable("orders"), "HR.orders", exportColumns("ID"));
+
+        assertThat(result).isNull();
+        verify(config, never()).getTargetTableSchema(anyString());
+    }
+
+    @Test
+    @DisplayName("an eligible table gets its resolved target columns, in export-column order")
+    void resolveSerializationTargetColumns_eligibleTable_returnsTargetColumns() {
+        Column id = TestColumnFactory.createColumn("ID", "integer", null, null);
+        Column name = TestColumnFactory.createColumn("NAME", "varchar", 30, null);
+        exporter.setConfig(dumpConfigWithTargetTable("orders", name, id));
+        exporter.setUnloadFileUtil(mock(Data2StrTranslator.class));
+
+        Column[] result =
+                exporter.resolveSerializationTargetColumns(
+                        entryTable("orders"), "HR.orders", exportColumns("ID", "NAME"));
+
+        assertThat(result).containsExactly(id, name);
+    }
+
+    @Test
+    @DisplayName("a LOB target column keeps the whole table on the importer's conversion path")
+    void resolveSerializationTargetColumns_lobColumn_returnsNull() {
+        Column id = TestColumnFactory.createColumn("ID", "integer", null, null);
+        Column doc = TestColumnFactory.createColumn("DOC", "clob", null, null);
+        exporter.setConfig(dumpConfigWithTargetTable("orders", id, doc));
+        exporter.setUnloadFileUtil(mock(Data2StrTranslator.class));
+
+        Column[] result =
+                exporter.resolveSerializationTargetColumns(
+                        entryTable("orders"), "HR.orders", exportColumns("ID", "DOC"));
+
+        assertThat(result).isNull();
+    }
+
+    @Test
+    @DisplayName("a column with a user-defined data handler cannot be pre-converted")
+    void resolveSerializationTargetColumns_userDataHandler_returnsNull() {
+        Column id = TestColumnFactory.createColumn("ID", "integer", null, null);
+        exporter.setConfig(dumpConfigWithTargetTable("orders", id));
+        exporter.setUnloadFileUtil(mock(Data2StrTranslator.class));
+        List<SourceColumnConfig> columns = exportColumns("ID");
+        columns.get(0).setUserDataHandler("my.Handler#convert");
+
+        Column[] result =
+                exporter.resolveSerializationTargetColumns(
+                        entryTable("orders"), "HR.orders", columns);
+
+        assertThat(result).isNull();
+    }
+
+    @Test
+    @DisplayName("a target table that does not exist yet cannot be serialized against")
+    void resolveSerializationTargetColumns_missingTargetTable_returnsNull() {
+        MigrationConfiguration config = mock(MigrationConfiguration.class);
+        when(config.isRecordSerializationEnabled()).thenReturn(true);
+        when(config.targetIsDBDump()).thenReturn(true);
+        when(config.getTargetTableSchema("orders")).thenReturn(null);
+        exporter.setConfig(config);
+        exporter.setUnloadFileUtil(mock(Data2StrTranslator.class));
+
+        Column[] result =
+                exporter.resolveSerializationTargetColumns(
+                        entryTable("orders"), "HR.orders", exportColumns("ID"));
+
+        assertThat(result).isNull();
+    }
+
+    @Test
+    @DisplayName("no unload-file translator wired up (not a dump run): nothing to serialize with")
+    void resolveSerializationTargetColumns_noTranslator_returnsNull() {
+        Column id = TestColumnFactory.createColumn("ID", "integer", null, null);
+        exporter.setConfig(dumpConfigWithTargetTable("orders", id));
+
+        Column[] result =
+                exporter.resolveSerializationTargetColumns(
+                        entryTable("orders"), "HR.orders", exportColumns("ID"));
+
+        assertThat(result).isNull();
+    }
+
+    private static MigrationConfiguration dumpConfigWithTargetTable(
+            String tableName, Column... columns) {
+        Table target = new Table();
+        target.setName(tableName);
+        target.setColumns(Arrays.asList(columns));
+        MigrationConfiguration config = mock(MigrationConfiguration.class);
+        when(config.isRecordSerializationEnabled()).thenReturn(true);
+        when(config.targetIsDBDump()).thenReturn(true);
+        when(config.getTargetTableSchema(tableName)).thenReturn(target);
+        return config;
+    }
+
+    private static SourceEntryTableConfig entryTable(String targetName) {
+        SourceEntryTableConfig stc = new SourceEntryTableConfig();
+        stc.setName(targetName);
+        stc.setTarget(targetName);
+        return stc;
+    }
+
+    private static List<SourceColumnConfig> exportColumns(String... names) {
+        List<SourceColumnConfig> columns = new ArrayList<SourceColumnConfig>();
+        for (String name : names) {
+            SourceColumnConfig scc = new SourceColumnConfig();
+            scc.setName(name);
+            scc.setTarget(name);
+            columns.add(scc);
+        }
+        return columns;
     }
 }
