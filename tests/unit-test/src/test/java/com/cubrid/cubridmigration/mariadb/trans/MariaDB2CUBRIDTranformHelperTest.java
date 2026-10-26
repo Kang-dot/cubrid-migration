@@ -49,6 +49,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -203,6 +204,42 @@ class MariaDB2CUBRIDTranformHelperTest {
             assertThat(adjusted(sourceType, sourceDefault)).isEqualTo(expected);
         }
 
+        @ParameterizedTest(name = "[{index}] {0} | {1}")
+        @DisplayName("a call to EXTRACT is carried over as an expression, in any casing")
+        @CsvSource({
+            // One per unit, in the form INFORMATION_SCHEMA reports an expression default.
+            "INT, extract(year from now())",
+            "INT, extract(month from now())",
+            "INT, extract(day from now())",
+            "INT, extract(hour from now())",
+            "INT, extract(minute from now())",
+            "INT, extract(second from now())",
+
+            // The column type does not gate it.
+            "VARCHAR, extract(year from now())",
+
+            // The name is matched without regard to case, and a gap before the bracket is fine.
+            "INT, EXTRACT(YEAR FROM NOW())",
+            "INT, extract (year from now())",
+        })
+        void extractCall_isCarriedOverAsExpression(String sourceType, String sourceDefault) {
+            Column target = adjustedColumn(sourceType, sourceDefault);
+
+            assertThat(target.getDefaultValue()).isEqualTo(sourceDefault);
+            assertThat(target.isDefaultIsExpression()).isTrue();
+        }
+
+        @ParameterizedTest(name = "[{index}] \"{0}\"")
+        @DisplayName("text that only begins with the name is not an expression")
+        @ValueSource(strings = {"extractor", "extract_me", "extract"})
+        void textStartingWithExtract_isLeftAlone(String sourceDefault) {
+            // A string default arrives unquoted, so only the bracket tells a call from text.
+            Column target = adjustedColumn("VARCHAR", sourceDefault);
+
+            assertThat(target.getDefaultValue()).isNull();
+            assertThat(target.isDefaultIsExpression()).isFalse();
+        }
+
         @ParameterizedTest(name = "[{index}] {0} | {1} -> {2}")
         @DisplayName("a value CUBRID cannot store falls back to the configured replacement")
         @CsvSource({
@@ -234,13 +271,17 @@ class MariaDB2CUBRIDTranformHelperTest {
         }
 
         private String adjusted(String sourceType, String sourceDefault) {
+            return adjustedColumn(sourceType, sourceDefault).getDefaultValue();
+        }
+
+        private Column adjustedColumn(String sourceType, String sourceDefault) {
             Column source = createColumn(sourceType, null, null);
             source.setDefaultValue(sourceDefault);
             Column target = createColumn("varchar", 100, null);
 
             HELPER.adjustDefaultValue(source, target);
 
-            return target.getDefaultValue();
+            return target;
         }
     }
 

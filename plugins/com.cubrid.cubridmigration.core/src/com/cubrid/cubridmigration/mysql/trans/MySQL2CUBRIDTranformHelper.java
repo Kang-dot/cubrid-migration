@@ -51,6 +51,7 @@ import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
+import java.util.regex.Pattern;
 
 /**
  * a transform class which helps to data transform in migration of MySQL to CUBRID
@@ -59,6 +60,9 @@ import java.util.TimeZone;
  */
 public class MySQL2CUBRIDTranformHelper extends DBTransformHelper {
     private static final Logger LOG = LogUtil.getLogger(MySQL2CUBRIDTranformHelper.class);
+
+    private static final Pattern EXTRACT_EXPRESSION =
+            Pattern.compile("^extract\\s*\\(", Pattern.CASE_INSENSITIVE);
 
     String[][] mysqlValue2CUBRIDValue = {
         {"CURRENT_DATE", "CURRENT_DATE"},
@@ -167,6 +171,12 @@ public class MySQL2CUBRIDTranformHelper extends DBTransformHelper {
             }
         }
 
+        if (isDefaultValueExpression(defaultValue)) {
+            cubridColumn.setDefaultIsExpression(true);
+            cubridColumn.setDefaultValue(defaultValue);
+            return;
+        }
+
         if ("TIMESTAMP".equalsIgnoreCase(dataType)) {
             try {
                 CUBRIDTimeUtil.parseDatetime2Long(defaultValue, TimeZone.getDefault());
@@ -228,6 +238,17 @@ public class MySQL2CUBRIDTranformHelper extends DBTransformHelper {
                 cubridColumn.setDefaultValue(timeValue);
             }
         }
+    }
+
+    /**
+     * A string default arrives without quotes, so only a call to the function is an expression,
+     * not any text that merely begins with its name.
+     *
+     * @param defaultValue String
+     * @return true: the default is a function call that CUBRID has to receive as an expression
+     */
+    private boolean isDefaultValueExpression(String defaultValue) {
+        return EXTRACT_EXPRESSION.matcher(defaultValue).find();
     }
 
     /**
