@@ -229,10 +229,40 @@ class MySQL2CUBRIDTranformHelperTest {
             assertThat(target.isDefaultIsExpression()).isTrue();
         }
 
+        @ParameterizedTest(name = "[{index}] {0} | {1}")
+        @DisplayName("an EXTRACT call inside a larger expression marks the whole default")
+        @CsvSource({
+            // As the server reprints an operator expression: bracketed, so the call is not first.
+            "INT, (extract(year from current_timestamp()) + 1)",
+            "INT, (extract(year from now()) * 100 + extract(month from now()))",
+
+            // The call can also sit behind a function name, an operand or a keyword.
+            "INT, abs(extract(year from now()))",
+            "INT, 1 + extract(year from now())",
+            "INT, case when extract(month from now()) > 6 then 2 else 1 end",
+            "VARCHAR, cast(extract(year from now()) as char)",
+        })
+        void extractInsideLargerExpression_isCarriedOverAsExpression(
+                String sourceType, String sourceDefault) {
+            Column target = adjustedColumn(sourceType, sourceDefault);
+
+            assertThat(target.getDefaultValue()).isEqualTo(sourceDefault);
+            assertThat(target.isDefaultIsExpression()).isTrue();
+        }
+
         @ParameterizedTest(name = "[{index}] \"{0}\"")
-        @DisplayName("text that only begins with the name is not an expression")
-        @ValueSource(strings = {"extractor", "extract_me", "extract"})
-        void textStartingWithExtract_isLeftAlone(String sourceDefault) {
+        @DisplayName("text that only contains the name, without calling it, is not an expression")
+        @ValueSource(
+                strings = {
+                    "extractor",
+                    "extract_me",
+                    "extract",
+                    "re-extract me",
+                    // The name is only a part of a longer identifier.
+                    "my_extract(1)",
+                    "extract_year(1)",
+                })
+        void textWithoutAnExtractCall_isLeftAlone(String sourceDefault) {
             // A string default arrives unquoted, so only the bracket tells a call from text.
             Column target = adjustedColumn("VARCHAR", sourceDefault);
 

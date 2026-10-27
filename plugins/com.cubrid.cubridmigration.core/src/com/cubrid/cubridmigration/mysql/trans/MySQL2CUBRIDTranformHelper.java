@@ -62,7 +62,7 @@ public class MySQL2CUBRIDTranformHelper extends DBTransformHelper {
     private static final Logger LOG = LogUtil.getLogger(MySQL2CUBRIDTranformHelper.class);
 
     private static final Pattern EXTRACT_EXPRESSION =
-            Pattern.compile("^extract\\s*\\(", Pattern.CASE_INSENSITIVE);
+            Pattern.compile("\\bextract\\s*\\(", Pattern.CASE_INSENSITIVE);
 
     String[][] mysqlValue2CUBRIDValue = {
         {"CURRENT_DATE", "CURRENT_DATE"},
@@ -242,7 +242,8 @@ public class MySQL2CUBRIDTranformHelper extends DBTransformHelper {
 
     /**
      * A string default arrives without quotes, so only a call to the function is an expression,
-     * not any text that merely begins with its name.
+     * not any text that merely contains its name. The call can sit anywhere: the server reprints
+     * an operator expression with brackets around it, so the call is not always first.
      *
      * @param defaultValue String
      * @return true: the default is a function call that CUBRID has to receive as an expression
