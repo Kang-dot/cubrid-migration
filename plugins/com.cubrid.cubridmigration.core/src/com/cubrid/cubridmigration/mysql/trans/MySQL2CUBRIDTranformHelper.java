@@ -241,9 +241,9 @@ public class MySQL2CUBRIDTranformHelper extends DBTransformHelper {
     }
 
     /**
-     * A string default arrives without quotes, so only a call to the function is an expression,
-     * not any text that merely contains its name. The call can sit anywhere: the server reprints
-     * an operator expression with brackets around it, so the call is not always first.
+     * A string default arrives without quotes, so only a call to the function is an expression, not
+     * any text that merely contains its name. The call can sit anywhere: the server reprints an
+     * operator expression with brackets around it, so the call is not always first.
      *
      * @param defaultValue String
      * @return true: the default is a function call that CUBRID has to receive as an expression
