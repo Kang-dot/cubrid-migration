@@ -223,7 +223,7 @@ class MariaDB2CUBRIDTranformHelperTest {
             "INT, extract (year from now())",
         })
         void extractCall_isCarriedOverAsExpression(String sourceType, String sourceDefault) {
-            Column target = adjustedColumn(sourceType, sourceDefault);
+            Column target = adjustedColumn(sourceType, sourceDefault, true);
 
             assertThat(target.getDefaultValue()).isEqualTo(sourceDefault);
             assertThat(target.isDefaultIsExpression()).isTrue();
@@ -244,10 +244,27 @@ class MariaDB2CUBRIDTranformHelperTest {
         })
         void extractInsideLargerExpression_isCarriedOverAsExpression(
                 String sourceType, String sourceDefault) {
-            Column target = adjustedColumn(sourceType, sourceDefault);
+            Column target = adjustedColumn(sourceType, sourceDefault, true);
 
             assertThat(target.getDefaultValue()).isEqualTo(sourceDefault);
             assertThat(target.isDefaultIsExpression()).isTrue();
+        }
+
+        @ParameterizedTest(name = "[{index}] \"{0}\"")
+        @DisplayName("a string literal shaped like an EXTRACT call stays a string")
+        @ValueSource(
+                strings = {
+                    "extract(status)",
+                    "extract(year from now())",
+                    "(extract(year from now()) + 1)",
+                    "EXTRACT (HOUR FROM NOW())",
+                })
+        void stringLiteralShapedLikeExtractCall_isLeftAlone(String sourceDefault) {
+            // The server did not mark it as an expression, whatever the text looks like.
+            Column target = adjustedColumn("VARCHAR", sourceDefault, false);
+
+            assertThat(target.getDefaultValue()).isNull();
+            assertThat(target.isDefaultIsExpression()).isFalse();
         }
 
         @ParameterizedTest(name = "[{index}] \"{0}\"")
@@ -263,8 +280,8 @@ class MariaDB2CUBRIDTranformHelperTest {
                     "extract_year(1)",
                 })
         void textWithoutAnExtractCall_isLeftAlone(String sourceDefault) {
-            // A string default arrives unquoted, so only the bracket tells a call from text.
-            Column target = adjustedColumn("VARCHAR", sourceDefault);
+            // Even an expression only counts when it calls the function: the bracket tells it.
+            Column target = adjustedColumn("VARCHAR", sourceDefault, true);
 
             assertThat(target.getDefaultValue()).isNull();
             assertThat(target.isDefaultIsExpression()).isFalse();
@@ -305,8 +322,14 @@ class MariaDB2CUBRIDTranformHelperTest {
         }
 
         private Column adjustedColumn(String sourceType, String sourceDefault) {
+            return adjustedColumn(sourceType, sourceDefault, false);
+        }
+
+        private Column adjustedColumn(
+                String sourceType, String sourceDefault, boolean isExpression) {
             Column source = createColumn(sourceType, null, null);
             source.setDefaultValue(sourceDefault);
+            source.setDefaultIsExpression(isExpression);
             Column target = createColumn("varchar", 100, null);
 
             HELPER.adjustDefaultValue(source, target);

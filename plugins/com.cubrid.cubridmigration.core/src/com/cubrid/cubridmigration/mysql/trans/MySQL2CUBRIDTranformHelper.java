@@ -171,7 +171,7 @@ public class MySQL2CUBRIDTranformHelper extends DBTransformHelper {
             }
         }
 
-        if (isDefaultValueExpression(defaultValue)) {
+        if (isDefaultValueExpression(srcColumn)) {
             cubridColumn.setDefaultIsExpression(true);
             cubridColumn.setDefaultValue(defaultValue);
             return;
@@ -241,15 +241,17 @@ public class MySQL2CUBRIDTranformHelper extends DBTransformHelper {
     }
 
     /**
-     * A string default arrives without quotes, so only a call to the function is an expression, not
-     * any text that merely contains its name. The call can sit anywhere: the server reprints an
+     * A string default arrives without quotes, so the text alone cannot tell a literal from an
+     * expression: the fetcher marks the column when the server reports an expression. Of those,
+     * only a call to the function is carried over, wherever it sits: the server reprints an
      * operator expression with brackets around it, so the call is not always first.
      *
-     * @param defaultValue String
-     * @return true: the default is a function call that CUBRID has to receive as an expression
+     * @param srcColumn Column
+     * @return true: the default is an expression with a function call that CUBRID has to receive
      */
-    private boolean isDefaultValueExpression(String defaultValue) {
-        return EXTRACT_EXPRESSION.matcher(defaultValue).find();
+    private boolean isDefaultValueExpression(Column srcColumn) {
+        return srcColumn.isDefaultIsExpression()
+                && EXTRACT_EXPRESSION.matcher(srcColumn.getDefaultValue()).find();
     }
 
     /**
