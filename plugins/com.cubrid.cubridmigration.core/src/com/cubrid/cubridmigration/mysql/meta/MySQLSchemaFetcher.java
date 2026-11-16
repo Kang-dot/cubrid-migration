@@ -12,7 +12,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * - Neither the name of the <ORGANIZATION> nor the names of its contributors
+ * - Neither the name of the copyright holder nor the names of its contributors
  *   may be used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -163,7 +163,14 @@ public final class MySQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
     @Override
     public Catalog buildSchemaObjects(Connection conn, SchemaCatalog sc, List<String> schemaNames)
             throws SQLException {
-        Catalog catalog = super.buildSchemaObjects(conn, sc, schemaNames);
+        return buildSchemaObjects(conn, sc, schemaNames, null);
+    }
+
+    @Override
+    public Catalog buildSchemaObjects(
+            Connection conn, SchemaCatalog sc, List<String> schemaNames, IBuildSchemaFilter filter)
+            throws SQLException {
+        Catalog catalog = super.buildSchemaObjects(conn, sc, schemaNames, filter);
         SQLHelper sqlHelper = sc.getDatabaseType().getSQLHelper(null);
         loadMySQLCatalogDetails(conn, catalog, sqlHelper);
         return catalog;
@@ -180,12 +187,6 @@ public final class MySQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
 
         List<Schema> schemaList = catalog.getSchemas();
         for (Schema schema : schemaList) {
-            List<Table> tableList = schema.getTables();
-            for (Table table : tableList) {
-                table.setDDL(getTableDDL(conn, table.getName()));
-                table.setComment(getTableComment(conn, catalog.getName(), table.getName()));
-            }
-
             List<View> viewList = schema.getViews();
             for (View view : viewList) {
                 view.setDDL(getViewDDL(conn, view.getName()));
@@ -193,7 +194,21 @@ public final class MySQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
             }
         }
         catalog.setTimezone(getTimezone(conn));
-        buildPartitions(conn, catalog, catalog.getSchemas().get(0));
+    }
+
+    @Override
+    protected void buildTables(
+            final Connection conn,
+            final Catalog catalog,
+            final Schema schema,
+            IBuildSchemaFilter filter)
+            throws SQLException {
+        super.buildTables(conn, catalog, schema, filter);
+
+        for (Table table : schema.getTables()) {
+            table.setDDL(getTableDDL(conn, table.getName()));
+            table.setComment(getTableComment(conn, catalog.getName(), table.getName()));
+        }
     }
 
     /**
@@ -202,13 +217,19 @@ public final class MySQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
      * @param conn Connection
      * @param catalog Catalog
      * @param schema Schema
+     * @param filter IBuildSchemaFilter
      * @throws SQLException e
      */
+    @Override
     protected void buildPartitions(
-            final Connection conn, final Catalog catalog, final Schema schema) throws SQLException {
+            final Connection conn,
+            final Catalog catalog,
+            final Schema schema,
+            IBuildSchemaFilter filter)
+            throws SQLException {
         Version version = catalog.getVersion();
 
-        if (!isSupportParitionVersion(version)) {
+        if (!isSupportPartitionVersion(version)) {
             return;
         }
 
@@ -221,7 +242,7 @@ public final class MySQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
         PreparedStatement stmt = null; // NOPMD
         try {
             stmt = conn.prepareStatement(sqlStr);
-            stmt.setString(1, schema.getName());
+            stmt.setString(1, catalog.getName());
             rs = stmt.executeQuery();
 
             while (rs.next()) {
@@ -399,7 +420,7 @@ public final class MySQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
 
         if (version.getDbMajorVersion() >= 5) {
             sqlStr =
-                    "SELECT COLUMN_NAME, CHARACTER_SET_NAME, COLUMN_COMMENT "
+                    "SELECT COLUMN_NAME, CHARACTER_SET_NAME, COLUMN_COMMENT, EXTRA "
                             + "FROM INFORMATION_SCHEMA.COLUMNS "
                             + "WHERE TABLE_SCHEMA=? AND TABLE_NAME=?";
 
@@ -413,12 +434,14 @@ public final class MySQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
                     final String columnName = rs.getString(1);
                     final String charset = rs.getString(2);
                     final String comment = rs.getString(3);
+                    final String extra = rs.getString(4);
 
                     final Column column = table.getColumnByName(columnName);
 
                     if (column != null) {
                         if (charset != null) column.setCharset(charset);
                         if (comment != null) column.setComment(commentEditor(comment));
+                        column.setDefaultIsExpression(isNonLiteralDefault(extra));
                     }
                 }
             } finally {
@@ -440,6 +463,17 @@ public final class MySQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 }
             }
         }
+    }
+
+    /**
+     * JDBC returns a string default and an expression default as the same text. Since 8.0.13 the
+     * server marks an expression default in EXTRA, which a string literal never carries.
+     *
+     * @param extra String EXTRA as INFORMATION_SCHEMA reports it
+     * @return true: the default is computed by the server, not a stored literal
+     */
+    protected boolean isNonLiteralDefault(String extra) {
+        return extra != null && extra.toUpperCase(Locale.ROOT).contains("DEFAULT_GENERATED");
     }
 
     /**
@@ -863,6 +897,9 @@ public final class MySQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
      */
     protected String getSourcePartitionDDL(Table sourceTable) {
         String ddl = sourceTable.getDDL();
+        if (ddl == null) {
+            return "";
+        }
         if (ddl.indexOf("PARTITION BY") > -1) {
             return ddl.substring(ddl.indexOf("PARTITION BY"), ddl.length() - 2);
         }
@@ -1026,7 +1063,7 @@ public final class MySQLSchemaFetcher extends AbstractJDBCSchemaFetcher {
      * @param version of Mysql
      * @return true if support.
      */
-    protected boolean isSupportParitionVersion(Version version) {
+    protected boolean isSupportPartitionVersion(Version version) {
         return !(version.getDbMajorVersion() < 5
                 || (version.getDbMajorVersion() == 5 && version.getDbMinorVersion() < 1));
     }

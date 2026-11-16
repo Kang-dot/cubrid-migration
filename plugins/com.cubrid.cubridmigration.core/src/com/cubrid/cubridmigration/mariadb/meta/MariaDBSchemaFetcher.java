@@ -11,7 +11,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * - Neither the name of the <ORGANIZATION> nor the names of its contributors
+ * - Neither the name of the copyright holder nor the names of its contributors
  *   may be used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -53,6 +53,7 @@ import com.cubrid.cubridmigration.core.dbobject.Table;
 import com.cubrid.cubridmigration.core.dbobject.Trigger;
 import com.cubrid.cubridmigration.core.dbobject.Version;
 import com.cubrid.cubridmigration.core.dbobject.View;
+import com.cubrid.cubridmigration.core.dbtype.DBConstant;
 import com.cubrid.cubridmigration.core.dbtype.DatabaseType;
 import com.cubrid.cubridmigration.core.export.DBExportHelper;
 import com.cubrid.cubridmigration.core.sql.SQLHelper;
@@ -78,6 +79,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.regex.Pattern;
 
 /**
  * ReverseEngineeringMariaDBJdbc
@@ -87,6 +89,9 @@ import java.util.Properties;
  */
 public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
     private static final Logger LOG = LogUtil.getLogger(MariaDBSchemaFetcher.class);
+
+    private static final Pattern NUMERIC_LITERAL =
+            Pattern.compile("[-+]?\\d+(\\.\\d+)?([eE][-+]?\\d+)?");
 
     private static final String SHOW_AUTOINCREMENT_MAXVAL = "SHOW TABLE STATUS LIKE ?";
     private static final String SHOW_CHARSET = "show VARIABLES LIKE 'character_set_database'";
@@ -163,7 +168,14 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
     @Override
     public Catalog buildSchemaObjects(Connection conn, SchemaCatalog sc, List<String> schemaNames)
             throws SQLException {
-        Catalog catalog = super.buildSchemaObjects(conn, sc, schemaNames);
+        return buildSchemaObjects(conn, sc, schemaNames, null);
+    }
+
+    @Override
+    public Catalog buildSchemaObjects(
+            Connection conn, SchemaCatalog sc, List<String> schemaNames, IBuildSchemaFilter filter)
+            throws SQLException {
+        Catalog catalog = super.buildSchemaObjects(conn, sc, schemaNames, filter);
         SQLHelper sqlHelper = sc.getDatabaseType().getSQLHelper(null);
         loadMariaDBCatalogDetails(conn, catalog, sqlHelper);
         return catalog;
@@ -180,12 +192,6 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
 
         List<Schema> schemaList = catalog.getSchemas();
         for (Schema schema : schemaList) {
-            List<Table> tableList = schema.getTables();
-            for (Table table : tableList) {
-                table.setDDL(getTableDDL(conn, table.getName()));
-                table.setComment(getTableComment(conn, catalog.getName(), table.getName()));
-            }
-
             List<View> viewList = schema.getViews();
             for (View view : viewList) {
                 view.setDDL(getViewDDL(conn, view.getName()));
@@ -193,7 +199,21 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
             }
         }
         catalog.setTimezone(getTimezone(conn));
-        buildPartitions(conn, catalog, catalog.getSchemas().get(0));
+    }
+
+    @Override
+    protected void buildTables(
+            final Connection conn,
+            final Catalog catalog,
+            final Schema schema,
+            IBuildSchemaFilter filter)
+            throws SQLException {
+        super.buildTables(conn, catalog, schema, filter);
+
+        for (Table table : schema.getTables()) {
+            table.setDDL(getTableDDL(conn, table.getName()));
+            table.setComment(getTableComment(conn, catalog.getName(), table.getName()));
+        }
     }
 
     /**
@@ -202,13 +222,19 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
      * @param conn Connection
      * @param catalog Catalog
      * @param schema Schema
+     * @param filter IBuildSchemaFilter
      * @throws SQLException e
      */
+    @Override
     protected void buildPartitions(
-            final Connection conn, final Catalog catalog, final Schema schema) throws SQLException {
+            final Connection conn,
+            final Catalog catalog,
+            final Schema schema,
+            IBuildSchemaFilter filter)
+            throws SQLException {
         Version version = catalog.getVersion();
 
-        if (!isSupportParitionVersion(version)) {
+        if (!isSupportPartitionVersion(version)) {
             return;
         }
 
@@ -221,7 +247,7 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
         PreparedStatement stmt = null; // NOPMD
         try {
             stmt = conn.prepareStatement(sqlStr);
-            stmt.setString(1, schema.getName());
+            stmt.setString(1, catalog.getName());
             rs = stmt.executeQuery();
 
             while (rs.next()) {
@@ -420,7 +446,7 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
 
         if (version.getDbMajorVersion() >= 5) {
             sqlStr =
-                    "SELECT COLUMN_NAME, CHARACTER_SET_NAME, COLUMN_COMMENT "
+                    "SELECT COLUMN_NAME, CHARACTER_SET_NAME, COLUMN_COMMENT, COLUMN_DEFAULT "
                             + "FROM INFORMATION_SCHEMA.COLUMNS "
                             + "WHERE TABLE_SCHEMA=? AND TABLE_NAME=?";
 
@@ -434,12 +460,16 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
                     final String columnName = rs.getString(1);
                     final String charset = rs.getString(2);
                     final String comment = rs.getString(3);
+                    final String rawDefault = rs.getString(4);
 
                     final Column column = table.getColumnByName(columnName);
 
                     if (column != null) {
                         if (charset != null) column.setCharset(charset);
                         if (comment != null) column.setComment(commentEditor(comment));
+                        column.setDefaultIsExpression(
+                                isQuotedStringDefaultVersion(version)
+                                        && isNonLiteralDefault(rawDefault));
                     }
                 }
             } finally {
@@ -461,6 +491,34 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 }
             }
         }
+    }
+
+    /**
+     * Before 10.2 the server has no expression default, and until 10.2.7 it reports a string
+     * default without quotes, so an unquoted default says nothing about being an expression. The
+     * version carries no revision, so 10.2.1 to 10.2.6 are taken as quoting.
+     *
+     * @param version of MariaDB
+     * @return true: an unquoted COLUMN_DEFAULT can be read as an expression
+     */
+    protected boolean isQuotedStringDefaultVersion(Version version) {
+        return version.getDbMajorVersion() > 10
+                || (version.getDbMajorVersion() == 10 && version.getDbMinorVersion() >= 2);
+    }
+
+    /**
+     * INFORMATION_SCHEMA.COLUMNS reports a string default in quotes and an expression without them.
+     * JDBC strips the quotes, so the two cannot be told apart from the default it returns. A bit
+     * literal such as b'1' is not told apart from an expression here; nothing reads it as one.
+     *
+     * @param rawDefault String COLUMN_DEFAULT as INFORMATION_SCHEMA reports it
+     * @return true: the default is neither a string, NULL nor a number
+     */
+    protected boolean isNonLiteralDefault(String rawDefault) {
+        return rawDefault != null
+                && !rawDefault.startsWith("'")
+                && !DBConstant.DB_NULL_VALUE.equalsIgnoreCase(rawDefault)
+                && !NUMERIC_LITERAL.matcher(rawDefault).matches();
     }
 
     /**
@@ -884,6 +942,9 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
      */
     protected String getSourcePartitionDDL(Table sourceTable) {
         String ddl = sourceTable.getDDL();
+        if (ddl == null) {
+            return "";
+        }
         if (ddl.indexOf("PARTITION BY") > -1) {
             return ddl.substring(ddl.indexOf("PARTITION BY"), ddl.length() - 2);
         }
@@ -1048,7 +1109,7 @@ public final class MariaDBSchemaFetcher extends AbstractJDBCSchemaFetcher {
      * @param version of MariadB
      * @return true if support.
      */
-    protected boolean isSupportParitionVersion(Version version) {
+    protected boolean isSupportPartitionVersion(Version version) {
         return !(version.getDbMajorVersion() < 5
                 || (version.getDbMajorVersion() == 5 && version.getDbMinorVersion() < 1));
     }

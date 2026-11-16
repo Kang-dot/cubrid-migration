@@ -12,7 +12,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * - Neither the name of the <ORGANIZATION> nor the names of its contributors
+ * - Neither the name of the copyright holder nor the names of its contributors
  *   may be used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -258,7 +258,6 @@ public final class OracleSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 String comment = getViewComment(conn, schema.getName(), view.getName());
                 view.setComment(comment);
             }
-            buildPartitions(conn, catalog, schema);
         }
         return catalog;
     }
@@ -282,7 +281,6 @@ public final class OracleSchemaFetcher extends AbstractJDBCSchemaFetcher {
                 view.setQuerySpec(getQueryText(conn, schemaName, view.getName(), view));
                 view.setComment(getViewComment(conn, schemaName, view.getName()));
             }
-            buildPartitions(conn, catalog, schema);
         }
 
         return catalog;
@@ -295,8 +293,12 @@ public final class OracleSchemaFetcher extends AbstractJDBCSchemaFetcher {
      * @param catalog Catalog
      * @param schema Schema
      */
+    @Override
     protected void buildPartitions(
-            final Connection conn, final Catalog catalog, final Schema schema) {
+            final Connection conn,
+            final Catalog catalog,
+            final Schema schema,
+            IBuildSchemaFilter filter) {
         if (LOG.isDebugEnabled()) {
             LOG.debug("[IN]buildPartitions()");
         }

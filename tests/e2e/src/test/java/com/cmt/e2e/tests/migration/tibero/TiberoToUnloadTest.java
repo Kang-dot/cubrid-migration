@@ -11,7 +11,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * - Neither the name of the <ORGANIZATION> nor the names of its contributors
+ * - Neither the name of the copyright holder nor the names of its contributors
  *   may be used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -42,7 +42,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIf;
 
-/** Tibero 7 → CMT {@code unload} (CUBRID LoadDB) dump. */
+/** Tibero 6 → CMT {@code unload} (CUBRID LoadDB) dump. */
 @DisplayName("Tibero e2e dataset → CMT unload (LoadDB) dump")
 @EnabledIf("com.cmt.e2e.framework.db.containers.TiberoEnvironment#isAvailable")
 class TiberoToUnloadTest {
@@ -52,6 +52,7 @@ class TiberoToUnloadTest {
             name = "tibero_to_unload__split_schema__1t1f",
             options = {
                 "file_prefix=tibero",
+                "add_schema=true",
                 "split_schema=true",
                 "one_table_one_file=true",
             })

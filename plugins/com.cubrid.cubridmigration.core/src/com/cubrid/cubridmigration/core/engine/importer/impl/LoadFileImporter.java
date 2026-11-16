@@ -12,7 +12,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * - Neither the name of the <ORGANIZATION> nor the names of its contributors
+ * - Neither the name of the copyright holder nor the names of its contributors
  *   may be used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -82,9 +82,7 @@ public class LoadFileImporter extends OfflineImporter {
                 String name,
                 String ext,
                 String pathID) {
-            this.fileHeader = header;
-            this.fileExt = ext;
-            this.fileTableFullName =
+            this.fileHeader =
                     header
                             + File.separator
                             + owner
@@ -95,8 +93,9 @@ public class LoadFileImporter extends OfflineImporter {
                             + "_"
                             + pathID
                             + "_"
-                            + name
-                            + ext;
+                            + name;
+            this.fileExt = ext;
+            this.fileTableFullName = this.fileHeader + ext;
             this.fileFullName = fileFullName;
         }
 
@@ -164,12 +163,15 @@ public class LoadFileImporter extends OfflineImporter {
                         config.getTargetCharSet(),
                         listener,
                         deleteFile,
-                        isSchemaFile || !config.targetIsXLS()));
+                        isSchemaFile || (!config.targetIsXLS() && !config.targetIsXLSX())));
     }
 
     /** Ensure header exists at the top of a target data file. */
     private void ensureHeaderPresent(String fileFullName, SourceTableConfig stc) {
-        if (config.targetIsCSV() || config.targetIsXLS() || config.targetIsSQL()) {
+        if (config.targetIsCSV()
+                || config.targetIsXLS()
+                || config.targetIsXLSX()
+                || config.targetIsSQL()) {
             return;
         }
         File target = new File(fileFullName);
@@ -223,9 +225,13 @@ public class LoadFileImporter extends OfflineImporter {
             CurrentDataFileInfo es = tableFiles.get(schemaName + stc.getName());
 
             // If the target file is full.
-            if (mdfm.isDataFileFull(es.fileTableFullName)) {
+            if (mdfm.isDataFileFull(es.fileTableFullName, impCount)) {
+                String prevFile = es.fileTableFullName;
                 // Full name will be changed.
                 es.nextFile();
+                if (config.targetIsXLSX()) {
+                    FileMergeRunnable.flushAndCloseXLSX(prevFile);
+                }
             }
             final String fileTableFullName = es.fileTableFullName;
             final String fileFullName = es.fileFullName;
@@ -242,7 +248,19 @@ public class LoadFileImporter extends OfflineImporter {
                             sm.addImpCount(stc.getOwner(), stc.getName(), expCount);
                             if (config.targetIsCSV()
                                     || config.targetIsXLS()
+                                    || config.targetIsXLSX()
                                     || config.isOneTableOneFile()) {
+                                if (config.targetIsXLSX()) {
+                                    final long totalEc =
+                                            sm.getExpCount(stc.getOwner(), stc.getName());
+                                    final long totalIc =
+                                            sm.getImpCount(stc.getOwner(), stc.getName());
+                                    final boolean expEnd =
+                                            sm.getExpFlag(stc.getOwner(), stc.getName());
+                                    if (expEnd && totalEc == totalIc) {
+                                        FileMergeRunnable.flushAndCloseXLSX(fileTableFullName);
+                                    }
+                                }
                                 return;
                             }
                             final Table st;

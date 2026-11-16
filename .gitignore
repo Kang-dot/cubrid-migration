@@ -11,7 +11,6 @@ tmp/
 /cubrid-migration.log
 /cubrid-migration.*.log.gz
 /logback-status.log
-.settings
 local.properties
 .loadpath
 
@@ -36,5 +35,8 @@ tests/unit-test/logs/
 
 tests/e2e/e2e-test.properties
 
-## Mac
-.DS_Store
+## TC catalog (generated per run, uploaded as a CI artifact)
+
+/catalog-unit.json
+/catalog-e2e.json
+/.github/scripts/__pycache__/

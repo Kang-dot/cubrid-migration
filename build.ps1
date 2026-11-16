@@ -146,13 +146,17 @@ Update-BuildVersion
 switch ($SelectedProfile) {
     "all" {
         & $Mvn clean package "-Dcubridmigration-version=$ReleaseVersion" -Pdesktop $MvnDebug
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         & $Mvn clean package "-Dcubridmigration-version=$ReleaseVersion" -Pconsole $MvnDebug
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
     "desktop" {
         & $Mvn clean package "-Dcubridmigration-version=$ReleaseVersion" -Pdesktop $MvnDebug
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
     "console" {
         & $Mvn clean package "-Dcubridmigration-version=$ReleaseVersion" -Pconsole $MvnDebug
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
 }
 

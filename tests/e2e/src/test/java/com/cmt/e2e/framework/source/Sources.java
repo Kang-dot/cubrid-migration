@@ -11,7 +11,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * - Neither the name of the <ORGANIZATION> nor the names of its contributors
+ * - Neither the name of the copyright holder nor the names of its contributors
  *   may be used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -49,5 +49,21 @@ public final class Sources {
 
     public static Source tiberoE2eSeed() {
         return new TiberoSource();
+    }
+
+    public static Source mysqlE2eSeed() {
+        return new MySqlSource();
+    }
+
+    public static Source mariadbE2eSeed() {
+        return new MariaDbSource();
+    }
+
+    public static Source informixE2eSeed() {
+        return new InformixSource();
+    }
+
+    public static Source mssqlE2eSeed() {
+        return new MsSqlSource();
     }
 }

@@ -11,7 +11,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * - Neither the name of the <ORGANIZATION> nor the names of its contributors
+ * - Neither the name of the copyright holder nor the names of its contributors
  *   may be used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -526,20 +526,6 @@ public class InformixSchemaFetcher extends AbstractJDBCSchemaFetcher {
         }
 
         return ddl;
-    }
-
-    /**
-     * build Partitions
-     *
-     * @param conn Connection
-     * @param catalog Catalog
-     * @param schema Schema
-     * @throws SQLException e
-     */
-    public void buildPartitions(final Connection conn, final Catalog catalog, final Schema schema)
-            throws SQLException {
-        // do nothing
-        // not yet implement
     }
 
     public DatabaseType getDBType() {

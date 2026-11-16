@@ -12,7 +12,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * - Neither the name of the <ORGANIZATION> nor the names of its contributors
+ * - Neither the name of the copyright holder nor the names of its contributors
  *   may be used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -325,15 +325,34 @@ public class MigrationDirAndFilesManager implements ICanDispose {
      * @return true if full.
      */
     public boolean isDataFileFull(String fileName) {
-        if (!config.isOneTableOneFile() || config.getMaxCountPerFile() <= 0) {
+        return isDataFileFull(fileName, 0);
+    }
+
+    /**
+     * Check if the data file is full when adding next count of records
+     *
+     * @param fileName String
+     * @param nextCount int
+     * @return true if full.
+     */
+    public boolean isDataFileFull(String fileName, int nextCount) {
+        if (!config.targetIsXLS() && !config.targetIsXLSX()) {
             return false;
+        }
+        int maxCount = config.getMaxCountPerFile();
+        int limit =
+                config.targetIsXLS()
+                        ? MigrationConfiguration.XLS_MAX_COUNT
+                        : MigrationConfiguration.XLSX_MAX_COUNT;
+        if (maxCount <= 0 || maxCount > limit) {
+            maxCount = limit;
         }
         synchronized (MigrationDirAndFilesManager.class) {
             DataFileInfo dfi = dataFiles.get(fileName);
             if (dfi == null) {
-                return false;
+                return nextCount > maxCount;
             }
-            return dfi.getRecordCount() >= config.getMaxCountPerFile();
+            return dfi.getRecordCount() + nextCount > maxCount;
         }
     }
 
